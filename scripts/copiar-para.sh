@@ -8,7 +8,9 @@ set -euo pipefail
 
 ORIGEM="$(cd "$(dirname "$0")/.." && pwd)"
 DESTINO="${1:?Uso: bash scripts/copiar-para.sh <pasta de destino>}"
-ARQUIVOS=(coletar.php entrar.php index.php instalar.php kiwify.php sair.php t.js painel.js .htaccess robots.txt LICENSE)
+# Todas as paginas .php da raiz (tela nova entra sozinha na copia) e os demais arquivos
+mapfile -t PAGINAS < <(cd "$ORIGEM" && ls -1 *.php)
+ARQUIVOS=("${PAGINAS[@]}" t.js painel.js .htaccess robots.txt LICENSE)
 
 # O VERSAO diz qual commit esta na copia: com alteracao sem commit ele mentiria
 if [ -n "$(git -C "$ORIGEM" status --porcelain -- "${ARQUIVOS[@]}" lib)" ]; then
