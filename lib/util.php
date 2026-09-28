@@ -1,0 +1,269 @@
+<?php
+// Utilitarios do painel: saida segura, horario, IP, aparelho, limites e sessao.
+
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/db.php';
+
+// Tudo que vai para o HTML passa por aqui (XSS)
+function e($valor): string
+{
+    return htmlspecialchars((string)($valor ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function responder_json(int $status, array $corpo): void
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($corpo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+// Texto de fora (pagina, webhook): so string, sem caractere de controle, com tamanho maximo
+function texto($valor, int $max): string
+{
+    if (!is_string($valor) && !is_int($valor) && !is_float($valor)) {
+        return '';
+    }
+    $t = trim(preg_replace('/[\x00-\x1F\x7F]/u', ' ', (string)$valor) ?? '');
+    return mb_substr($t, 0, $max);
+}
+
+// Horario guardado sempre em UTC; a tela converte para o fuso da configuracao
+function agora_utc(): string
+{
+    return gmdate('Y-m-d H:i:s');
+}
+
+function fuso(): DateTimeZone
+{
+    $cfg = track_config();
+    try {
+        return new DateTimeZone($cfg['fuso'] ?? 'America/Sao_Paulo');
+    } catch (Exception $e) {
+        return new DateTimeZone('America/Sao_Paulo');
+    }
+}
+
+function data_local(?string $utc, string $formato = 'd/m H:i:s'): string
+{
+    if (!$utc) {
+        return '';
+    }
+    $d = new DateTime($utc, new DateTimeZone('UTC'));
+    return $d->setTimezone(fuso())->format($formato);
+}
+
+// Periodo da tela ("hoje", "ontem", "7d", "30d", "tudo") em limites UTC
+function periodo_utc(string $periodo): array
+{
+    $tz = fuso();
+    $inicioHoje = new DateTime('today', $tz);
+    switch ($periodo) {
+        case 'ontem':
+            $de = (clone $inicioHoje)->modify('-1 day');
+            $ate = $inicioHoje;
+            break;
+        case '7d':
+            $de = (clone $inicioHoje)->modify('-6 days');
+            $ate = (clone $inicioHoje)->modify('+1 day');
+            break;
+        case '30d':
+            $de = (clone $inicioHoje)->modify('-29 days');
+            $ate = (clone $inicioHoje)->modify('+1 day');
+            break;
+        case 'tudo':
+            return ['1970-01-01 00:00:00', '2999-12-31 23:59:59'];
+        default: // hoje
+            $de = $inicioHoje;
+            $ate = (clone $inicioHoje)->modify('+1 day');
+    }
+    $utc = new DateTimeZone('UTC');
+    return [$de->setTimezone($utc)->format('Y-m-d H:i:s'), $ate->setTimezone($utc)->format('Y-m-d H:i:s')];
+}
+
+// IP do visitante. Atras do CDN da Hostinger o REMOTE_ADDR pode ser do CDN; o
+// X-Forwarded-For traz o do visitante. Serve para exibir, nao para seguranca.
+function ip_cliente(): string
+{
+    $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+    if ($xff !== '') {
+        $primeiro = trim(explode(',', $xff)[0]);
+        if (filter_var($primeiro, FILTER_VALIDATE_IP)) {
+            return $primeiro;
+        }
+    }
+    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+}
+
+// LGPD: guarda o IP parcial (IPv4 sem o ultimo numero, IPv6 so o prefixo /48).
+// Da para ver operadora e regiao, nao a casa da pessoa.
+function ip_parcial(string $ip): string
+{
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $p = explode('.', $ip);
+        return $p[0] . '.' . $p[1] . '.' . $p[2] . '.0';
+    }
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+        $bin = inet_pton($ip);
+        return inet_ntop(substr($bin, 0, 6) . str_repeat("\0", 10)) . '/48';
+    }
+    return '';
+}
+
+// Aparelho, sistema e navegador a partir do user agent (o suficiente para conferencia)
+function aparelho(string $ua): array
+{
+    $dispositivo = 'Computador';
+    $sistema = 'Outro';
+    if (preg_match('/iPhone/i', $ua)) {
+        $dispositivo = 'iPhone';
+    } elseif (preg_match('/iPad/i', $ua)) {
+        $dispositivo = 'iPad';
+    } elseif (preg_match('/Android/i', $ua)) {
+        $dispositivo = preg_match('/Mobile/i', $ua) ? 'Android' : 'Tablet Android';
+    }
+    if (preg_match('/OS (\d+)[._](\d+)/', $ua, $m) && preg_match('/iPhone|iPad/i', $ua)) {
+        $sistema = 'iOS ' . $m[1] . '.' . $m[2];
+    } elseif (preg_match('/Android (\d+(\.\d+)?)/', $ua, $m)) {
+        $sistema = 'Android ' . $m[1];
+    } elseif (preg_match('/Windows/i', $ua)) {
+        $sistema = 'Windows';
+    } elseif (preg_match('/Mac OS X/i', $ua)) {
+        $sistema = 'macOS';
+    } elseif (preg_match('/Linux/i', $ua)) {
+        $sistema = 'Linux';
+    }
+    $navegador = 'Outro';
+    $regras = [
+        '/Instagram/i' => 'Instagram (app)',
+        '/FBAN|FBAV|FB_IAB/i' => 'Facebook (app)',
+        '/WhatsApp/i' => 'WhatsApp (app)',
+        '/Edg\//' => 'Edge',
+        '/SamsungBrowser/' => 'Samsung',
+        '/OPR\/|Opera/' => 'Opera',
+        '/CriOS|Chrome\//' => 'Chrome',
+        '/FxiOS|Firefox\//' => 'Firefox',
+        '/Safari\//' => 'Safari',
+    ];
+    foreach ($regras as $re => $nome) {
+        if (preg_match($re, $ua)) {
+            $navegador = $nome;
+            break;
+        }
+    }
+    return [$dispositivo, $sistema, $navegador];
+}
+
+// "Mesmo site" = mesmo dominio registravel (engdesk.pro e track.engdesk.pro).
+// Cookie de mesmo site o Safari aceita; de site diferente, bloqueia.
+function dominio_registravel(string $host): string
+{
+    $host = strtolower(preg_replace('/^www\./', '', $host));
+    $partes = explode('.', $host);
+    $n = count($partes);
+    if ($n <= 2) {
+        return $host;
+    }
+    $duplos = ['com.br', 'net.br', 'org.br', 'gov.br', 'edu.br', 'art.br', 'blog.br', 'eco.br', 'co.uk', 'com.pt', 'com.ar', 'com.mx'];
+    $ultimos2 = $partes[$n - 2] . '.' . $partes[$n - 1];
+    if (in_array($ultimos2, $duplos, true) && $n >= 3) {
+        return $partes[$n - 3] . '.' . $ultimos2;
+    }
+    return $ultimos2;
+}
+
+// Limite de requisicoes por chave (IP + rota), numa janela de segundos
+function dentro_do_limite(string $chave, int $maximo, int $janela): bool
+{
+    $db = track_db();
+    $desde = time() - $janela;
+    $st = $db->prepare('SELECT COUNT(*) FROM limites WHERE chave = ? AND em >= ?');
+    $st->execute([$chave, $desde]);
+    if ((int)$st->fetchColumn() >= $maximo) {
+        return false;
+    }
+    $db->prepare('INSERT INTO limites (chave, em) VALUES (?, ?)')->execute([$chave, time()]);
+    return true;
+}
+
+// Para o login: consulta sem registrar (so a tentativa errada conta, com registrar_tentativa)
+function limite_atingido(string $chave, int $maximo, int $janela): bool
+{
+    $st = track_db()->prepare('SELECT COUNT(*) FROM limites WHERE chave = ? AND em >= ?');
+    $st->execute([$chave, time() - $janela]);
+    return (int)$st->fetchColumn() >= $maximo;
+}
+
+function registrar_tentativa(string $chave): void
+{
+    track_db()->prepare('INSERT INTO limites (chave, em) VALUES (?, ?)')->execute([$chave, time()]);
+}
+
+// Apaga o que passou do prazo de retencao (LGPD). Roda de vez em quando, no meio das coletas.
+function limpar_antigos(): void
+{
+    $cfg = track_config();
+    $dias = max(7, (int)($cfg['dias_retencao'] ?? 90));
+    $corte = gmdate('Y-m-d H:i:s', time() - $dias * 86400);
+    $db = track_db();
+    $db->prepare('DELETE FROM eventos WHERE em < ?')->execute([$corte]);
+    $db->prepare('DELETE FROM vendas WHERE recebida_em < ?')->execute([$corte]);
+    $db->prepare('DELETE FROM visitantes WHERE visto_em < ?')->execute([$corte]);
+    $db->prepare('DELETE FROM limites WHERE em < ?')->execute([time() - 86400]);
+}
+
+function https(): bool
+{
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+}
+
+function sessao_iniciar(): void
+{
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return;
+    }
+    session_name('track_sessao');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => https(),
+        'httponly' => true,
+        'samesite' => 'Strict',
+    ]);
+    session_start();
+}
+
+function logado(): bool
+{
+    sessao_iniciar();
+    return !empty($_SESSION['track_ok']);
+}
+
+function exigir_login(): void
+{
+    if (!track_config()) {
+        header('Location: instalar.php');
+        exit;
+    }
+    if (!logado()) {
+        header('Location: entrar.php');
+        exit;
+    }
+}
+
+function token_csrf(): string
+{
+    sessao_iniciar();
+    if (empty($_SESSION['track_csrf'])) {
+        $_SESSION['track_csrf'] = bin2hex(random_bytes(16));
+    }
+    return $_SESSION['track_csrf'];
+}
+
+function csrf_valido(): bool
+{
+    sessao_iniciar();
+    $enviado = $_POST['csrf'] ?? '';
+    return is_string($enviado) && !empty($_SESSION['track_csrf']) && hash_equals($_SESSION['track_csrf'], $enviado);
+}

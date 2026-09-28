@@ -1,0 +1,9 @@
+# Dados e configuracao ficam fora do repositorio (e, no servidor, fora da pasta publica)
+dados/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+config.php
+!lib/config.php
+.DS_Store
+Thumbs.db
