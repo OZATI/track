@@ -234,10 +234,32 @@ function sessao_iniciar(): void
     session_start();
 }
 
+// Logado = sessao aberta por um usuario que ainda existe (remover o usuario derruba a sessao)
 function logado(): bool
 {
+    return usuario_atual() !== null;
+}
+
+function usuario_atual(): ?string
+{
     sessao_iniciar();
-    return !empty($_SESSION['track_ok']);
+    $u = $_SESSION['track_usuario'] ?? null;
+    return !empty($_SESSION['track_ok']) && is_string($u) && isset(track_usuarios()[$u]) ? $u : null;
+}
+
+// Nome de usuario: minusculas, numeros, ponto, hifen e sublinhado
+function usuario_valido(string $u): bool
+{
+    return (bool)preg_match('/^[a-z0-9][a-z0-9._-]{1,39}$/', $u);
+}
+
+// Para onde ir depois do login: so caminho do proprio site (sem host, sem //), senao ./
+function destino_seguro(string $volta): string
+{
+    if ($volta !== '' && strlen($volta) <= 300 && preg_match('#^(/(?![/\\\\])|\.\./|\./)[^\s\\\\]*$#', $volta)) {
+        return $volta;
+    }
+    return './';
 }
 
 function exigir_login(): void
@@ -264,6 +286,7 @@ function token_csrf(): string
 function csrf_valido(): bool
 {
     sessao_iniciar();
-    $enviado = $_POST['csrf'] ?? '';
+    // Formulario manda no campo csrf; chamada JSON (fetch), no cabecalho X-CSRF
+    $enviado = $_POST['csrf'] ?? ($_SERVER['HTTP_X_CSRF'] ?? '');
     return is_string($enviado) && !empty($_SESSION['track_csrf']) && hash_equals($_SESSION['track_csrf'], $enviado);
 }

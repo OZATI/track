@@ -29,6 +29,7 @@ if (time() - (int)filemtime(__FILE__) > 3600 && !getenv('TRACK_DADOS')) {
 $erros = [];
 $pronto = null;
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $usuario = strtolower(trim((string)($_POST['usuario'] ?? '')));
     $senha = (string)($_POST['senha'] ?? '');
     $origens = [];
     foreach (preg_split('/\s+/', (string)($_POST['origens'] ?? '')) as $o) {
@@ -52,6 +53,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!csrf_valido()) {
         $erros[] = 'Sessão expirada. Recarregue a página.';
     }
+    if (!usuario_valido($usuario)) {
+        $erros[] = 'Usuário: de 2 a 40 letras minúsculas, números, ponto, hífen ou sublinhado.';
+    }
     if ($senha === '') {
         $erros[] = 'Defina a senha do painel.';
     }
@@ -67,7 +71,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (!$erros) {
         $config = [
-            'senha_hash' => password_hash($senha, PASSWORD_DEFAULT),
+            'usuarios' => [$usuario => password_hash($senha, PASSWORD_DEFAULT)],
             'chave_webhook' => bin2hex(random_bytes(24)),
             'origens' => array_values(array_unique($origens)),
             'dias_retencao' => $dias,
@@ -75,17 +79,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             'fuso' => 'America/Sao_Paulo',
             'criado_em' => agora_utc(),
         ];
-        $dir = track_pasta_dados();
-        if (!is_dir($dir)) {
-            @mkdir($dir, 0750, true);
-        }
-        // Se a pasta de dados ficou dentro do site (teste local), bloqueia na web
-        @file_put_contents($dir . DIRECTORY_SEPARATOR . '.htaccess', "Require all denied\n");
-        $ok = @file_put_contents(track_arquivo_config(), "<?php\n// Gerado pelo instalar.php. Nao versionar.\nreturn " . var_export($config, true) . ";\n", LOCK_EX);
-        if ($ok === false) {
-            $erros[] = 'Não foi possível gravar em ' . $dir . '. Confira as permissões da pasta.';
+        if (!track_salvar_config($config)) {
+            $erros[] = 'Não foi possível gravar em ' . track_pasta_dados() . '. Confira as permissões da pasta.';
         } else {
-            @chmod(track_arquivo_config(), 0640);
             track_db(); // cria o banco
             $pronto = $config;
         }
@@ -99,7 +95,7 @@ pagina_inicio('Instalação');
 <main class="caixa-login larga">
 <?php if ($pronto): ?>
   <h1>Painel instalado</h1>
-  <p>Guarde estes dados. A chave do webhook aparece só agora.</p>
+  <p>Guarde estes dados. A chave do webhook aparece só agora. Para dar acesso a mais alguém, use a aba <strong>Usuários</strong>.</p>
   <h2>1. Webhook da Kiwify</h2>
   <p>Kiwify → Apps → Webhooks → criar, com os eventos <strong>compra aprovada, compra reembolsada, chargeback, Pix gerado e compra recusada</strong>:</p>
   <pre><?= e($esquema . '://' . $host . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/\\') . '/kiwify.php?chave=' . $pronto['chave_webhook']) ?></pre>
@@ -114,7 +110,8 @@ pagina_inicio('Instalação');
   <?php foreach ($erros as $erro): ?><p class="erro"><?= e($erro) ?></p><?php endforeach; ?>
   <form method="post" action="instalar.php">
     <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
-    <label>Senha do painel <input type="password" name="senha" autocomplete="new-password" required></label>
+    <label>Seu usuário (ex.: kenio) <input type="text" name="usuario" value="<?= e($_POST['usuario'] ?? '') ?>" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <label>Senha <input type="password" name="senha" autocomplete="new-password" required></label>
     <label>Repita a senha <input type="password" name="senha2" autocomplete="new-password" required></label>
     <label>Sites que vão mandar eventos, um por linha
       <textarea name="origens" rows="3" placeholder="https://engdesk.pro" required><?= e($_POST['origens'] ?? '') ?></textarea></label>

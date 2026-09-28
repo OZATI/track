@@ -6,7 +6,7 @@ Um painel atende vários sites: no topo, escolha o **site** e depois a **página
 
 - PHP 8.1+ e SQLite, sem build, sem framework, sem dependência. Roda na hospedagem compartilhada da Hostinger.
 - Não manda nada para Meta, Google ou UTMify. Só guarda e mostra.
-- Com login (senha do painel, bloqueio após 5 tentativas erradas).
+- Com login por usuário e senha, para quantas pessoas precisar (aba **Usuários**), com bloqueio após 5 tentativas erradas.
 - Código aberto, licença MIT. Feito pela [OZATI](https://ozati.co).
 
 **Por que não Umami, Plausible ou Matomo?** Eles medem visitas. Este painel existe para a pergunta seguinte: a **venda** que caiu na Kiwify veio de qual clique, e a etiqueta que a página mandou chegou inteira no pedido? Para isso ele liga o visitante ao pedido pelo `sck` e confere venda por venda.
@@ -54,7 +54,7 @@ Exemplo real: `admin.engdesk.pro/utm/`, dentro do admin do site, com a barra lat
    ```
    Vão só os arquivos de execução, mais um `VERSAO` com o commit daqui. Configuração e dados nunca vão junto.
 2. **Publicar:** commit no repositório do site e o deploy de sempre dele (na Hostinger, o mesmo Git que já publica o site).
-3. **Instalar, em até 1 hora depois do deploy:** abrir `https://<site>/<pasta>/instalar.php` e definir a senha, os sites que vão mandar eventos (ex.: `https://engdesk.pro`), a retenção em dias e, se o painel estiver dentro de um admin, o **Link do CMS** (ex.: `../`), que liga a barra lateral. A tela mostra **uma vez** a URL do webhook.
+3. **Instalar, em até 1 hora depois do deploy:** abrir `https://<site>/<pasta>/instalar.php` e definir o seu usuário e a senha, os sites que vão mandar eventos (ex.: `https://engdesk.pro`), a retenção em dias e, se o painel estiver dentro de um admin, o **Link do CMS** (ex.: `../`), que liga a barra lateral. A tela mostra **uma vez** a URL do webhook.
 4. **Kiwify:** Apps → Webhooks → criar com a URL do passo 3 e os eventos *compra aprovada, compra reembolsada, chargeback, Pix gerado, compra recusada*, para os produtos das páginas.
 5. **Páginas de venda:** no fim do `<body>`, **depois** do script de atribuição da página:
    ```html
@@ -71,7 +71,18 @@ Exemplo real: `admin.engdesk.pro/utm/`, dentro do admin do site, com a barra lat
 2. hPanel → Avançado → Git → repositório `https://github.com/OZATI/track.git` (público, não precisa de chave), branch `main`, diretório = a pasta do subdomínio. Implantar.
 3. Siga os passos 3 a 6 acima, com `https://track.<domínio>/`.
 
-O painel tem a própria senha. O login do admin (ex.: Supabase) não é reaproveitado nesta versão.
+**Login do admin inteiro.** Dentro de um admin, o login do painel pode ser o login de todo o admin: a sessão vale para o site todo (cookie `track_sessao`, caminho `/`). Uma página do admin em PHP confere assim:
+
+```php
+require __DIR__ . '/utm/lib/util.php';
+if (!logado()) {
+    header('Location: utm/entrar.php?volta=' . rawurlencode($_SERVER['REQUEST_URI']));
+    exit;
+}
+// usuario_atual() diz quem entrou; token_csrf() vai no cabeçalho X-CSRF das chamadas fetch
+```
+
+O `?volta=` só aceita caminho do próprio site. Quem entra e sai do painel se controla na aba **Usuários**: dar acesso, tirar acesso (o de outra pessoa) e trocar a própria senha.
 
 **Onde ficam os dados:** `.../track-dados/` (config.php e track.sqlite), ao lado do `public_html`, fora de qualquer site e do deploy. Em outro servidor, defina a variável `TRACK_DADOS`.
 
@@ -79,7 +90,7 @@ O painel tem a própria senha. O login do admin (ex.: Supabase) não é reaprove
 
 ```php
 <?php return [
-  'senha_hash'    => '...',               // php -r "echo password_hash('SENHA', PASSWORD_DEFAULT);"
+  'usuarios'      => ['kenio' => '...'],  // php -r "echo password_hash('SENHA', PASSWORD_DEFAULT);"
   'chave_webhook' => '...',               // php -r "echo bin2hex(random_bytes(24));"
   'origens'       => ['https://engdesk.pro'],
   'dias_retencao' => 90,
@@ -106,7 +117,7 @@ Tudo é apagado depois de `dias_retencao` (padrão 90). Cite o painel e o cookie
 
 ## Segurança
 
-- Painel com senha (`password_hash`), sessão `HttpOnly` + `SameSite=Strict`, token em todo formulário, 5 senhas erradas bloqueiam o IP por 15 minutos.
+- Login por usuário e senha (`password_hash`), sessão `HttpOnly` + `SameSite=Strict`, token em todo formulário, 5 senhas erradas bloqueiam o IP por 15 minutos. Usuário inexistente e senha errada dão a mesma resposta, no mesmo tempo. Tirar o acesso de alguém derruba a sessão dele na hora.
 - Coleta só aceita os sites da lista, confere que a página é do mesmo domínio que chamou, valida o nome do evento e limita 240 eventos por minuto por IP.
 - Webhook só grava com a chave secreta da URL (a Kiwify não documenta assinatura dos avisos).
 - Toda saída escapada (sem XSS), SQL só com parâmetros, CSP restrita, `noindex`, pastas `lib/`, `tests/`, `scripts/` e arquivos `.md/.sqlite` bloqueados no `.htaccess`.

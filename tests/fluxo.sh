@@ -30,7 +30,7 @@ echo "Instalação"
 r=$(curl -s -c "$JAR" -b "$JAR" "$URL/instalar.php")
 csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f0-9]\{32\}')
 confere "$(tem 'Instalar o painel' "$r")" "tela de instalação abre enquanto não há configuração"
-r=$(curl -s -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "senha=senha-de-teste-123" \
+r=$(curl -s -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "usuario=Kenio" --data-urlencode "senha=senha-de-teste-123" \
     --data-urlencode "senha2=senha-de-teste-123" --data-urlencode $'origens=http://site.test\nhttps://site.test' \
     --data-urlencode "dias=30" --data-urlencode "menu_cms=../" "$URL/instalar.php")
 confere "$(tem 'Painel instalado' "$r")" "instalação grava a configuração"
@@ -80,11 +80,14 @@ destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/index.php")
 confere "$(tem 'entrar.php' "$destino")" "painel exige login (vai para $destino)"
 r=$(curl -s -c "$JAR" -b "$JAR" "$URL/entrar.php")
 csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f0-9]\{32\}')
-r=$(curl -s -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "senha=errada-123456" "$URL/entrar.php")
-confere "$(tem 'Senha incorreta' "$r")" "senha errada não entra"
+r=$(curl -s -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "usuario=kenio" --data-urlencode "senha=errada-123456" "$URL/entrar.php")
+confere "$(tem 'Usuário ou senha incorretos' "$r")" "senha errada não entra"
 csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f0-9]\{32\}')
-destino=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "senha=senha-de-teste-123" "$URL/entrar.php")
-confere "$([ "${destino%/}" = "$URL" ]; echo $?)" "login com a senha certa (vai para $destino)"
+r=$(curl -s -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "usuario=ninguem" --data-urlencode "senha=senha-de-teste-123" "$URL/entrar.php")
+confere "$(tem 'Usuário ou senha incorretos' "$r")" "usuário inexistente recebe a mesma mensagem"
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f0-9]\{32\}')
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "usuario=kenio" --data-urlencode "senha=senha-de-teste-123" --data-urlencode "volta=//invasor.test/" "$URL/entrar.php")
+confere "$([ "${destino%/}" = "$URL" ]; echo $?)" "login certo; volta para outro site é ignorada (vai para $destino)"
 r=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo")
 confere "$(tem 'Tráfego por origem' "$r")" "tela inicial é a de tráfego"
 confere "$(tem 'MetaAds / conjunto 5|111 / TL 1|120</td><td>1</td>' "$r")" "tabela de tráfego mostra a origem do anúncio com 1 visitante"
@@ -114,6 +117,30 @@ confere "$(grep -q 'CliqueCheckout</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "f
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=visitantes&periodo=tudo&v=$VID")
 confere "$(tem 'Linha do tempo (2 eventos)' "$r")" "detalhe do visitante com a linha do tempo"
 confere "$(tem 'Bate' "$r")" "detalhe do visitante mostra a venda conferida"
+
+echo "Usuários e login do admin"
+r=$(curl -s -b "$JAR" "$URL/usuarios.php")
+confere "$(tem 'kenio <span class="suave">(você)' "$r")" "tela de usuários lista quem entra"
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f0-9]\{32\}')
+r=$(curl -s -b "$JAR" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" "$URL/usuarios.php")
+confere "$(tem 'Sessão expirada' "$r")" "criar acesso sem o token é recusado"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" "$URL/usuarios.php")
+confere "$(tem 'Acesso criado para allan' "$r")" "kenio dá acesso ao allan"
+J3="$DADOS/j3"
+r=$(curl -s -c "$J3" -b "$J3" "$URL/entrar.php?volta=/admin/")
+c=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f0-9]\{32\}')
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$J3" -b "$J3" --data-urlencode "csrf=$c" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data "volta=%2Fadmin%2F" "$URL/entrar.php")
+confere "$(tem '/admin/$' "$destino")" "allan entra e volta para a página que pediu (/admin/)"
+r=$(curl -s -b "$J3" "$URL/usuarios.php")
+c=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f0-9]\{32\}')
+r=$(curl -s -b "$J3" --data-urlencode "csrf=$c" --data-urlencode "acao=remover" --data-urlencode "usuario=allan" "$URL/usuarios.php")
+confere "$(tem 'não pode tirar o seu próprio acesso' "$r")" "ninguém tira o próprio acesso"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" --data-urlencode "usuario=allan" "$URL/usuarios.php")
+confere "$(tem 'Acesso de allan removido' "$r")" "kenio tira o acesso do allan"
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J3" "$URL/index.php")
+confere "$(tem 'entrar.php' "$destino")" "sessão de quem perdeu o acesso cai na hora"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=trocar_senha" --data-urlencode "atual=errada" --data-urlencode "nova=x" --data-urlencode "nova2=x" "$URL/usuarios.php")
+confere "$(tem 'senha atual não confere' "$r")" "trocar a senha exige a senha atual"
 
 echo "Proteções"
 for i in 1 2 3 4 5 6; do r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" "$URL/entrar.php"); c=$(grep -o '[a-f0-9]\{32\}' <<<"$r" | head -1); r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" --data "csrf=$c&senha=errada" "$URL/entrar.php"); done
