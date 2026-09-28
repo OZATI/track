@@ -40,35 +40,42 @@ track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 
 ---
 
-## Instalação na Hostinger
+## Instalação
 
-1. **Subdomínio:** hPanel → Domínios → Subdomínios → criar `track`. Anote a pasta dele (ex.: `public_html/track`).
-2. **Git:** hPanel → Avançado → Git → repositório `https://github.com/OZATI/track.git` (público, não precisa de chave), branch `main`, diretório = a pasta do subdomínio. Implantar.
-3. **Instalar, em até 1 hora depois do deploy:** abrir `https://track.<domínio>/instalar.php`, definir a senha (10+ caracteres), os sites que vão mandar eventos (ex.: `https://engdesk.pro`) e a retenção em dias. A tela mostra **uma vez** a URL do webhook.
+Este repositório é a **base** do painel. O jeito recomendado é copiar o painel para dentro do repositório do site que já existe e publicar junto com ele, pelo deploy que o site já tem. Não precisa de integração nova na hospedagem.
+
+### Dentro de um site que já existe (recomendado)
+
+Exemplo real: `admin.engdesk.pro/utm/`, dentro do admin do site, com a barra lateral **CMS | UTM**.
+
+1. **Copiar**, com os dois repositórios lado a lado:
+   ```bash
+   bash scripts/copiar-para.sh ../engdesk/admin/utm
+   ```
+   Vão só os arquivos de execução, mais um `VERSAO` com o commit daqui. Configuração e dados nunca vão junto.
+2. **Publicar:** commit no repositório do site e o deploy de sempre dele (na Hostinger, o mesmo Git que já publica o site).
+3. **Instalar, em até 1 hora depois do deploy:** abrir `https://<site>/<pasta>/instalar.php` e definir a senha (10+ caracteres), os sites que vão mandar eventos (ex.: `https://engdesk.pro`), a retenção em dias e, se o painel estiver dentro de um admin, o **Link do CMS** (ex.: `../`), que liga a barra lateral. A tela mostra **uma vez** a URL do webhook.
 4. **Kiwify:** Apps → Webhooks → criar com a URL do passo 3 e os eventos *compra aprovada, compra reembolsada, chargeback, Pix gerado, compra recusada*, para os produtos das páginas.
 5. **Páginas de venda:** no fim do `<body>`, **depois** do script de atribuição da página:
    ```html
-   <script src="https://track.<domínio>/t.js" defer></script>
+   <script src="https://<site>/<pasta>/t.js" defer></script>
    ```
    A página precisa ter o script da UTMify com `data-utmify-prevent-xcod-sck`, para a UTMify não sobrescrever o `sck`.
 6. **Conferir:** abrir a página de venda, clicar no botão de compra e ver o visitante e o clique em **Eventos**. Fazer uma compra de teste e ver a venda em **Vendas** com a conferência.
 
-### Dentro de um admin que já existe (ex.: `admin.engdesk.pro/utm/`)
+**Atualizar:** melhore o painel aqui, commite, rode o `copiar-para.sh` de novo e publique o site. Nunca edite a cópia: a próxima cópia apagaria a mudança.
 
-Em vez de um subdomínio próprio, o painel pode morar numa subpasta de um admin, com a barra lateral **CMS | UTM**. Continua sendo este repositório, publicado por um **segundo Git** no mesmo site:
+### Num subdomínio próprio (site sem repositório)
 
-1. No repositório do site, ponha a subpasta no `.gitignore` (ex.: `admin/utm/`), para os dois deploys nunca se misturarem.
-2. hPanel → Git → adicionar outro repositório: `https://github.com/OZATI/track.git`, branch `main`, diretório = a subpasta (ex.: `admin/utm`). Implantar.
-3. Em até 1 hora, abrir `https://admin.<domínio>/utm/instalar.php` e preencher também o **Link do CMS** (ex.: `../`). Ele liga a barra lateral.
-4. A URL do webhook e o `<script>` que a instalação mostra já vêm com a subpasta (`/utm/kiwify.php`, `/utm/t.js`).
-
-Sem segundo Git (outra hospedagem): copie `*.php`, `lib/`, `t.js`, `painel.js` e `.htaccess` para a subpasta e anote o commit copiado. Não edite a cópia: mude aqui e copie de novo.
+1. hPanel → Domínios → Subdomínios → criar `track`. Anote a pasta dele (ex.: `public_html/track`).
+2. hPanel → Avançado → Git → repositório `https://github.com/OZATI/track.git` (público, não precisa de chave), branch `main`, diretório = a pasta do subdomínio. Implantar.
+3. Siga os passos 3 a 6 acima, com `https://track.<domínio>/`.
 
 O painel tem a própria senha. O login do admin (ex.: Supabase) não é reaproveitado nesta versão.
 
 **Onde ficam os dados:** `.../track-dados/` (config.php e track.sqlite), ao lado do `public_html`, fora de qualquer site e do deploy. Em outro servidor, defina a variável `TRACK_DADOS`.
 
-**Passou 1 hora sem instalar?** Faça um novo deploy e abra o `instalar.php` logo em seguida, ou crie `track-dados/config.php` à mão:
+**Passou 1 hora sem instalar?** O prazo conta da hora em que o `instalar.php` foi gravado no servidor (deploy que não muda o arquivo não reabre). Abra o `instalar.php` no Gerenciador de Arquivos da Hostinger e salve sem mudar nada, o que reabre por 1 hora, ou crie `track-dados/config.php` à mão:
 
 ```php
 <?php return [
@@ -81,7 +88,7 @@ O painel tem a própria senha. O login do admin (ex.: Supabase) não é reaprove
 ];
 ```
 
-**Atualizar:** novo commit na `main` e Implantar no hPanel. Dados e configuração não são tocados.
+**Atualizar no subdomínio próprio:** novo commit na `main` e Implantar no hPanel. Dados e configuração não são tocados.
 
 ---
 
@@ -102,7 +109,7 @@ Tudo é apagado depois de `dias_retencao` (padrão 90). Cite o painel e o cookie
 - Painel com senha (`password_hash`), sessão `HttpOnly` + `SameSite=Strict`, token em todo formulário, 5 senhas erradas bloqueiam o IP por 15 minutos.
 - Coleta só aceita os sites da lista, confere que a página é do mesmo domínio que chamou, valida o nome do evento e limita 240 eventos por minuto por IP.
 - Webhook só grava com a chave secreta da URL (a Kiwify não documenta assinatura dos avisos).
-- Toda saída escapada (sem XSS), SQL só com parâmetros, CSP restrita, `noindex`, pastas `lib/`, `tests/` e arquivos `.md/.sqlite` bloqueados no `.htaccess`.
+- Toda saída escapada (sem XSS), SQL só com parâmetros, CSP restrita, `noindex`, pastas `lib/`, `tests/`, `scripts/` e arquivos `.md/.sqlite` bloqueados no `.htaccess`.
 - Instalação só abre enquanto não há configuração e por 1 hora depois do deploy.
 
 ## Testes

@@ -9,7 +9,7 @@ Options -Indexes
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 
   # Codigo interno, testes, dados locais e o repositorio nunca sao servidos
-  RewriteRule ^(lib|tests|dados|\.git|\.github)(/|$) - [F,L]
+  RewriteRule ^(lib|tests|scripts|dados|\.git|\.github)(/|$) - [F,L]
 </IfModule>
 
 <FilesMatch "\.(md|sqlite|sqlite-wal|sqlite-shm|sh|log|lock|json|ini)$">

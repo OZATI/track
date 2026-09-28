@@ -3,8 +3,8 @@
 // autorizados, e grava tudo em track-dados/config.php, FORA da pasta publica.
 //
 // Seguranca: so funciona enquanto nao existe configuracao, e so por 1 hora depois do
-// deploy (hora deste arquivo no servidor). Passou o prazo sem instalar: faca um novo
-// deploy, ou crie o config.php a mao (modelo no README).
+// deploy (hora deste arquivo no servidor). Passou o prazo sem instalar: salve este arquivo
+// de novo no servidor (reabre por 1 hora), ou crie o config.php a mao (modelo no README).
 
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/layout.php';
@@ -21,7 +21,7 @@ if (track_config()) {
 if (time() - (int)filemtime(__FILE__) > 3600 && !getenv('TRACK_DADOS')) {
     http_response_code(403);
     pagina_inicio('Instalação expirada');
-    echo '<main class="caixa-login"><h1>Instalação expirada</h1><p>A instalação só fica aberta por 1 hora depois do deploy. Faça um novo deploy e abra esta página logo em seguida, ou crie o <code>config.php</code> à mão (README).</p></main>';
+    echo '<main class="caixa-login"><h1>Instalação expirada</h1><p>A instalação só fica aberta por 1 hora depois que este arquivo chega ao servidor. Abra o <code>instalar.php</code> no Gerenciador de Arquivos e salve sem mudar nada (reabre por 1 hora), ou crie o <code>config.php</code> à mão (README).</p></main>';
     pagina_fim();
     exit;
 }
