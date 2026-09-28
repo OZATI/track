@@ -6,7 +6,10 @@ Um painel atende vários sites: no topo, escolha o **site** e depois a **página
 
 - PHP 8.1+ e SQLite, sem build, sem framework, sem dependência. Roda na hospedagem compartilhada da Hostinger.
 - Não manda nada para Meta, Google ou UTMify. Só guarda e mostra.
-- Usado por: `engdesk.pro` (Drive de Projetos). Instalação guiada pela skill `rastreio` do Claude Code.
+- Com login (senha do painel, bloqueio após 5 tentativas erradas).
+- Código aberto, licença MIT. Feito pela [OZATI](https://ozati.co).
+
+**Por que não Umami, Plausible ou Matomo?** Eles medem visitas. Este painel existe para a pergunta seguinte: a **venda** que caiu na Kiwify veio de qual clique, e a etiqueta que a página mandou chegou inteira no pedido? Para isso ele liga o visitante ao pedido pelo `sck` e confere venda por venda.
 
 ---
 
@@ -40,7 +43,7 @@ track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 ## Instalação na Hostinger
 
 1. **Subdomínio:** hPanel → Domínios → Subdomínios → criar `track`. Anote a pasta dele (ex.: `public_html/track`).
-2. **Git:** hPanel → Avançado → Git → repositório `https://github.com/OZATI/track.git`, branch `main`, diretório = a pasta do subdomínio. Implantar. (Repositório privado: adicionar a chave SSH que o hPanel mostra em GitHub → OZATI/track → Settings → Deploy keys.)
+2. **Git:** hPanel → Avançado → Git → repositório `https://github.com/OZATI/track.git` (público, não precisa de chave), branch `main`, diretório = a pasta do subdomínio. Implantar.
 3. **Instalar, em até 1 hora depois do deploy:** abrir `https://track.<domínio>/instalar.php`, definir a senha (10+ caracteres), os sites que vão mandar eventos (ex.: `https://engdesk.pro`) e a retenção em dias. A tela mostra **uma vez** a URL do webhook.
 4. **Kiwify:** Apps → Webhooks → criar com a URL do passo 3 e os eventos *compra aprovada, compra reembolsada, chargeback, Pix gerado, compra recusada*, para os produtos das páginas.
 5. **Páginas de venda:** no fim do `<body>`, **depois** do script de atribuição da página:
@@ -52,11 +55,14 @@ track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 
 ### Dentro de um admin que já existe (ex.: `admin.engdesk.pro/utm/`)
 
-Em vez de um subdomínio próprio, o painel pode morar numa subpasta de um admin, com a barra lateral **CMS | UTM**:
+Em vez de um subdomínio próprio, o painel pode morar numa subpasta de um admin, com a barra lateral **CMS | UTM**. Continua sendo este repositório, publicado por um **segundo Git** no mesmo site:
 
-1. Copie os arquivos de execução deste repositório para a subpasta do admin (ex.: `engdesk/admin/utm/`): `*.php`, `lib/`, `t.js`, `painel.js`, `.htaccess`. Crie `VERSAO` com o commit do `OZATI/track` copiado. Não edite a cópia: mude aqui e copie de novo.
-2. O deploy do próprio site publica a subpasta. Em até 1 hora, abra `https://admin.<domínio>/utm/instalar.php` e preencha também o **Link do CMS** (ex.: `../`). Ele liga a barra lateral.
-3. A URL do webhook e o `<script>` que a instalação mostra já vêm com a subpasta (`/utm/kiwify.php`, `/utm/t.js`).
+1. No repositório do site, ponha a subpasta no `.gitignore` (ex.: `admin/utm/`), para os dois deploys nunca se misturarem.
+2. hPanel → Git → adicionar outro repositório: `https://github.com/OZATI/track.git`, branch `main`, diretório = a subpasta (ex.: `admin/utm`). Implantar.
+3. Em até 1 hora, abrir `https://admin.<domínio>/utm/instalar.php` e preencher também o **Link do CMS** (ex.: `../`). Ele liga a barra lateral.
+4. A URL do webhook e o `<script>` que a instalação mostra já vêm com a subpasta (`/utm/kiwify.php`, `/utm/t.js`).
+
+Sem segundo Git (outra hospedagem): copie `*.php`, `lib/`, `t.js`, `painel.js` e `.htaccess` para a subpasta e anote o commit copiado. Não edite a cópia: mude aqui e copie de novo.
 
 O painel tem a própria senha. O login do admin (ex.: Supabase) não é reaproveitado nesta versão.
 
@@ -108,6 +114,14 @@ PHP=/caminho/php.exe PHP_FLAGS="-d extension_dir=ext -d extension=pdo_sqlite -d 
 ```
 
 Sobe um servidor local com dados temporários e confere instalação, coleta, webhook, LGPD, login, tabela de tráfego, barra lateral, conferência, filtros por site e página, XSS e limite de login. Não toca em nenhum site real.
+
+## Contribuir
+
+Issues e pull requests são bem-vindos. Antes de abrir um PR, rode `bash tests/fluxo.sh` e mantenha a regra do projeto: PHP e JavaScript puros, sem build e sem dependência. Falha de segurança: não abra issue pública, escreva para a OZATI pelo [ozati.co](https://ozati.co).
+
+## Licença
+
+MIT. Veja `LICENSE`.
 
 ## Limites
 
