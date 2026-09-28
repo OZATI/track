@@ -32,7 +32,7 @@ csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f
 confere "$(tem 'Instalar o painel' "$r")" "tela de instalação abre enquanto não há configuração"
 r=$(curl -s -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "senha=senha-de-teste-123" \
     --data-urlencode "senha2=senha-de-teste-123" --data-urlencode $'origens=http://site.test\nhttps://site.test' \
-    --data-urlencode "dias=30" "$URL/instalar.php")
+    --data-urlencode "dias=30" --data-urlencode "menu_cms=../" "$URL/instalar.php")
 confere "$(tem 'Painel instalado' "$r")" "instalação grava a configuração"
 CHAVE=$(grep -o 'chave=[a-f0-9]*' <<<"$r" | head -1 | cut -d= -f2)
 confere "$([ ${#CHAVE} -eq 48 ]; echo $?)" "chave do webhook gerada (48 caracteres)"
@@ -51,6 +51,7 @@ r=$(curl -s -c "$JAR" -b "$JAR" -H "Origin: http://site.test" --data "{\"evento\
 VID2=$(grep -o '"vid":"[a-f0-9]*"' <<<"$r" | cut -d'"' -f4)
 confere "$([ "$VID" = "$VID2" ]; echo $?)" "mesmo visitante no clique (cookie)"
 curl -s -H "Origin: http://site.test" --data '{"evento":"WhatsApp","url":"http://site.test/bio/"}' "$URL/coletar.php" >/dev/null
+curl -s -H "Origin: http://site.test" --data '{"evento":"PageView","url":"http://site.test/drivedeprojetos/","referrer":"https://www.google.com/search?q=drive"}' "$URL/coletar.php" >/dev/null
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Origin: https://invasor.test" --data '{"evento":"PageView","url":"https://invasor.test/"}' "$URL/coletar.php")
 confere "$([ "$code" = "403" ]; echo $?)" "site não autorizado é recusado ($code)"
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Origin: http://site.test" --data '{"evento":"PageView","url":"https://outro.test/x"}' "$URL/coletar.php")
@@ -85,6 +86,15 @@ csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "senha=senha-de-teste-123" "$URL/entrar.php")
 confere "$([ "${destino%/}" = "$URL" ]; echo $?)" "login com a senha certa (vai para $destino)"
 r=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo")
+confere "$(tem 'Tráfego por origem' "$r")" "tela inicial é a de tráfego"
+confere "$(tem 'MetaAds / conjunto 5|111 / TL 1|120</td><td>1</td>' "$r")" "tabela de tráfego mostra a origem do anúncio com 1 visitante"
+confere "$(tem 'orgânico · www.google.com' "$r")" "visita sem etiqueta vinda do Google aparece como orgânico · www.google.com"
+confere "$(tem 'direto (sem origem)' "$r")" "visita sem etiqueta e sem site de origem aparece como direto"
+confere "$(grep -q 'q=drive' <<<"$r"; [ $? -ne 0 ]; echo $?)" "parâmetros do site de origem não são guardados (LGPD)"
+confere "$(tem 'Tráfego por página' "$r")" "tabela por página aparece"
+confere "$(tem 'class="lateral"' "$r")" "barra lateral CMS | UTM aparece quando há link do CMS"
+confere "$(tem 'href="../" title="CMS"' "$r")" "ícone CMS aponta para o link configurado"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
 confere "$(tem 'Vendas em que os dados batem' "$r")" "tela de conferência abre"
 confere "$(tem '>1 (50%)<' "$r")" "uma venda bate e a outra fica sem visitante (50%)"
 confere "$(tem 'Sem visitante' "$r")" "venda sem identificador aparece como 'Sem visitante'"

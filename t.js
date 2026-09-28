@@ -16,7 +16,8 @@
 
   var script = document.currentScript;
   if (!script || !window.fetch) return;
-  var PAINEL = new URL(script.src).origin;
+  // Pasta do painel (funciona na raiz, track.dominio/t.js, ou em subpasta, admin.dominio/utm/t.js)
+  var PAINEL = new URL('.', script.src).href.replace(/\/$/, '');
   var CHAVE = 'trk_vid';
   var vid = null;
   try { vid = localStorage.getItem(CHAVE); } catch (e) {}

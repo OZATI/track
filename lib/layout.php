@@ -53,7 +53,15 @@ h2{ font-size:15px; margin:20px 0 8px; }
 .caixa-login label{ display:flex; flex-direction:column; gap:4px; margin-bottom:12px; color:var(--suave); font-size:13px; }
 .caixa-login input, .caixa-login textarea{ width:100%; }
 .erro{ color:var(--erro); }
-@media (max-width:640px){ .topo .sair{ margin-left:0; } select{ min-width:140px; } }
+.casca{ display:flex; min-height:100vh; }
+.conteudo{ flex:1; min-width:0; }
+.lateral{ width:68px; flex:none; background:#061424; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 0; position:sticky; top:0; height:100vh; }
+.lateral a{ width:52px; padding:8px 0 6px; border-radius:10px; display:flex; flex-direction:column; align-items:center; gap:3px; color:#9fb0c3; text-decoration:none; font-size:10.5px; font-weight:600; letter-spacing:.02em; }
+.lateral a:hover{ background:rgba(255,255,255,.07); color:#fff; }
+.lateral a.atual{ background:var(--marca); color:#fff; }
+.lateral svg{ width:20px; height:20px; }
+@media (max-width:640px){ .topo .sair{ margin-left:0; } select{ min-width:140px; }
+  .casca{ flex-direction:column; } .lateral{ width:auto; height:auto; flex-direction:row; justify-content:center; position:static; padding:6px; } }
 </style>
 </head>
 <body>
@@ -65,17 +73,40 @@ function pagina_fim(): void
     echo '<script src="painel.js"></script></body></html>';
 }
 
+// Barra lateral com CMS e UTM, quando o painel mora dentro de um admin (config "menu_cms").
+// Sem essa configuracao (painel avulso em track.dominio), nao aparece.
+function casca_inicio(): void
+{
+    $cms = track_config()['menu_cms'] ?? '';
+    if ($cms === '') {
+        return;
+    }
+    $iconeCms = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>';
+    $iconeUtm = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>';
+    echo '<div class="casca"><nav class="lateral" aria-label="Seções do admin">'
+        . '<a href="' . e($cms) . '" title="CMS">' . $iconeCms . '<span>CMS</span></a>'
+        . '<a href="./" class="atual" title="UTM" aria-current="page">' . $iconeUtm . '<span>UTM</span></a>'
+        . '</nav><div class="conteudo">';
+}
+
+function casca_fim(): void
+{
+    if ((track_config()['menu_cms'] ?? '') !== '') {
+        echo '</div></div>';
+    }
+}
+
 // Barra do topo: dominio e, dependendo dele, a pagina. Mais periodo e sair.
 function barra_topo(array $filtro, array $dominios, array $paginas, string $aba): void
 {
     $periodos = ['hoje' => 'Hoje', 'ontem' => 'Ontem', '7d' => 'Últimos 7 dias', '30d' => 'Últimos 30 dias', 'tudo' => 'Tudo'];
     ?>
 <form class="topo" method="get" action="./" id="filtros">
-  <h1>Rastreio</h1>
+  <h1>UTM · Tráfego</h1>
   <input type="hidden" name="aba" value="<?= e($aba) ?>">
-  <label>Domínio
+  <label>Site
     <select name="dominio" data-reinicia="pagina">
-      <option value="">Todos os domínios</option>
+      <option value="">Todos os sites</option>
       <?php foreach ($dominios as $d): ?>
         <option value="<?= e($d) ?>"<?= $filtro['dominio'] === $d ? ' selected' : '' ?>><?= e($d) ?></option>
       <?php endforeach; ?>
@@ -100,7 +131,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba)
 </form>
 <form class="topo-sair" method="post" action="sair.php" id="form-sair"><input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"></form>
 <?php
-    $abas = ['resumo' => 'Conferência', 'vendas' => 'Vendas', 'visitantes' => 'Visitantes', 'eventos' => 'Eventos'];
+    $abas = ['trafego' => 'Tráfego', 'resumo' => 'Conferência', 'vendas' => 'Vendas', 'visitantes' => 'Visitantes', 'eventos' => 'Eventos'];
     echo '<nav class="abas">';
     foreach ($abas as $id => $rotulo) {
         $q = http_build_query(['aba' => $id, 'dominio' => $filtro['dominio'], 'pagina' => $filtro['pagina'], 'periodo' => $filtro['periodo']]);

@@ -9,8 +9,8 @@ exigir_login();
 $db = track_db();
 
 // ---------------------------------------------------------------- filtros
-$abasValidas = ['resumo', 'vendas', 'visitantes', 'eventos'];
-$aba = in_array($_GET['aba'] ?? '', $abasValidas, true) ? $_GET['aba'] : 'resumo';
+$abasValidas = ['trafego', 'resumo', 'vendas', 'visitantes', 'eventos'];
+$aba = in_array($_GET['aba'] ?? '', $abasValidas, true) ? $_GET['aba'] : 'trafego';
 $periodosValidos = ['hoje', 'ontem', '7d', '30d', 'tudo'];
 $periodo = in_array($_GET['periodo'] ?? '', $periodosValidos, true) ? $_GET['periodo'] : '7d';
 
@@ -124,7 +124,20 @@ function link_visitante(string $vid, array $parLink): string
     return '?' . http_build_query(['aba' => 'visitantes', 'v' => $vid] + $parLink);
 }
 
+// Origem de um visitante, pelo primeiro evento dele: etiquetas, ou o site de onde veio
+function rotulo_origem(array $ev): string
+{
+    if (!empty($ev['utm_source'])) {
+        return origem($ev['utm_source'], $ev['utm_medium'], $ev['utm_campaign']);
+    }
+    if (!empty($ev['referrer'])) {
+        return 'orgânico · ' . explode('/', $ev['referrer'])[0];
+    }
+    return 'direto (sem origem)';
+}
+
 pagina_inicio('Painel');
+casca_inicio();
 barra_topo($filtro, $dominios, $paginas, $aba);
 echo '<main>';
 
@@ -136,6 +149,7 @@ if ($aba === 'visitantes' && is_string($vid) && preg_match('/^[a-f0-9]{32}$/', $
     $vis = $st->fetch();
     if (!$vis) {
         echo '<p>Visitante não encontrado.</p></main>';
+        casca_fim();
         pagina_fim();
         exit;
     }
@@ -163,8 +177,87 @@ if ($aba === 'visitantes' && is_string($vid) && preg_match('/^[a-f0-9]{32}$/', $
             . '<td>' . e($ev['referrer']) . '</td><td>' . e($ev['dispositivo'] . ' · ' . $ev['ip']) . '</td></tr>';
     }
     echo '</table></div></main>';
+    casca_fim();
     pagina_fim();
     exit;
+}
+
+// ---------------------------------------------------------------- trafego (tela inicial)
+if ($aba === 'trafego') {
+    $primeiros = consulta($db, "SELECT e.visitante, e.utm_source, e.utm_medium, e.utm_campaign, e.referrer
+                                FROM eventos e
+                                JOIN (SELECT e.visitante AS v, MIN(e.id) AS primeiro FROM eventos e WHERE $condEv GROUP BY e.visitante) f
+                                  ON f.primeiro = e.id", $parEv);
+    $contas = [];
+    foreach (consulta($db, "SELECT e.visitante, SUM(e.nome = 'PageView') AS pv, SUM(e.nome = 'CliqueCheckout') AS ck, SUM(e.nome = 'WhatsApp') AS wa
+                            FROM eventos e WHERE $condEv GROUP BY e.visitante", $parEv) as $c) {
+        $contas[$c['visitante']] = $c;
+    }
+    $vendasPorVisitante = [];
+    $semVisitante = 0;
+    foreach (consulta($db, "SELECT v.* FROM vendas v WHERE $condVd", $parVd) as $v) {
+        if (situacao($v)[0] !== 'Aprovada') {
+            continue;
+        }
+        if ($v['visitante']) {
+            $vendasPorVisitante[$v['visitante']] = ($vendasPorVisitante[$v['visitante']] ?? 0) + 1;
+        } else {
+            $semVisitante++;
+        }
+    }
+
+    $linhas = [];
+    foreach ($primeiros as $p) {
+        $k = rotulo_origem($p);
+        $c = $contas[$p['visitante']] ?? ['pv' => 0, 'ck' => 0, 'wa' => 0];
+        $l = $linhas[$k] ?? ['vis' => 0, 'pv' => 0, 'ck' => 0, 'wa' => 0, 'vendas' => 0];
+        $l['vis']++;
+        $l['pv'] += (int)$c['pv'];
+        $l['ck'] += (int)$c['ck'] > 0 ? 1 : 0;
+        $l['wa'] += (int)$c['wa'] > 0 ? 1 : 0;
+        $l['vendas'] += $vendasPorVisitante[$p['visitante']] ?? 0;
+        $linhas[$k] = $l;
+    }
+    uasort($linhas, fn($a, $b) => [$b['vis'], $b['vendas']] <=> [$a['vis'], $a['vendas']]);
+    $taxa = fn($n, $d) => $d ? number_format($n * 100 / $d, 1, ',', '') . '%' : '—';
+
+    $alvo = $dominio === '' ? 'todos os sites' : $dominio . ($pagina === '' ? ' (todas as páginas)' : $pagina);
+    echo '<h2>Tráfego por origem · ' . e($alvo) . '</h2>';
+    echo '<div class="tabela"><table><tr><th>Origem (source / medium / campaign)</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th><th>Clicaram no WhatsApp</th><th>Vendas aprovadas</th><th>Conversão</th></tr>';
+    $t = ['vis' => 0, 'pv' => 0, 'ck' => 0, 'wa' => 0, 'vendas' => 0];
+    foreach ($linhas as $k => $l) {
+        foreach ($t as $campo => $_) {
+            $t[$campo] += $l[$campo];
+        }
+        echo '<tr><td class="quebra">' . e($k) . '</td><td>' . $l['vis'] . '</td><td>' . $l['pv'] . '</td><td>' . $l['ck'] . '</td><td>' . $l['wa'] . '</td><td>'
+            . ($l['vendas'] ? '<span class="selo ok">' . $l['vendas'] . '</span>' : '0') . '</td><td>' . e($taxa($l['vendas'], $l['vis'])) . '</td></tr>';
+    }
+    if ($linhas) {
+        echo '<tr><td><strong>Total</strong></td><td><strong>' . $t['vis'] . '</strong></td><td><strong>' . $t['pv'] . '</strong></td><td><strong>' . $t['ck'] . '</strong></td><td><strong>'
+            . $t['wa'] . '</strong></td><td><strong>' . $t['vendas'] . '</strong></td><td><strong>' . e($taxa($t['vendas'], $t['vis'])) . '</strong></td></tr>';
+    } else {
+        echo '<tr><td colspan="7" class="suave">Nenhuma visita no período. As visitas chegam pelo t.js instalado nas páginas.</td></tr>';
+    }
+    echo '</table></div>';
+    if ($semVisitante) {
+        echo '<p class="suave">Mais ' . $semVisitante . ' venda(s) aprovada(s) sem visitante no período (link direto da Kiwify ou outro aparelho): veja a aba Conferência.</p>';
+    }
+
+    if ($pagina === '') {
+        $porPagina = consulta($db, "SELECT e.dominio, e.pagina, COUNT(DISTINCT e.visitante) AS vis, SUM(e.nome = 'PageView') AS pv,
+                                           COUNT(DISTINCT CASE WHEN e.nome = 'CliqueCheckout' THEN e.visitante END) AS ck,
+                                           COUNT(DISTINCT CASE WHEN e.nome = 'WhatsApp' THEN e.visitante END) AS wa
+                                    FROM eventos e WHERE $condEv GROUP BY e.dominio, e.pagina ORDER BY vis DESC", $parEv);
+        echo '<h2>Tráfego por página</h2><div class="tabela"><table><tr><th>Página</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th><th>Clicaram no WhatsApp</th><th>Taxa de clique no checkout</th></tr>';
+        foreach ($porPagina as $p) {
+            echo '<tr><td>' . e($p['dominio'] . $p['pagina']) . '</td><td>' . (int)$p['vis'] . '</td><td>' . (int)$p['pv'] . '</td><td>' . (int)$p['ck'] . '</td><td>'
+                . (int)$p['wa'] . '</td><td>' . e($taxa((int)$p['ck'], (int)$p['vis'])) . '</td></tr>';
+        }
+        if (!$porPagina) {
+            echo '<tr><td colspan="6" class="suave">Nenhuma visita no período.</td></tr>';
+        }
+        echo '</table></div>';
+    }
 }
 
 // ---------------------------------------------------------------- conferencia (resumo)
@@ -289,4 +382,5 @@ if ($aba === 'eventos') {
 }
 
 echo '</main>';
+casca_fim();
 pagina_fim();

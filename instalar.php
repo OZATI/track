@@ -43,6 +43,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $origens[] = strtolower($o);
     }
     $dias = (int)($_POST['dias'] ?? 90);
+    // Painel dentro de um admin (ex.: admin.engdesk.pro/utm/): link do CMS liga a barra lateral CMS | UTM
+    $menuCms = trim((string)($_POST['menu_cms'] ?? ''));
+    if ($menuCms !== '' && !preg_match('#^(https://[a-z0-9.-]+(/[^\s"<>]*)?|/[^\s"<>]*|\.\./[^\s"<>]*)$#i', $menuCms)) {
+        $erros[] = 'Link do CMS inválido (use https://..., /caminho ou ../).';
+    }
 
     if (!csrf_valido()) {
         $erros[] = 'Sessão expirada. Recarregue a página.';
@@ -66,6 +71,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             'chave_webhook' => bin2hex(random_bytes(24)),
             'origens' => array_values(array_unique($origens)),
             'dias_retencao' => $dias,
+            'menu_cms' => $menuCms,
             'fuso' => 'America/Sao_Paulo',
             'criado_em' => agora_utc(),
         ];
@@ -96,10 +102,10 @@ pagina_inicio('Instalação');
   <p>Guarde estes dados. A chave do webhook aparece só agora.</p>
   <h2>1. Webhook da Kiwify</h2>
   <p>Kiwify → Apps → Webhooks → criar, com os eventos <strong>compra aprovada, compra reembolsada, chargeback, Pix gerado e compra recusada</strong>:</p>
-  <pre><?= e($esquema . '://' . $host . '/kiwify.php?chave=' . $pronto['chave_webhook']) ?></pre>
+  <pre><?= e($esquema . '://' . $host . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/\\') . '/kiwify.php?chave=' . $pronto['chave_webhook']) ?></pre>
   <h2>2. Nas páginas de venda</h2>
   <p>No fim do <code>&lt;body&gt;</code>, depois do script de atribuição:</p>
-  <pre><?= e('<script src="' . $esquema . '://' . $host . '/t.js" defer></script>') ?></pre>
+  <pre><?= e('<script src="' . $esquema . '://' . $host . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/\\') . '/t.js" defer></script>') ?></pre>
   <p>Sites autorizados a mandar eventos: <?= e(implode(', ', $pronto['origens'])) ?></p>
   <p><a href="entrar.php">Entrar no painel</a></p>
 <?php else: ?>
@@ -113,6 +119,8 @@ pagina_inicio('Instalação');
     <label>Sites que vão mandar eventos, um por linha
       <textarea name="origens" rows="3" placeholder="https://engdesk.pro" required><?= e($_POST['origens'] ?? '') ?></textarea></label>
     <label>Guardar os dados por quantos dias (LGPD) <input type="number" name="dias" value="<?= e($_POST['dias'] ?? '90') ?>" min="7" max="400"></label>
+    <label>Link do CMS (opcional: só se o painel fica dentro de um admin, ex.: ../)
+      <input type="text" name="menu_cms" value="<?= e($_POST['menu_cms'] ?? '') ?>" placeholder="../"></label>
     <button type="submit">Instalar</button>
   </form>
 <?php endif; ?>
