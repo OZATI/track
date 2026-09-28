@@ -70,7 +70,9 @@ h2{ font-size:15px; margin:20px 0 8px; }
 
 function pagina_fim(): void
 {
-    echo '<script src="painel.js"></script></body></html>';
+    // ?v= pela data do arquivo: dentro de um site cujo .htaccess manda cachear .js por
+    // 1 ano (ex.: engdesk.pro), sem isso a mudanca no painel.js nao chegaria.
+    echo '<script src="painel.js?v=' . (int)@filemtime(__DIR__ . '/../painel.js') . '"></script></body></html>';
 }
 
 // Barra lateral com CMS e UTM, quando o painel mora dentro de um admin (config "menu_cms").
