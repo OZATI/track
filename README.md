@@ -54,7 +54,7 @@ Exemplo real: `admin.engdesk.pro/utm/`, dentro do admin do site, com a barra lat
    ```
    Vão só os arquivos de execução, mais um `VERSAO` com o commit daqui. Configuração e dados nunca vão junto.
 2. **Publicar:** commit no repositório do site e o deploy de sempre dele (na Hostinger, o mesmo Git que já publica o site).
-3. **Instalar, em até 1 hora depois do deploy:** abrir `https://<site>/<pasta>/instalar.php` e definir a senha (10+ caracteres), os sites que vão mandar eventos (ex.: `https://engdesk.pro`), a retenção em dias e, se o painel estiver dentro de um admin, o **Link do CMS** (ex.: `../`), que liga a barra lateral. A tela mostra **uma vez** a URL do webhook.
+3. **Instalar, em até 1 hora depois do deploy:** abrir `https://<site>/<pasta>/instalar.php` e definir a senha, os sites que vão mandar eventos (ex.: `https://engdesk.pro`), a retenção em dias e, se o painel estiver dentro de um admin, o **Link do CMS** (ex.: `../`), que liga a barra lateral. A tela mostra **uma vez** a URL do webhook.
 4. **Kiwify:** Apps → Webhooks → criar com a URL do passo 3 e os eventos *compra aprovada, compra reembolsada, chargeback, Pix gerado, compra recusada*, para os produtos das páginas.
 5. **Páginas de venda:** no fim do `<body>`, **depois** do script de atribuição da página:
    ```html

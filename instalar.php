@@ -52,8 +52,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!csrf_valido()) {
         $erros[] = 'Sessão expirada. Recarregue a página.';
     }
-    if (mb_strlen($senha) < 10) {
-        $erros[] = 'A senha precisa de pelo menos 10 caracteres.';
+    if ($senha === '') {
+        $erros[] = 'Defina a senha do painel.';
     }
     if ($senha !== (string)($_POST['senha2'] ?? '')) {
         $erros[] = 'As senhas não conferem.';
@@ -114,7 +114,7 @@ pagina_inicio('Instalação');
   <?php foreach ($erros as $erro): ?><p class="erro"><?= e($erro) ?></p><?php endforeach; ?>
   <form method="post" action="instalar.php">
     <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
-    <label>Senha do painel (mínimo 10 caracteres) <input type="password" name="senha" autocomplete="new-password" required></label>
+    <label>Senha do painel <input type="password" name="senha" autocomplete="new-password" required></label>
     <label>Repita a senha <input type="password" name="senha2" autocomplete="new-password" required></label>
     <label>Sites que vão mandar eventos, um por linha
       <textarea name="origens" rows="3" placeholder="https://engdesk.pro" required><?= e($_POST['origens'] ?? '') ?></textarea></label>
