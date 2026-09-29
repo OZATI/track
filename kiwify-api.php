@@ -78,7 +78,7 @@ $chave = kiwify_api_chave();
 pagina_inicio('API Kiwify');
 casca_inicio();
 ?>
-<div class="topo"><h1>UTM · API Kiwify</h1></div>
+<?php topo_pagina(); ?>
 <?php abas_painel('kiwify-api'); ?>
 <main>
   <?php foreach ($erros as $erro): ?><p class="erro"><?= e($erro) ?></p><?php endforeach; ?>

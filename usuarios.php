@@ -68,7 +68,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 pagina_inicio('Usuários');
 casca_inicio();
 ?>
-<div class="topo"><h1>UTM · Usuários</h1></div>
+<?php topo_pagina(); ?>
 <?php abas_painel('usuarios'); ?>
 <main>
   <?php foreach ($erros as $erro): ?><p class="erro"><?= e($erro) ?></p><?php endforeach; ?>

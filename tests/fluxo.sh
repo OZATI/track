@@ -96,7 +96,13 @@ destino=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$JAR" -b "$JAR" --data-u
 confere "$([ "${destino%/}" = "$URL" ]; echo $?)" "login certo; volta para outro site é ignorada (vai para $destino)"
 r=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo")
 confere "$(tem 'Tráfego por origem' "$r")" "tela inicial é a de tráfego"
-confere "$(tem 'MetaAds / conjunto 5|111 / TL 1|120</td><td>1</td>' "$r")" "tabela de tráfego mostra a origem do anúncio com 1 visitante"
+confere "$(tem 'MetaAds / conjunto 5|111 / TL 1|120</span></span></td><td>1</td>' "$r")" "tabela de tráfego mostra a origem do anúncio com 1 visitante"
+confere "$(tem 'Tráfego por canal' "$r")" "tráfego agrupado por canal"
+confere "$(tem 'canal-instagram' "$r")" "anúncio com posicionamento Instagram_Reels vira canal Instagram"
+confere "$(tem '<span>Orgânico</span>' "$r")" "visita vinda do Google sem etiqueta vira canal Orgânico (folha)"
+confere "$(tem '<span>Direto / sem origem</span>' "$r")" "visita sem etiqueta nem site de origem vira Direto"
+confere "$(tem 'id="form-sair"' "$r")" "Sair fica no topo, com a conta"
+confere "$(grep -q 'data-sair' <<<"$r"; [ $? -ne 0 ]; echo $?)" "Sair não é mais uma aba"
 confere "$(tem 'orgânico · www.google.com' "$r")" "visita sem etiqueta vinda do Google aparece como orgânico · www.google.com"
 confere "$(tem 'direto (sem origem)' "$r")" "visita sem etiqueta e sem site de origem aparece como direto"
 confere "$(grep -q 'q=drive' <<<"$r"; [ $? -ne 0 ]; echo $?)" "parâmetros do site de origem não são guardados (LGPD)"
@@ -113,6 +119,8 @@ confere "$(tem 'Sem visitante' "$r")" "venda sem identificador aparece como 'Sem
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
 confere "$(tem 'R$ 59,49' "$r")" "valor em centavos exibido em reais"
 confere "$(tem 'R$ 67,00' "$r")" "valor com ponto decimal exibido em reais"
+confere "$(tem '<span>Meta · anúncio</span>' "$r")" "venda de anúncio sem posicionamento chega por Meta"
+confere "$(tem '<span>Orgânico</span><span class="suave">· WhatsApp</span>' "$r")" "venda orgânica mostra o meio (WhatsApp)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo")
 confere "$(tem '&lt;script&gt;alert(1)&lt;/script&gt;' "$r")" "texto vindo da página é escapado (sem XSS)"
 confere "$(grep -q '<script>alert(1)' <<<"$r"; [ $? -ne 0 ]; echo $?)" "nenhum script injetado na tela"

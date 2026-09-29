@@ -256,7 +256,7 @@ if ($aba === 'visitantes' && is_string($vid) && preg_match('/^[a-f0-9]{32}$/', $
 
 // ---------------------------------------------------------------- trafego (tela inicial)
 if ($aba === 'trafego') {
-    $primeiros = consulta($db, "SELECT e.visitante, e.utm_source, e.utm_medium, e.utm_campaign, e.referrer
+    $primeiros = consulta($db, "SELECT e.visitante, e.utm_source, e.utm_medium, e.utm_campaign, e.utm_term, e.referrer
                                 FROM eventos e
                                 JOIN (SELECT e.visitante AS v, MIN(e.id) AS primeiro FROM eventos e WHERE $condEv GROUP BY e.visitante) f
                                   ON f.primeiro = e.id", $parEv);
@@ -284,40 +284,54 @@ if ($aba === 'trafego') {
         }
     }
 
+    // As mesmas contas de cada visitante, agrupadas de dois jeitos: por canal (Instagram,
+    // Facebook, organico...) e pela origem detalhada (source / medium / campaign)
+    $porCanal = [];
     $linhas = [];
+    $somar = function (array &$grupo, string $chave, array $cn, array $soma): void {
+        $g = $grupo[$chave] ?? ['canal' => $cn, 'vis' => 0, 'pv' => 0, 'ck' => 0, 'wa' => 0, 'vendas' => 0, 'fat' => 0];
+        foreach ($soma as $campo => $n) {
+            $g[$campo] += $n;
+        }
+        $grupo[$chave] = $g;
+    };
     foreach ($primeiros as $p) {
-        $k = rotulo_origem($p);
         $c = $contas[$p['visitante']] ?? ['pv' => 0, 'ck' => 0, 'wa' => 0];
-        $l = $linhas[$k] ?? ['vis' => 0, 'pv' => 0, 'ck' => 0, 'wa' => 0, 'vendas' => 0, 'fat' => 0];
-        $l['vis']++;
-        $l['pv'] += (int)$c['pv'];
-        $l['ck'] += (int)$c['ck'] > 0 ? 1 : 0;
-        $l['wa'] += (int)$c['wa'] > 0 ? 1 : 0;
-        $l['vendas'] += $vendasPorVisitante[$p['visitante']] ?? 0;
-        $l['fat'] += $fatPorVisitante[$p['visitante']] ?? 0;
-        $linhas[$k] = $l;
+        $soma = ['vis' => 1, 'pv' => (int)$c['pv'], 'ck' => (int)$c['ck'] > 0 ? 1 : 0, 'wa' => (int)$c['wa'] > 0 ? 1 : 0,
+            'vendas' => $vendasPorVisitante[$p['visitante']] ?? 0, 'fat' => $fatPorVisitante[$p['visitante']] ?? 0];
+        $cn = canal($p['utm_source'], $p['utm_medium'], $p['utm_term'], $p['referrer']);
+        $somar($porCanal, $cn[0], $cn, $soma);
+        // Na origem detalhada, o icone e so pela etiqueta (a mesma campanha roda no Instagram e no Facebook)
+        $somar($linhas, rotulo_origem($p), canal($p['utm_source'], $p['utm_medium'], null, $p['referrer']), $soma);
     }
     uasort($linhas, fn($a, $b) => [$b['vis'], $b['vendas']] <=> [$a['vis'], $a['vendas']]);
+    uksort($porCanal, fn($a, $b) => array_search($a, CANAIS_ORDEM, true) <=> array_search($b, CANAIS_ORDEM, true));
     $taxa = fn($n, $d) => $d ? number_format($n * 100 / $d, 1, ',', '') . '%' : '—';
 
-    $alvo = $dominio === '' ? 'todos os sites' : $dominio . ($pagina === '' ? ' (todas as páginas)' : $pagina);
-    echo '<h2>Tráfego por origem · ' . e($alvo) . '</h2>';
-    echo '<div class="tabela"><table><tr><th>Origem (source / medium / campaign)</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th>' . ($temWhats ? '<th>Clicaram no WhatsApp</th>' : '') . '<th>Vendas aprovadas</th><th>Faturamento</th><th>Conversão</th></tr>';
-    $t = ['vis' => 0, 'pv' => 0, 'ck' => 0, 'wa' => 0, 'vendas' => 0, 'fat' => 0];
-    foreach ($linhas as $k => $l) {
-        foreach ($t as $campo => $_) {
-            $t[$campo] += $l[$campo];
+    $tabelaTrafego = function (string $cabecalho, array $grupo, callable $primeiraCelula) use ($temWhats, $taxa): void {
+        echo '<div class="tabela"><table><tr><th>' . e($cabecalho) . '</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th>' . ($temWhats ? '<th>Clicaram no WhatsApp</th>' : '') . '<th>Vendas aprovadas</th><th>Faturamento</th><th>Conversão</th></tr>';
+        $t = ['vis' => 0, 'pv' => 0, 'ck' => 0, 'wa' => 0, 'vendas' => 0, 'fat' => 0];
+        foreach ($grupo as $k => $l) {
+            foreach ($t as $campo => $_) {
+                $t[$campo] += $l[$campo];
+            }
+            echo '<tr><td class="quebra">' . $primeiraCelula((string)$k, $l) . '</td><td>' . $l['vis'] . '</td><td>' . $l['pv'] . '</td><td>' . $l['ck'] . '</td><td>' . ($temWhats ? $l['wa'] . '</td><td>' : '')
+                . ($l['vendas'] ? '<span class="selo ok">' . $l['vendas'] . '</span>' : '0') . '</td><td>' . e($l['fat'] ? reais($l['fat']) : '—') . '</td><td>' . e($taxa($l['vendas'], $l['vis'])) . '</td></tr>';
         }
-        echo '<tr><td class="quebra">' . e($k) . '</td><td>' . $l['vis'] . '</td><td>' . $l['pv'] . '</td><td>' . $l['ck'] . '</td><td>' . ($temWhats ? $l['wa'] . '</td><td>' : '')
-            . ($l['vendas'] ? '<span class="selo ok">' . $l['vendas'] . '</span>' : '0') . '</td><td>' . e($l['fat'] ? reais($l['fat']) : '—') . '</td><td>' . e($taxa($l['vendas'], $l['vis'])) . '</td></tr>';
-    }
-    if ($linhas) {
-        echo '<tr><td><strong>Total</strong></td><td><strong>' . $t['vis'] . '</strong></td><td><strong>' . $t['pv'] . '</strong></td><td><strong>' . $t['ck'] . '</strong></td><td><strong>'
-            . ($temWhats ? $t['wa'] . '</strong></td><td><strong>' : '') . $t['vendas'] . '</strong></td><td><strong>' . e(reais($t['fat'])) . '</strong></td><td><strong>' . e($taxa($t['vendas'], $t['vis'])) . '</strong></td></tr>';
-    } else {
-        echo '<tr><td colspan="' . ($temWhats ? 8 : 7) . '" class="suave">Nenhuma visita no período. As visitas chegam pelo t.js instalado nas páginas.</td></tr>';
-    }
-    echo '</table></div>';
+        if ($grupo) {
+            echo '<tr><td><strong>Total</strong></td><td><strong>' . $t['vis'] . '</strong></td><td><strong>' . $t['pv'] . '</strong></td><td><strong>' . $t['ck'] . '</strong></td><td><strong>'
+                . ($temWhats ? $t['wa'] . '</strong></td><td><strong>' : '') . $t['vendas'] . '</strong></td><td><strong>' . e(reais($t['fat'])) . '</strong></td><td><strong>' . e($taxa($t['vendas'], $t['vis'])) . '</strong></td></tr>';
+        } else {
+            echo '<tr><td colspan="' . ($temWhats ? 8 : 7) . '" class="suave">Nenhuma visita no período. As visitas chegam pelo t.js instalado nas páginas.</td></tr>';
+        }
+        echo '</table></div>';
+    };
+
+    $alvo = $dominio === '' ? 'todos os sites' : $dominio . ($pagina === '' ? ' (todas as páginas)' : $pagina);
+    echo '<h2>Tráfego por canal · ' . e($alvo) . '</h2>';
+    $tabelaTrafego('Canal', $porCanal, fn($k, $l) => selo_canal($l['canal'], false));
+    echo '<h2>Tráfego por origem · ' . e($alvo) . '</h2>';
+    $tabelaTrafego('Origem (source / medium / campaign)', $linhas, fn($k, $l) => com_icone_canal($l['canal'], $k));
     if ($semVisitante) {
         echo '<p class="suave">Mais ' . $semVisitante . ' venda(s) aprovada(s), ' . e(reais($fatSemVisitante)) . ', sem visitante no período (outra página, link direto da Kiwify ou outro aparelho): veja a aba Conferência.</p>';
     }
@@ -405,18 +419,40 @@ if ($aba === 'resumo') {
         echo '</table></div>';
     }
 
+    // Faturamento de cada venda com os order bumps dela
+    $fatVenda = [];
+    foreach ($vendas as $v) {
+        if (aprovada($v)) {
+            $dono = eh_bump($v) && $v['pedido_pai'] ? $v['pedido_pai'] : $v['pedido'];
+            $fatVenda[$dono] = ($fatVenda[$dono] ?? 0) + (int)$v['valor'];
+        }
+    }
+    $porCanal = [];
     $porOrigem = [];
     foreach ($aprovadas as $v) {
+        $cn = canal($v['utm_source'], $v['utm_medium'], $v['utm_term']);
+        $fat = $fatVenda[$v['pedido']] ?? (int)$v['valor'];
+        $porCanal[$cn[0]] = ['canal' => $cn, 'n' => ($porCanal[$cn[0]]['n'] ?? 0) + 1, 'fat' => ($porCanal[$cn[0]]['fat'] ?? 0) + $fat];
         $k = origem($v['utm_source'], $v['utm_medium'], null) ?: '(sem etiqueta)';
-        $porOrigem[$k] = ($porOrigem[$k] ?? 0) + 1;
+        $porOrigem[$k] = ['canal' => canal($v['utm_source'], $v['utm_medium']), 'n' => ($porOrigem[$k]['n'] ?? 0) + 1, 'fat' => ($porOrigem[$k]['fat'] ?? 0) + $fat];
     }
-    arsort($porOrigem);
-    echo '<h2>Vendas aprovadas por origem (como a Kiwify gravou)</h2><div class="tabela"><table><tr><th>Origem / meio</th><th>Vendas</th></tr>';
-    foreach ($porOrigem as $k => $n) {
-        echo '<tr><td>' . e($k) . '</td><td>' . $n . '</td></tr>';
+    uksort($porCanal, fn($a, $b) => array_search($a, CANAIS_ORDEM, true) <=> array_search($b, CANAIS_ORDEM, true));
+    uasort($porOrigem, fn($a, $b) => [$b['n'], $b['fat']] <=> [$a['n'], $a['fat']]);
+
+    echo '<h2>Vendas aprovadas por canal (como a Kiwify gravou)</h2><div class="tabela"><table><tr><th>Canal</th><th>Vendas</th><th>Faturamento (com order bump)</th></tr>';
+    foreach ($porCanal as $g) {
+        echo '<tr><td>' . selo_canal($g['canal'], false) . '</td><td>' . $g['n'] . ' (' . e($pct($g['n'])) . ')</td><td>' . e(reais($g['fat'])) . '</td></tr>';
+    }
+    if (!$porCanal) {
+        echo '<tr><td colspan="3" class="suave">Nenhuma venda aprovada no período.</td></tr>';
+    }
+    echo '</table></div>';
+    echo '<h2>Detalhe por origem / meio</h2><div class="tabela"><table><tr><th>Origem / meio</th><th>Vendas</th><th>Faturamento (com order bump)</th></tr>';
+    foreach ($porOrigem as $k => $g) {
+        echo '<tr><td class="quebra">' . com_icone_canal($g['canal'], (string)$k) . '</td><td>' . $g['n'] . '</td><td>' . e(reais($g['fat'])) . '</td></tr>';
     }
     if (!$porOrigem) {
-        echo '<tr><td colspan="2" class="suave">Nenhuma venda aprovada no período.</td></tr>';
+        echo '<tr><td colspan="3" class="suave">Nenhuma venda aprovada no período.</td></tr>';
     }
     echo '</table></div>';
 }
@@ -424,7 +460,7 @@ if ($aba === 'resumo') {
 // ---------------------------------------------------------------- vendas
 if ($aba === 'vendas') {
     $vendas = consulta($db, "SELECT v.*, vi.dispositivo, vi.navegador FROM vendas v LEFT JOIN visitantes vi ON vi.id = v.visitante WHERE $condVd ORDER BY v.recebida_em DESC LIMIT 500", $parVd);
-    echo '<h2>Vendas (' . count($vendas) . ' pedidos)</h2><div class="tabela"><table><tr><th>Quando</th><th>Pedido</th><th>Produto</th><th>Valor</th><th>Situação</th><th>Kiwify gravou</th><th>Visitante</th><th>Chegou por</th><th>Conferência</th></tr>';
+    echo '<h2>Vendas (' . count($vendas) . ' pedidos)</h2><div class="tabela"><table><tr><th>Quando</th><th>Pedido</th><th>Produto</th><th>Valor</th><th>Situação</th><th>Chegou por</th><th>Etiquetas na Kiwify</th><th>Visitante</th><th>Conferência</th><th>Recebida via</th></tr>';
     foreach ($vendas as $v) {
         [$sit, $cls] = situacao($v);
         [$via, $vcls] = chegada($v['fonte'] ?? null);
@@ -439,11 +475,12 @@ if ($aba === 'vendas') {
         }
         echo '<tr><td>' . e(data_local($v['recebida_em'])) . '</td><td><code>' . e($v['referencia'] ?: $v['pedido']) . '</code></td>'
             . '<td>' . e($v['produto']) . (eh_bump($v) ? ' <span class="selo neutro">order bump</span>' : '') . '</td><td>' . e(reais($v['valor'])) . '</td>'
-            . '<td><span class="selo ' . $cls . '">' . e($sit) . '</span></td><td>' . e(origem($v['utm_source'], $v['utm_medium'], $v['utm_campaign'])) . '</td>'
-            . '<td>' . $vis . '</td><td><span class="selo ' . $vcls . '">' . e($via) . '</span></td><td class="quebra">' . $confCel . '</td></tr>';
+            . '<td><span class="selo ' . $cls . '">' . e($sit) . '</span></td><td>' . selo_canal(canal($v['utm_source'], $v['utm_medium'], $v['utm_term'])) . '</td>'
+            . '<td class="suave">' . e(origem($v['utm_source'], $v['utm_medium'], $v['utm_campaign'])) . '</td>'
+            . '<td>' . $vis . '</td><td class="quebra">' . $confCel . '</td><td><span class="selo ' . $vcls . '">' . e($via) . '</span></td></tr>';
     }
     if (!$vendas) {
-        echo '<tr><td colspan="9" class="suave">Nenhuma venda no período. As vendas chegam pelo webhook da Kiwify e, com a chave cadastrada, pela API.</td></tr>';
+        echo '<tr><td colspan="10" class="suave">Nenhuma venda no período. As vendas chegam pelo webhook da Kiwify e, com a chave cadastrada, pela API.</td></tr>';
     }
     echo '</table></div>';
 }
@@ -464,7 +501,8 @@ if ($aba === 'visitantes') {
         $chegou = origem($primeiro['utm_source'] ?? null, $primeiro['utm_medium'] ?? null, $primeiro['utm_campaign'] ?? null) ?: ($primeiro['referrer'] ?? '') ?: 'direto / sem origem';
         $temVenda = (int)valor($db, 'SELECT COUNT(*) FROM vendas WHERE visitante = ?', [$l['visitante']]);
         echo '<tr><td>' . e(data_local($l['ultimo'])) . '</td><td><a href="' . e(link_visitante($l['visitante'], $parLink)) . '">' . e(substr($l['visitante'], 0, 8)) . '</a></td>'
-            . '<td>' . e(($vis['dispositivo'] ?? '') . ' · ' . ($vis['navegador'] ?? '')) . '</td><td>' . e($vis['ip'] ?? '') . '</td><td>' . e($chegou) . '</td>'
+            . '<td>' . e(($vis['dispositivo'] ?? '') . ' · ' . ($vis['navegador'] ?? '')) . '</td><td>' . e($vis['ip'] ?? '') . '</td><td>'
+            . com_icone_canal(canal($primeiro['utm_source'] ?? null, $primeiro['utm_medium'] ?? null, $primeiro['utm_term'] ?? null, $primeiro['referrer'] ?? null), $chegou) . '</td>'
             . '<td>' . (int)$l['total'] . '</td><td>' . ((int)$l['cliques'] ? (int)$l['cliques'] : '') . '</td>' . ($temWhats ? '<td>' . ((int)$l['whats'] ? (int)$l['whats'] : '') . '</td>' : '')
             . '<td>' . ($temVenda ? '<span class="selo ok">' . $temVenda . '</span>' : '') . '</td></tr>';
     }

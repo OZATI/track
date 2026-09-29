@@ -90,7 +90,20 @@ button.discreto.neutro{ color:var(--texto); }
 .lateral a:hover{ background:rgba(255,255,255,.07); color:#fff; }
 .lateral a.atual{ background:var(--marca); color:#fff; }
 .lateral svg{ width:20px; height:20px; }
-@media (max-width:640px){ .topo, .abas{ padding-left:16px; padding-right:16px; } main{ padding:16px; } select{ min-width:140px; }
+.filtros{ display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
+.conta{ margin-left:auto; align-self:center; display:flex; align-items:center; gap:10px; }
+.conta form{ margin:0; }
+.conta-nome{ font-weight:600; }
+.selo-admin{ background:linear-gradient(135deg,#F5A623,#E0821A); color:#2D1A00; font-weight:800; font-size:10px; padding:2px 7px; border-radius:4px; letter-spacing:.08em; text-transform:uppercase; }
+.abas-titulo{ font-family:var(--f-titulo); font-weight:700; font-size:14px; margin-right:10px; white-space:nowrap; }
+.abas a{ display:inline-flex; align-items:center; gap:7px; }
+.abas-espaco{ margin-left:auto; }
+.ico{ flex:none; }
+button .ico{ vertical-align:-2px; }
+.canal{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+.canal-instagram .ico{ color:#C13584; } .canal-facebook .ico{ color:#1877F2; } .canal-meta .ico{ color:#0866FF; }
+.canal-google .ico{ color:#EA4335; } .canal-organico .ico{ color:#12A150; } .canal-outros .ico{ color:#7C5CFF; } .canal-direto .ico{ color:var(--apagado); }
+@media (max-width:640px){ .topo, .abas{ padding-left:16px; padding-right:16px; } main{ padding:16px; } select{ min-width:140px; } .conta{ margin-left:0; }
   .casca{ flex-direction:column; } .lateral{ width:auto; height:auto; flex-direction:row; justify-content:center; position:static; padding:6px; } }
 </style>
 </head>
@@ -128,13 +141,123 @@ function casca_fim(): void
     }
 }
 
-// Barra do topo: dominio e, dependendo dele, a pagina. Mais periodo e sair.
+// Icones de linha (mesmo traco dos icones do CMS). So SVG inline: a CSP nao carrega imagem de fora.
+function icone(string $nome, int $tam = 16): string
+{
+    $p = [
+        'trafego' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+        'conferencia' => '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
+        'vendas' => '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+        'visitantes' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+        'eventos' => '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+        'chave' => '<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2M16 7l3 3M14 9l2 2"/>',
+        'usuario' => '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+        'sair' => '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+        'atualizar' => '<path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/>',
+        'instagram' => '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/>',
+        'facebook' => '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
+        'meta' => '<path d="M2 15c0-5 2.5-9 5-9 3 0 5 7 7.5 10.5 1.3 1.7 2.3 2.5 3.5 2.5 2 0 4-2 4-5.5S20 6 17 6c-3 0-5.5 5-7.5 8.5C8 17 6.5 19 5 19c-2 0-3-2-3-4z"/>',
+        'google' => '<path d="M20.5 12H12M20.5 12a8.5 8.5 0 1 1-2.5-6"/>',
+        'folha' => '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.9-5.4 5.1-6C9.5 14.5 12 13 13 12"/>',
+        'link' => '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+        'direto' => '<path d="M7 17L17 7M8 7h9v9"/>',
+    ];
+    return '<svg class="ico" width="' . $tam . '" height="' . $tam . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$nome] ?? '') . '</svg>';
+}
+
+// Meio organico em portugues (etiquetas da limpeza da pagina: organico / <meio> / ...)
+function rotulo_meio(string $m): string
+{
+    $nomes = ['instagram-bio' => 'Instagram (bio)', 'instagram' => 'Instagram', 'google' => 'Google', 'whatsapp' => 'WhatsApp',
+        'facebook' => 'Facebook', 'ia' => 'IA (ChatGPT e outros)', 'site' => 'outro site', 'direto' => 'direto', 'email' => 'e-mail', 'youtube' => 'YouTube'];
+    return $nomes[$m] ?? $m;
+}
+
+// Canal de uma origem, para agrupar e mostrar com icone: [chave, rotulo, icone, detalhe].
+// Anuncio da Meta vira Instagram ou Facebook pelo posicionamento (utm_term, ex.:
+// Instagram_Reels); sem posicionamento, "Meta". Organico leva a folha. Sem etiqueta,
+// o site de onde a pessoa veio (so para visitantes; venda nao tem referrer).
+function canal(?string $source, ?string $medium = null, ?string $term = null, ?string $referrer = null): array
+{
+    $s = strtolower(trim((string)$source));
+    $m = strtolower(trim((string)$medium));
+    $t = strtolower(trim((string)$term));
+    $pago = strpos($m, '|') !== false || in_array($m, ['cpc', 'ppc', 'paid', 'paid_social', 'ads'], true);
+    if (in_array($s, ['organico', 'orgânico', 'organic'], true)) {
+        return ['organico', 'Orgânico', 'folha', rotulo_meio($m)];
+    }
+    if ($s === 'ig') { // marca automatica do Instagram no link da bio
+        return ['organico', 'Orgânico', 'folha', 'Instagram (bio)'];
+    }
+    if (in_array($s, ['metaads', 'meta', 'fb', 'facebookads', 'instagramads'], true) || (in_array($s, ['facebook', 'instagram'], true) && $pago)) {
+        if (strpos($t, 'instagram') === 0 || ($t === '' && in_array($s, ['instagram', 'instagramads'], true))) {
+            return ['instagram', 'Instagram · anúncio', 'instagram', ''];
+        }
+        if (preg_match('/^(facebook|messenger|audience)/', $t) || ($t === '' && $s === 'facebook')) {
+            return ['facebook', 'Facebook · anúncio', 'facebook', ''];
+        }
+        return ['meta', 'Meta · anúncio', 'meta', ''];
+    }
+    if (in_array($s, ['googleads', 'google-ads', 'adwords'], true) || ($s === 'google' && $pago)) {
+        return ['google', 'Google · anúncio', 'google', ''];
+    }
+    if (in_array($s, ['facebook', 'instagram', 'google', 'whatsapp', 'youtube'], true)) {
+        return ['organico', 'Orgânico', 'folha', rotulo_meio($s)];
+    }
+    if ($s !== '') {
+        return ['outros', 'Outras origens', 'link', (string)$source];
+    }
+    $host = strtolower(explode('/', (string)$referrer)[0]);
+    if ($host !== '') {
+        $mapa = ['instagram' => 'Instagram', 'facebook' => 'Facebook', 'fb.' => 'Facebook', 'google' => 'Google', 'whatsapp' => 'WhatsApp',
+            'wa.me' => 'WhatsApp', 'youtube' => 'YouTube', 'chatgpt' => 'IA (ChatGPT e outros)', 'openai' => 'IA (ChatGPT e outros)',
+            'perplexity' => 'IA (ChatGPT e outros)', 'gemini' => 'IA (ChatGPT e outros)', 'claude' => 'IA (ChatGPT e outros)'];
+        foreach ($mapa as $trecho => $nome) {
+            if (strpos($host, $trecho) !== false) {
+                return ['organico', 'Orgânico', 'folha', $nome];
+            }
+        }
+        return ['organico', 'Orgânico', 'folha', preg_replace('/^www\./', '', $host)];
+    }
+    return ['direto', 'Direto / sem origem', 'direto', ''];
+}
+
+// Ordem dos canais nas tabelas agrupadas
+const CANAIS_ORDEM = ['instagram', 'facebook', 'meta', 'google', 'organico', 'outros', 'direto'];
+
+function selo_canal(array $c, bool $comDetalhe = true): string
+{
+    return '<span class="canal canal-' . e($c[0]) . '">' . icone($c[2]) . '<span>' . e($c[1]) . '</span>'
+        . ($comDetalhe && $c[3] !== '' ? '<span class="suave">· ' . e($c[3]) . '</span>' : '') . '</span>';
+}
+
+// Um texto qualquer (ex.: a origem detalhada) com o icone do canal na frente
+function com_icone_canal(array $c, string $texto): string
+{
+    return '<span class="canal canal-' . e($c[0]) . '">' . icone($c[2]) . '<span>' . e($texto) . '</span></span>';
+}
+
+// Conta de quem esta no painel e o Sair, no canto direito do topo (como no CMS)
+function conta_topo(): string
+{
+    return '<div class="conta"><span class="selo-admin">Admin</span><span class="conta-nome">' . e((string)usuario_atual()) . '</span>'
+        . '<form method="post" action="sair.php" id="form-sair"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
+        . '<button type="submit" class="discreto neutro" title="Encerrar a sessão neste navegador">' . icone('sair', 14) . ' Sair</button></form></div>';
+}
+
+// Topo das telas sem filtro (Usuarios, API Kiwify)
+function topo_pagina(): void
+{
+    echo '<header class="topo">' . conta_topo() . '</header>';
+}
+
+// Barra do topo: dominio e, dependendo dele, a pagina, e o periodo. A conta fica a direita.
 function barra_topo(array $filtro, array $dominios, array $paginas, string $aba): void
 {
     $periodos = ['hoje' => 'Hoje', 'ontem' => 'Ontem', '7d' => 'Últimos 7 dias', '30d' => 'Últimos 30 dias', 'tudo' => 'Tudo'];
     ?>
-<form class="topo" method="get" action="./" id="filtros">
-  <h1>UTM · <?= e(['trafego' => 'Tráfego', 'resumo' => 'Conferência', 'vendas' => 'Vendas', 'visitantes' => 'Visitantes', 'eventos' => 'Eventos'][$aba] ?? 'Tráfego') ?></h1>
+<header class="topo">
+<form class="filtros" method="get" action="./" id="filtros">
   <input type="hidden" name="aba" value="<?= e($aba) ?>">
   <label>Site
     <select name="dominio" data-reinicia="pagina">
@@ -161,21 +284,24 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba)
   </label>
   <noscript><button type="submit">Filtrar</button></noscript>
 </form>
+<?= conta_topo() ?>
+</header>
 <?php
     abas_painel($aba, $filtro);
 }
 
-// Abas do painel, API Kiwify, Usuarios e Sair. $filtro vazio (tela de usuarios): links sem filtro.
+// Abas: titulo e as telas de dados a esquerda (com icone, como no CMS); as de
+// configuracao (API Kiwify e Usuarios) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
-    echo '<form class="topo-sair" method="post" action="sair.php" id="form-sair"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '"></form>';
-    $abas = ['trafego' => 'Tráfego', 'resumo' => 'Conferência', 'vendas' => 'Vendas', 'visitantes' => 'Visitantes', 'eventos' => 'Eventos'];
-    echo '<nav class="abas">';
-    foreach ($abas as $id => $rotulo) {
+    $abas = ['trafego' => ['Tráfego', 'trafego'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
+        'visitantes' => ['Visitantes', 'visitantes'], 'eventos' => ['Eventos', 'eventos']];
+    echo '<nav class="abas" aria-label="Seções do painel UTM"><span class="abas-titulo">UTM · Rastreio de vendas</span>';
+    foreach ($abas as $id => [$rotulo, $ico]) {
         $q = http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1]));
-        echo '<a href="./?' . e($q) . '" class="' . ($aba === $id ? 'atual' : '') . '">' . e($rotulo) . '</a>';
+        echo '<a href="./?' . e($q) . '" class="' . ($aba === $id ? 'atual' : '') . '">' . icone($ico) . e($rotulo) . '</a>';
     }
-    echo '<a href="kiwify-api.php" class="' . ($aba === 'kiwify-api' ? 'atual' : '') . '">API Kiwify</a>';
-    echo '<a href="usuarios.php" class="' . ($aba === 'usuarios' ? 'atual' : '') . '">Usuários</a>';
-    echo '<a href="#" data-sair>Sair (' . e((string)usuario_atual()) . ')</a></nav>';
+    echo '<span class="abas-espaco"></span>';
+    echo '<a href="kiwify-api.php" class="' . ($aba === 'kiwify-api' ? 'atual' : '') . '">' . icone('chave') . 'API Kiwify</a>';
+    echo '<a href="usuarios.php" class="' . ($aba === 'usuarios' ? 'atual' : '') . '">' . icone('usuario') . 'Usuários</a></nav>';
 }

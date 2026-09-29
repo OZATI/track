@@ -28,12 +28,4 @@
         if (texto) { texto.textContent = 'Não foi possível buscar as vendas agora. Use o botão Atualizar vendas.'; }
       });
   }
-  var sair = document.querySelector('[data-sair]');
-  var formSair = document.getElementById('form-sair');
-  if (sair && formSair) {
-    sair.addEventListener('click', function (e) {
-      e.preventDefault();
-      formSair.submit();
-    });
-  }
 })();
