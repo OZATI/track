@@ -126,11 +126,17 @@ confere "$(tem '&lt;script&gt;alert(1)&lt;/script&gt;' "$r")" "texto vindo da p�
 confere "$(grep -q '<script>alert(1)' <<<"$r"; [ $? -ne 0 ]; echo $?)" "nenhum script injetado na tela"
 confere "$(tem '177.10.20.0' "$r")" "IP guardado parcial (último número zerado)"
 confere "$(tem 'iPhone · Instagram (app)' "$r")" "aparelho e navegador reconhecidos"
+confere "$(tem 'TL 1 · cv 05 · Instagram Reels' "$r")" "evento mostra campanha, anúncio e posicionamento sem o ID"
+confere "$(tem 'Clique no checkout <b>1</b>' "$r")" "resumo conta os eventos por tipo"
+confere "$(tem '<span class="selo ok">Comprou</span>' "$r")" "visitante com venda aprovada aparece como Comprou"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&evento=CliqueCheckout")
+confere "$(grep -q 'Visualização</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "filtro por tipo de evento mostra só os cliques no checkout"
+confere "$(tem 'Clique no checkout</strong>' "$r")" "filtro por tipo de evento mantém o evento escolhido"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test")
 confere "$(tem '<option value="/drivedeprojetos/"' "$r")" "caixa de páginas lista as páginas do domínio escolhido"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test&pagina=/bio/")
 confere "$(tem 'WhatsApp' "$r")" "filtro por página mostra os eventos dela"
-confere "$(grep -q 'CliqueCheckout</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "filtro por página esconde os eventos das outras"
+confere "$(grep -q 'Clique no checkout</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "filtro por página esconde os eventos das outras"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=visitantes&periodo=tudo&v=$VID")
 confere "$(tem 'Linha do tempo (2 eventos)' "$r")" "detalhe do visitante com a linha do tempo"
 confere "$(tem 'Bate' "$r")" "detalhe do visitante mostra a venda conferida"

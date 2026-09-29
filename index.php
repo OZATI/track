@@ -160,6 +160,19 @@ function barra_vendas(array $parLink, string $aba): void
     }
 }
 
+// Nome do evento em portugues (o t.js manda PageView, CliqueCheckout, WhatsApp e Botao)
+function nome_evento(string $n): string
+{
+    return ['PageView' => 'Visualização', 'CliqueCheckout' => 'Clique no checkout', 'WhatsApp' => 'Clique no WhatsApp', 'Botao' => 'Clique em botão'][$n] ?? $n;
+}
+
+// Nome da campanha ou do anuncio sem o ID da Meta ("TL 1|120245..." vira "TL 1")
+function nome_curto(?string $v): ?string
+{
+    $n = trim(explode('|', (string)$v)[0]);
+    return $n === '' ? null : $n;
+}
+
 function origem(?string $source, ?string $medium, ?string $campaign): string
 {
     $partes = array_filter([$source, $medium, $campaign], fn($x) => $x !== null && $x !== '');
@@ -391,10 +404,10 @@ if ($aba === 'resumo') {
 
     echo '<h2>Conferência das vendas aprovadas</h2><div class="tabela"><table><tr><th>Resultado</th><th>Vendas</th><th>O que significa</th></tr>';
     $sentido = [
-        'Bate' => 'A etiqueta que a página mandou para a Kiwify é a mesma que ficou no pedido.',
-        'Diferente' => 'A Kiwify gravou outra etiqueta. Abra a venda para ver as duas.',
-        'Sem visitante' => 'Pedido sem o identificador do painel: link direto da Kiwify, troca de aparelho ou página sem o t.js.',
-        'Sem clique registrado' => 'O visitante foi reconhecido, mas o clique no checkout não chegou (ex.: rede caiu no clique).',
+        'Bate' => 'Origem confirmada: a campanha que o painel viu no clique do botão de compra é a mesma que a Kiwify gravou na venda (e que a UTMify usa).',
+        'Diferente' => 'O painel viu uma campanha no clique e a Kiwify gravou outra. Abra a venda para ver as duas: a UTMify pode estar atribuindo errado.',
+        'Sem visitante' => 'A venda não passou pela página com o painel: veio de outra página (ex.: drivedeprojetos.com/allan), de link direto da Kiwify, de outro aparelho, ou é de antes da instalação.',
+        'Sem clique registrado' => 'O painel reconheceu a pessoa, mas o clique no botão de compra não chegou (ex.: a internet caiu no clique).',
     ];
     foreach ($contagem as $rotulo => $n) {
         echo '<tr><td>' . e($rotulo) . '</td><td>' . $n . ' (' . e($pct($n)) . ')</td><td class="quebra suave">' . e($sentido[$rotulo]) . '</td></tr>';
@@ -514,18 +527,63 @@ if ($aba === 'visitantes') {
 
 // ---------------------------------------------------------------- eventos
 if ($aba === 'eventos') {
-    $lista = consulta($db, "SELECT e.* FROM eventos e WHERE $condEv ORDER BY e.em DESC LIMIT 300", $parEv);
-    echo '<h2>Últimos eventos (' . count($lista) . ')</h2><div class="tabela"><table><tr><th>Quando</th><th>Evento</th><th>Domínio / página</th><th>Etiquetas</th><th>Veio de</th><th>Aparelho</th><th>Visitante</th></tr>';
+    // Quantos de cada tipo no filtro; cada numero filtra a tabela por aquele evento
+    $tipos = [];
+    foreach (consulta($db, "SELECT e.nome, COUNT(*) AS n FROM eventos e WHERE $condEv GROUP BY e.nome ORDER BY n DESC", $parEv) as $t) {
+        $tipos[$t['nome']] = (int)$t['n'];
+    }
+    $evento = is_string($_GET['evento'] ?? null) && isset($tipos[$_GET['evento']]) ? $_GET['evento'] : '';
+    $cond = $condEv . ($evento !== '' ? ' AND e.nome = :nome' : '');
+    $par = $parEv + ($evento !== '' ? [':nome' => $evento] : []);
+    $total = (int)valor($db, "SELECT COUNT(*) FROM eventos e WHERE $cond", $par);
+    $porPagina = 200;
+    $pg = min(max(1, (int)($_GET['p'] ?? 1)), max(1, (int)ceil($total / $porPagina)));
+    $lista = consulta($db, "SELECT e.*, vi.sistema FROM eventos e LEFT JOIN visitantes vi ON vi.id = e.visitante
+                            WHERE $cond ORDER BY e.em DESC, e.id DESC LIMIT $porPagina OFFSET " . (($pg - 1) * $porPagina), $par);
+
+    // Visitantes desta pagina que ja compraram (venda principal aprovada)
+    $compraram = [];
+    $vids = array_values(array_unique(array_column($lista, 'visitante')));
+    if ($vids) {
+        $marcas = implode(',', array_fill(0, count($vids), '?'));
+        foreach (consulta($db, "SELECT * FROM vendas WHERE visitante IN ($marcas)", $vids) as $v) {
+            if (aprovada($v) && !eh_bump($v)) {
+                $compraram[$v['visitante']] = true;
+            }
+        }
+    }
+
+    $linkEventos = fn(array $extra) => './?' . http_build_query(['aba' => 'eventos'] + $parLink + $extra);
+    echo '<div class="filtro-eventos"><a href="' . e($linkEventos([])) . '" class="' . ($evento === '' ? 'atual' : '') . '">Todos <b>' . array_sum($tipos) . '</b></a>';
+    foreach ($tipos as $nome => $n) {
+        echo '<a href="' . e($linkEventos(['evento' => $nome])) . '" class="' . ($evento === $nome ? 'atual' : '') . '">' . e(nome_evento($nome)) . ' <b>' . $n . '</b></a>';
+    }
+    echo '</div>';
+
+    $de1 = $total ? ($pg - 1) * $porPagina + 1 : 0;
+    echo '<h2>' . e($evento !== '' ? nome_evento($evento) : 'Eventos') . ' <span class="suave">(' . $de1 . '–' . (($pg - 1) * $porPagina + count($lista)) . ' de ' . $total . ')</span></h2>';
+    echo '<div class="tabela"><table><tr><th>Quando</th><th>Evento</th><th>Página</th><th>Canal</th><th>Campanha · anúncio · posicionamento</th><th>Veio de</th><th>Aparelho</th><th>Visitante</th></tr>';
     foreach ($lista as $ev) {
-        echo '<tr><td>' . e(data_local($ev['em'])) . '</td><td><strong>' . e($ev['nome']) . '</strong>' . ($ev['detalhe'] ? ' <span class="suave">' . e($ev['detalhe']) . '</span>' : '') . '</td>'
-            . '<td>' . e($ev['dominio'] . $ev['pagina']) . '</td><td>' . e(origem($ev['utm_source'], $ev['utm_medium'], $ev['utm_campaign'])) . '</td>'
-            . '<td>' . e($ev['referrer']) . '</td><td>' . e($ev['dispositivo'] . ' · ' . $ev['ip']) . '</td>'
-            . '<td><a href="' . e(link_visitante($ev['visitante'], $parLink)) . '">' . e(substr($ev['visitante'], 0, 8)) . '</a></td></tr>';
+        $anuncio = implode(' · ', array_filter([nome_curto($ev['utm_campaign']), nome_curto($ev['utm_content']), $ev['utm_term'] ? str_replace('_', ' ', $ev['utm_term']) : null]));
+        $aparelho = implode(' · ', array_filter([$ev['dispositivo'], ($ev['sistema'] ?? '') !== 'Outro' ? $ev['sistema'] : null, $ev['ip']]));
+        echo '<tr><td>' . e(data_local($ev['em'])) . '</td><td><strong>' . e(nome_evento($ev['nome'])) . '</strong>' . ($ev['detalhe'] ? ' <span class="suave">' . e($ev['detalhe']) . '</span>' : '') . '</td>'
+            . '<td>' . e($ev['dominio'] . $ev['pagina']) . '</td>'
+            . '<td>' . selo_canal(canal($ev['utm_source'], $ev['utm_medium'], $ev['utm_term'], $ev['referrer'])) . '</td>'
+            . '<td class="quebra">' . ($anuncio !== '' ? e($anuncio) : '<span class="suave">—</span>') . '</td>'
+            . '<td>' . e($ev['referrer']) . '</td><td>' . e($aparelho) . '</td>'
+            . '<td><a href="' . e(link_visitante($ev['visitante'], $parLink)) . '">' . e(substr($ev['visitante'], 0, 8)) . '</a>'
+            . (isset($compraram[$ev['visitante']]) ? ' <span class="selo ok">Comprou</span>' : '') . '</td></tr>';
     }
     if (!$lista) {
-        echo '<tr><td colspan="7" class="suave">Nenhum evento no período.</td></tr>';
+        echo '<tr><td colspan="8" class="suave">Nenhum evento no período.</td></tr>';
     }
     echo '</table></div>';
+    if ($total > $porPagina) {
+        echo '<p class="linha-botoes">'
+            . ($pg > 1 ? '<a href="' . e($linkEventos(($evento !== '' ? ['evento' => $evento] : []) + ['p' => $pg - 1])) . '">← Mais recentes</a>' : '')
+            . ($pg * $porPagina < $total ? '<a href="' . e($linkEventos(($evento !== '' ? ['evento' => $evento] : []) + ['p' => $pg + 1])) . '">Mais antigos →</a>' : '')
+            . '</p>';
+    }
 }
 
 echo '</main>';

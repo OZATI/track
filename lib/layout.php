@@ -100,6 +100,10 @@ button.discreto.neutro{ color:var(--texto); }
 .abas-espaco{ margin-left:auto; }
 .ico{ flex:none; }
 button .ico{ vertical-align:-2px; }
+.filtro-eventos{ display:flex; flex-wrap:wrap; gap:8px; margin:0 0 4px; }
+.filtro-eventos a{ display:inline-flex; align-items:center; gap:8px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-sm); padding:6px 12px; text-decoration:none; color:var(--texto); font-size:12.5px; }
+.filtro-eventos a b{ font-family:var(--f-mono); color:var(--alerta); }
+.filtro-eventos a.atual{ background:rgba(29,111,242,.08); border-color:rgba(29,111,242,.35); color:var(--marca); font-weight:600; }
 .canal{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
 .canal-instagram .ico{ color:#C13584; } .canal-facebook .ico{ color:#1877F2; } .canal-meta .ico{ color:#0866FF; }
 .canal-google .ico{ color:#EA4335; } .canal-organico .ico{ color:#12A150; } .canal-outros .ico{ color:#7C5CFF; } .canal-direto .ico{ color:var(--apagado); }
