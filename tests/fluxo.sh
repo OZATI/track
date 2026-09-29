@@ -279,6 +279,7 @@ r=$(meta "" "$LEITURA" 587364236934346)
 confere "$(tem 'Sessão expirada' "$r")" "salvar token sem o token do formulário é recusado"
 r=$(meta "$csrf" "TokenFalso000000000000000000000000000000000000" 587364236934346)
 confere "$(tem 'A Meta recusou o token' "$r")" "token que a Meta recusa não é salvo"
+confere "$(tem 'O texto colado tem 46 caracteres e começa com &quot;Tok&quot;' "$r")" "erro de token ilegível diz o tamanho e o começo do que foi colado"
 r=$(meta "$csrf" "$LEITURA" 111222333444)
 confere "$(tem 'não enxerga a conta de anúncios 111222333444' "$r")" "conta de anúncios sem acesso é recusada"
 confere "$(grep -q 'TokenLeitura\|TokenFalso' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "nenhum token recusado foi gravado"

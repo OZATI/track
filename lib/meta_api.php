@@ -128,7 +128,13 @@ function meta_api_testar(string $token, string $conta): array
     }
     if ($st !== 200) {
         $m = meta_api_mensagem($c);
-        return ['ok' => false, 'erro' => 'A Meta recusou o token' . ($m ? ': ' . $m : '') . '.'];
+        $dica = '';
+        if (stripos($m, 'parse') !== false) {
+            // Token que a Meta nem consegue ler: quase sempre copia pela metade ou outro texto colado
+            $dica = ' O texto colado tem ' . strlen($token) . ' caracteres e começa com "' . substr($token, 0, 3)
+                . '". O token da Meta começa com "EAA" e tem mais de 150 caracteres: gere de novo e use o botão Copiar da própria Meta.';
+        }
+        return ['ok' => false, 'erro' => 'A Meta recusou o token' . ($m ? ': ' . $m : '') . '.' . $dica];
     }
 
     // Permissoes concedidas ao token. Se a Meta nao listar, segue (a conta confere o acesso).

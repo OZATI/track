@@ -21,7 +21,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     } elseif (!dentro_do_limite('meta-api-tela:' . ip_cliente(), 20, 600)) {
         $erros[] = 'Muitas tentativas. Espere alguns minutos.';
     } elseif ($acao === 'salvar') {
-        $token = trim((string)($_POST['token'] ?? ''));
+        // Copia da Meta as vezes vem com quebra de linha ou espaco no meio: tira tudo
+        $token = preg_replace('/\s+/', '', (string)($_POST['token'] ?? ''));
         $conta = meta_api_conta((string)($_POST['conta'] ?? ''));
         if (!meta_api_formato_valido($token, $conta)) {
             $erros[] = 'Confira os campos: o token é um texto longo de letras e números, e a conta de anúncios só tem números (ex.: 587364236934346).';
