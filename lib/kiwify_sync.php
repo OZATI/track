@@ -182,6 +182,9 @@ function kiwify_sync_gravar(array $v): string
     $visitante = ($sck && preg_match('/^trk_([a-f0-9]{32})$/', $sck, $m)) ? $m[1] : null;
     $valor = $v['payment']['charge_amount'] ?? null;
     $valor = is_int($valor) || (is_string($valor) && ctype_digit($valor)) ? (int)$valor : null;
+    // Liquido: o que a Kiwify repassa depois das taxas (base do lucro e do ROI)
+    $liquido = $v['payment']['net_amount'] ?? $v['net_amount'] ?? null;
+    $liquido = is_int($liquido) || (is_string($liquido) && ctype_digit($liquido)) ? (int)$liquido : null;
     $criada = kiwify_sync_data($v['created_at'] ?? null) ?? agora_utc();
 
     $linha = [
@@ -202,10 +205,11 @@ function kiwify_sync_gravar(array $v): string
 
     $db->prepare('INSERT INTO vendas (pedido, evento, status, produto, valor, pagamento, recebida_em, atualizada_em, visitante, sck, src,
                                       utm_source, utm_medium, utm_campaign, utm_content, utm_term,
-                                      referencia, tipo, pedido_pai, fonte, aprovada_em)
-                  VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'api\', ?)
+                                      referencia, tipo, pedido_pai, fonte, aprovada_em, valor_liquido)
+                  VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'api\', ?, ?)
                   ON CONFLICT (pedido) DO UPDATE SET
                       status = excluded.status,
+                      valor_liquido = COALESCE(excluded.valor_liquido, vendas.valor_liquido),
                       atualizada_em = CASE WHEN vendas.status IS excluded.status THEN vendas.atualizada_em ELSE excluded.atualizada_em END,
                       produto = COALESCE(NULLIF(excluded.produto, \'\'), vendas.produto),
                       valor = COALESCE(excluded.valor, vendas.valor),
@@ -225,7 +229,7 @@ function kiwify_sync_gravar(array $v): string
                       fonte = CASE WHEN vendas.fonte IN (\'webhook\', \'ambos\') THEN \'ambos\' ELSE \'api\' END')
         ->execute([$pedido, $linha['status'], $linha['produto'], $linha['valor'], $linha['pagamento'], $criada, agora_utc(),
             $visitante, $sck, $campo('src'), $campo('utm_source'), $campo('utm_medium'), $campo('utm_campaign'), $campo('utm_content'), $campo('utm_term'),
-            $linha['referencia'], $linha['tipo'], $linha['pedido_pai'], $linha['aprovada_em']]);
+            $linha['referencia'], $linha['tipo'], $linha['pedido_pai'], $linha['aprovada_em'], $liquido]);
 
     if (!$antes) {
         return 'nova';

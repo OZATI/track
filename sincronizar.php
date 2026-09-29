@@ -9,6 +9,7 @@
 
 require __DIR__ . '/lib/util.php';
 require_once __DIR__ . '/lib/kiwify_sync.php';
+require_once __DIR__ . '/lib/meta_sync.php';
 
 header('Cache-Control: no-store');
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -25,20 +26,32 @@ if (!csrf_valido()) {
 }
 session_write_close(); // a busca pode demorar: nao prende as outras abas do painel
 
+// Kiwify (vendas) e Meta (gasto, para o gestor de anuncios), cada uma com o seu intervalo
 if ($json) {
-    if (!kiwify_sync_vencida()) {
-        responder_json(200, ['ok' => true, 'buscou' => false]);
+    $resposta = ['ok' => true, 'buscou' => false, 'novas' => 0, 'atualizadas' => 0];
+    if (kiwify_sync_vencida()) {
+        $r = kiwify_sincronizar();
+        $resposta = ['ok' => $r['ok'], 'buscou' => true, 'novas' => $r['novas'] ?? 0, 'atualizadas' => $r['atualizadas'] ?? 0];
     }
-    $r = kiwify_sincronizar();
-    responder_json(200, ['ok' => $r['ok'], 'buscou' => true, 'novas' => $r['novas'] ?? 0, 'atualizadas' => $r['atualizadas'] ?? 0]);
+    if (meta_sync_vencida()) {
+        $r = meta_sincronizar();
+        $resposta['buscou'] = true;
+        $resposta['ok'] = $resposta['ok'] && $r['ok'];
+        $resposta['atualizadas'] += $r['ok'] ? 1 : 0; // gasto novo: a tela recarrega
+    }
+    responder_json(200, $resposta);
 }
 
-// Botao: no maximo uma busca por minuto (para todos os usuarios) e uma releitura completa
-// a cada 10 minutos. Clique a mais so volta para a tela, sem erro: as vendas acabaram de
-// ser buscadas. O limite por IP so segura abuso.
-$ultima = (int)(ajuste('kiwify_sync_tentativa') ?? 0);
-if (time() - $ultima >= 60 && dentro_do_limite('sincronizar:' . ip_cliente(), 30, 600)) {
-    $completa = ($_POST['completa'] ?? '') === '1' && time() - (int)(ajuste('kiwify_sync_completa_em') ?? 0) >= 600;
-    kiwify_sincronizar($completa);
+// Botao: no maximo uma busca por minuto em cada API (para todos os usuarios) e uma
+// releitura completa das vendas a cada 10 minutos. Clique a mais so volta para a tela, sem
+// erro: os dados acabaram de ser buscados. O limite por IP so segura abuso.
+if (dentro_do_limite('sincronizar:' . ip_cliente(), 30, 600)) {
+    if (time() - (int)(ajuste('kiwify_sync_tentativa') ?? 0) >= 60) {
+        $completa = ($_POST['completa'] ?? '') === '1' && time() - (int)(ajuste('kiwify_sync_completa_em') ?? 0) >= 600;
+        kiwify_sincronizar($completa);
+    }
+    if (meta_api_chave() && time() - (int)(ajuste('meta_sync_tentativa') ?? 0) >= 60) {
+        meta_sincronizar();
+    }
 }
 header('Location: ' . destino_seguro((string)($_POST['volta'] ?? '')));

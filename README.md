@@ -29,6 +29,8 @@ Kiwify API (public-api.kiwify.com) ◄── painel busca a cada 10 min (com a c
 track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 ```
 
+**Gestor de anúncios** (aba própria, no desenho do gestor da UTMify): contas, campanhas, conjuntos e anúncios da Meta com status, orçamento, gasto, vendas, faturamento líquido, lucro, CPA, ROI, custo por início de checkout e Pix pendentes. O gasto vem da Meta (aba **API Meta**, token só de leitura `ads_read`); as vendas se ligam ao anúncio pelo ID que a etiqueta carrega depois do `|`. Contas iguais às da UTMify: lucro desconta o gasto e o imposto de 12,15% que a Meta cobra sobre ele; ROI = (faturamento − imposto) ÷ gasto. Ligar, pausar e mudar orçamento continuam no Gerenciador de Anúncios da Meta: o painel só lê.
+
 **Visitante** é um navegador num aparelho, identificado pelo cookie `trk_vid`, que **o servidor** grava. Quando o painel é do mesmo site das páginas (`track.engdesk.pro` para `engdesk.pro`), o cookie vale para o domínio inteiro e o Safari não o apaga. Para um site diferente (ex.: `ortopaz.com.br` mandando para `track.engdesk.pro`), o `t.js` guarda o identificador no navegador, e o Safari pode apagar em 7 dias. Por isso o ideal é um painel por domínio: `track.<domínio>`.
 
 **Conferência:** para cada venda aprovada, o painel pega o último `CliqueCheckout` daquele visitante (com as etiquetas do **link** que foi para a Kiwify) e compara com as etiquetas que a Kiwify gravou no pedido:

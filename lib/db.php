@@ -27,15 +27,8 @@ function track_migrar(PDO $pdo): void
         track_migrar_v1($pdo);
     }
     if ($versao < 2) {
-        // Vendas tambem pela API da Kiwify: de onde chegaram, order bump e referencia curta.
-        // Em transacao, conferindo de novo a versao: duas requisicoes ao mesmo tempo nao
-        // tentam criar a mesma coluna.
-        $pdo->exec('BEGIN IMMEDIATE');
-        if ((int)$pdo->query('PRAGMA user_version')->fetchColumn() >= 2) {
-            $pdo->exec('COMMIT');
-            return;
-        }
-        $pdo->exec(<<<'SQL'
+        // Vendas tambem pela API da Kiwify: de onde chegaram, order bump e referencia curta
+        track_migrar_para($pdo, 2, <<<'SQL'
             ALTER TABLE vendas ADD COLUMN referencia TEXT;
             ALTER TABLE vendas ADD COLUMN tipo TEXT;
             ALTER TABLE vendas ADD COLUMN pedido_pai TEXT;
@@ -49,8 +42,53 @@ function track_migrar(PDO $pdo): void
             );
             PRAGMA user_version = 2;
             SQL);
-        $pdo->exec('COMMIT');
     }
+    if ($versao < 3) {
+        // Gestor de anuncios: gasto da Meta por anuncio e por dia, campanhas/conjuntos/anuncios
+        // com status e orcamento, e o valor liquido de cada venda (o que cai na conta).
+        // Apagar a ultima busca completa faz a proxima reler as vendas e trazer o liquido.
+        track_migrar_para($pdo, 3, <<<'SQL'
+            ALTER TABLE vendas ADD COLUMN valor_liquido INTEGER;
+            CREATE TABLE IF NOT EXISTS meta_objetos (
+                id               TEXT PRIMARY KEY,
+                nivel            TEXT NOT NULL,
+                nome             TEXT,
+                status           TEXT,
+                status_efetivo   TEXT,
+                campanha_id      TEXT,
+                conjunto_id      TEXT,
+                orcamento_diario INTEGER,
+                orcamento_total  INTEGER,
+                atualizado_em    TEXT
+            );
+            CREATE TABLE IF NOT EXISTS meta_gasto (
+                dia         TEXT NOT NULL,
+                anuncio_id  TEXT NOT NULL,
+                conjunto_id TEXT,
+                campanha_id TEXT,
+                gasto       INTEGER NOT NULL DEFAULT 0,
+                impressoes  INTEGER NOT NULL DEFAULT 0,
+                cliques     INTEGER NOT NULL DEFAULT 0,
+                checkouts   INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (dia, anuncio_id)
+            );
+            DELETE FROM ajustes WHERE chave = 'kiwify_sync_completa_em';
+            PRAGMA user_version = 3;
+            SQL);
+    }
+}
+
+// Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas
+// requisicoes ao mesmo tempo nao tentam criar a mesma coluna.
+function track_migrar_para(PDO $pdo, int $alvo, string $sql): void
+{
+    $pdo->exec('BEGIN IMMEDIATE');
+    if ((int)$pdo->query('PRAGMA user_version')->fetchColumn() >= $alvo) {
+        $pdo->exec('COMMIT');
+        return;
+    }
+    $pdo->exec($sql);
+    $pdo->exec('COMMIT');
 }
 
 // Valores pequenos do painel que mudam sozinhos (ex.: ultima busca na API)

@@ -5,12 +5,13 @@
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/layout.php';
 require_once __DIR__ . '/lib/kiwify_sync.php';
+require_once __DIR__ . '/lib/gestor.php';
 
 exigir_login();
 $db = track_db();
 
 // ---------------------------------------------------------------- filtros
-$abasValidas = ['trafego', 'resumo', 'vendas', 'visitantes', 'eventos'];
+$abasValidas = ['trafego', 'gestor', 'resumo', 'vendas', 'visitantes', 'eventos'];
 $aba = in_array($_GET['aba'] ?? '', $abasValidas, true) ? $_GET['aba'] : 'trafego';
 $periodosValidos = ['hoje', 'ontem', '7d', '30d', 'tudo'];
 $periodo = in_array($_GET['periodo'] ?? '', $periodosValidos, true) ? $_GET['periodo'] : '7d';
@@ -368,6 +369,11 @@ if ($aba === 'trafego') {
     }
 }
 
+// ---------------------------------------------------------------- gestor de anuncios
+if ($aba === 'gestor') {
+    gestor_render($db, $periodo, $de, $ate, $parLink);
+}
+
 // ---------------------------------------------------------------- conferencia (resumo)
 if ($aba === 'resumo') {
     $visitantes = (int)valor($db, "SELECT COUNT(DISTINCT e.visitante) FROM eventos e WHERE $condEv", $parEv);
@@ -534,36 +540,43 @@ if ($aba === 'eventos') {
     foreach (consulta($db, "SELECT e.nome, COUNT(*) AS n FROM eventos e WHERE $condEv GROUP BY e.nome ORDER BY n DESC", $parEv) as $t) {
         $tipos[$t['nome']] = (int)$t['n'];
     }
-    $evento = is_string($_GET['evento'] ?? null) && isset($tipos[$_GET['evento']]) ? $_GET['evento'] : '';
+    // Quem comprou: visitantes do filtro com venda principal aprovada
+    $compradores = [];
+    foreach (consulta($db, "SELECT v.* FROM vendas v WHERE v.visitante IN (SELECT DISTINCT e.visitante FROM eventos e WHERE $condEv)", $parEv) as $v) {
+        if (aprovada($v) && !eh_bump($v)) {
+            $compradores[$v['visitante']] = true;
+        }
+    }
+    $pedido = is_string($_GET['evento'] ?? null) ? $_GET['evento'] : '';
+    $soCompradores = $pedido === 'compraram';
+    $evento = isset($tipos[$pedido]) ? $pedido : '';
     $cond = $condEv . ($evento !== '' ? ' AND e.nome = :nome' : '');
     $par = $parEv + ($evento !== '' ? [':nome' => $evento] : []);
+    if ($soCompradores) {
+        $marcas = [];
+        foreach (array_keys($compradores) as $i => $vid) {
+            $marcas[] = ':c' . $i;
+            $par[':c' . $i] = $vid;
+        }
+        $cond .= $marcas ? ' AND e.visitante IN (' . implode(',', $marcas) . ')' : ' AND 0';
+    }
     $total = (int)valor($db, "SELECT COUNT(*) FROM eventos e WHERE $cond", $par);
     $porPagina = 200;
     $pg = min(max(1, (int)($_GET['p'] ?? 1)), max(1, (int)ceil($total / $porPagina)));
     $lista = consulta($db, "SELECT e.*, vi.sistema FROM eventos e LEFT JOIN visitantes vi ON vi.id = e.visitante
                             WHERE $cond ORDER BY e.em DESC, e.id DESC LIMIT $porPagina OFFSET " . (($pg - 1) * $porPagina), $par);
 
-    // Visitantes desta pagina que ja compraram (venda principal aprovada)
-    $compraram = [];
-    $vids = array_values(array_unique(array_column($lista, 'visitante')));
-    if ($vids) {
-        $marcas = implode(',', array_fill(0, count($vids), '?'));
-        foreach (consulta($db, "SELECT * FROM vendas WHERE visitante IN ($marcas)", $vids) as $v) {
-            if (aprovada($v) && !eh_bump($v)) {
-                $compraram[$v['visitante']] = true;
-            }
-        }
-    }
-
     $linkEventos = fn(array $extra) => './?' . http_build_query(['aba' => 'eventos'] + $parLink + $extra);
-    echo '<div class="filtro-eventos"><a href="' . e($linkEventos([])) . '" class="' . ($evento === '' ? 'atual' : '') . '">Todos <b>' . array_sum($tipos) . '</b></a>';
+    echo '<div class="filtro-eventos"><a href="' . e($linkEventos([])) . '" class="' . ($evento === '' && !$soCompradores ? 'atual' : '') . '">Todos <b>' . array_sum($tipos) . '</b></a>';
     foreach ($tipos as $nome => $n) {
         echo '<a href="' . e($linkEventos(['evento' => $nome])) . '" class="' . ($evento === $nome ? 'atual' : '') . '">' . e(nome_evento($nome)) . ' <b>' . $n . '</b></a>';
     }
+    echo '<a href="' . e($linkEventos(['evento' => 'compraram'])) . '" class="compra' . ($soCompradores ? ' atual' : '') . '" title="Pessoas deste período com venda aprovada. Clique para ver o caminho delas até a compra.">Compraram <b>' . count($compradores) . '</b></a>';
     echo '</div>';
 
     $de1 = $total ? ($pg - 1) * $porPagina + 1 : 0;
-    echo '<h2>' . e($evento !== '' ? nome_evento($evento) : 'Eventos') . ' <span class="suave">(' . $de1 . '–' . (($pg - 1) * $porPagina + count($lista)) . ' de ' . $total . ')</span></h2>';
+    $titulo = $soCompradores ? 'Eventos de quem comprou' : ($evento !== '' ? nome_evento($evento) : 'Eventos');
+    echo '<h2>' . e($titulo) . ' <span class="suave">(' . $de1 . '–' . (($pg - 1) * $porPagina + count($lista)) . ' de ' . $total . ')</span></h2>';
     echo '<div class="tabela"><table><tr><th>Quando</th><th>Evento</th><th>Página</th><th>Canal</th><th>Campanha · anúncio · posicionamento</th><th>Veio de</th><th>Aparelho</th><th>Visitante</th></tr>';
     foreach ($lista as $ev) {
         $anuncio = implode(' · ', array_filter([nome_curto($ev['utm_campaign']), nome_curto($ev['utm_content']), $ev['utm_term'] ? str_replace('_', ' ', $ev['utm_term']) : null]));
@@ -574,7 +587,7 @@ if ($aba === 'eventos') {
             . '<td class="quebra">' . ($anuncio !== '' ? e($anuncio) : '<span class="suave">—</span>') . '</td>'
             . '<td>' . e($ev['referrer']) . '</td><td>' . e($aparelho) . '</td>'
             . '<td><a href="' . e(link_visitante($ev['visitante'], $parLink)) . '">' . e(substr($ev['visitante'], 0, 8)) . '</a>'
-            . (isset($compraram[$ev['visitante']]) ? ' <span class="selo ok">Comprou</span>' : '') . '</td></tr>';
+            . (isset($compradores[$ev['visitante']]) ? ' <span class="selo ok">Comprou</span>' : '') . '</td></tr>';
     }
     if (!$lista) {
         echo '<tr><td colspan="8" class="suave">Nenhum evento no período.</td></tr>';
@@ -582,8 +595,8 @@ if ($aba === 'eventos') {
     echo '</table></div>';
     if ($total > $porPagina) {
         echo '<p class="linha-botoes">'
-            . ($pg > 1 ? '<a href="' . e($linkEventos(($evento !== '' ? ['evento' => $evento] : []) + ['p' => $pg - 1])) . '">← Mais recentes</a>' : '')
-            . ($pg * $porPagina < $total ? '<a href="' . e($linkEventos(($evento !== '' ? ['evento' => $evento] : []) + ['p' => $pg + 1])) . '">Mais antigos →</a>' : '')
+            . ($pg > 1 ? '<a href="' . e($linkEventos(($soCompradores ? ['evento' => 'compraram'] : ($evento !== '' ? ['evento' => $evento] : [])) + ['p' => $pg - 1])) . '">← Mais recentes</a>' : '')
+            . ($pg * $porPagina < $total ? '<a href="' . e($linkEventos(($soCompradores ? ['evento' => 'compraram'] : ($evento !== '' ? ['evento' => $evento] : [])) + ['p' => $pg + 1])) . '">Mais antigos →</a>' : '')
             . '</p>';
     }
 }

@@ -53,7 +53,7 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/instalar.php")
 confere "$([ "$code" = "404" ]; echo $?)" "instalação fechada depois de instalado ($code)"
 
 echo "Coleta de eventos"
-ANUNCIO='"utms":{"utm_source":"MetaAds","utm_medium":"conjunto 5|111","utm_campaign":"TL 1|120","utm_content":"cv 05|222","utm_term":"Instagram_Reels"}'
+ANUNCIO='"utms":{"utm_source":"MetaAds","utm_medium":"conjunto 5|111111","utm_campaign":"TL 1|120120","utm_content":"cv 05|222222","utm_term":"Instagram_Reels"}'
 r=$(curl -s -c "$JAR" -b "$JAR" -H "Origin: http://site.test" -H "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 Instagram 350.0" \
     -H "X-Forwarded-For: 177.10.20.30" --data "{\"evento\":\"PageView\",\"url\":\"http://site.test/drivedeprojetos/?utm_source=MetaAds\",\"referrer\":\"https://l.instagram.com/?u=x\",$ANUNCIO}" "$URL/coletar.php")
 VID=$(grep -o '"vid":"[a-f0-9]*"' <<<"$r" | cut -d'"' -f4)
@@ -79,7 +79,7 @@ confere "$([ "$code" = "401" ]; echo $?)" "chave errada é recusada ($code)"
 VENDA="{\"order_id\":\"pedido-1\",\"order_status\":\"paid\",\"webhook_event_type\":\"order_approved\",\"payment_method\":\"pix\",
   \"Product\":{\"product_name\":\"Drive de Projetos 2.0\"},\"Customer\":{\"full_name\":\"Nome Real\",\"email\":\"real@exemplo.com\"},
   \"Commissions\":{\"charge_amount\":5949},
-  \"TrackingParameters\":{\"sck\":\"trk_$VID\",\"utm_source\":\"MetaAds\",\"utm_medium\":\"conjunto 5|111\",\"utm_campaign\":\"TL 1|120\"}}"
+  \"TrackingParameters\":{\"sck\":\"trk_$VID\",\"utm_source\":\"MetaAds\",\"utm_medium\":\"conjunto 5|111111\",\"utm_campaign\":\"TL 1|120120\"}}"
 code=$(curl -s -o /dev/null -w '%{http_code}' --data "$VENDA" "$URL/kiwify.php?chave=$CHAVE")
 confere "$([ "$code" = "200" ]; echo $?)" "venda com o identificador gravada ($code)"
 code=$(curl -s -o /dev/null -w '%{http_code}' --data "$VENDA" "$URL/kiwify.php?chave=$CHAVE")
@@ -102,7 +102,7 @@ destino=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$JAR" -b "$JAR" --data-u
 confere "$([ "${destino%/}" = "$URL" ]; echo $?)" "login certo; volta para outro site é ignorada (vai para $destino)"
 r=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo")
 confere "$(tem 'Tráfego por origem' "$r")" "tela inicial é a de tráfego"
-confere "$(tem 'MetaAds / conjunto 5|111 / TL 1|120</span></span></td><td>1</td>' "$r")" "tabela de tráfego mostra a origem do anúncio com 1 visitante"
+confere "$(tem 'MetaAds / conjunto 5|111111 / TL 1|120120</span></span></td><td>1</td>' "$r")" "tabela de tráfego mostra a origem do anúncio com 1 visitante"
 confere "$(tem 'Tráfego por canal' "$r")" "tráfego agrupado por canal"
 confere "$(tem 'canal-instagram' "$r")" "anúncio com posicionamento Instagram_Reels vira canal Instagram"
 confere "$(tem '<span>Orgânico</span>' "$r")" "visita vinda do Google sem etiqueta vira canal Orgânico (folha)"
@@ -125,7 +125,7 @@ confere "$(tem 'Sem visitante' "$r")" "venda sem identificador aparece como 'Sem
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
 confere "$(tem 'R$ 59,49' "$r")" "valor em centavos exibido em reais"
 confere "$(tem 'R$ 67,00' "$r")" "valor com ponto decimal exibido em reais"
-confere "$(tem '<span>Meta · anúncio</span>' "$r")" "venda de anúncio sem posicionamento chega por Meta"
+confere "$(tem '<span>Anúncio sem posicionamento</span>' "$r")" "venda de anúncio sem posicionamento fica como tal, não como Facebook ou Instagram"
 confere "$(tem '<span>Orgânico</span><span class="suave">· WhatsApp</span>' "$r")" "venda orgânica mostra o meio (WhatsApp)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo")
 confere "$(tem '&lt;script&gt;alert(1)&lt;/script&gt;' "$r")" "texto vindo da página é escapado (sem XSS)"
@@ -135,6 +135,9 @@ confere "$(tem 'iPhone · Instagram (app)' "$r")" "aparelho e navegador reconhec
 confere "$(tem 'TL 1 · cv 05 · Instagram Reels' "$r")" "evento mostra campanha, anúncio e posicionamento sem o ID"
 confere "$(tem 'Clique no checkout <b>1</b>' "$r")" "resumo conta os eventos por tipo"
 confere "$(tem '<span class="selo ok">Comprou</span>' "$r")" "visitante com venda aprovada aparece como Comprou"
+confere "$(tem 'Compraram <b>1</b>' "$r")" "resumo mostra quantos compraram"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&evento=compraram")
+confere "$(tem 'Eventos de quem comprou <span class="suave">(1–2 de 2)' "$r")" "Compraram mostra só o caminho de quem comprou"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&evento=CliqueCheckout")
 confere "$(grep -q 'Visualização</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "filtro por tipo de evento mostra só os cliques no checkout"
 confere "$(tem 'Clique no checkout</strong>' "$r")" "filtro por tipo de evento mantém o evento escolhido"
@@ -176,18 +179,18 @@ CID="a1b2c3d4-0000-4000-8000-000000000001"
 # Vendas que a API falsa devolve: pedido-1 (o webhook ja trouxe), api-2 (so a API tem),
 # api-3 (order bump do api-2) e api-4 (Pix nao pago). O comprador vem junto, como na Kiwify.
 AGORA=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
-RASTREIO="\"sck\":\"trk_$VID\",\"utm_source\":\"MetaAds\",\"utm_medium\":\"conjunto 5|111\",\"utm_campaign\":\"TL 1|120\""
+RASTREIO="\"sck\":\"trk_$VID\",\"utm_source\":\"MetaAds\",\"utm_medium\":\"conjunto 5|111111\",\"utm_campaign\":\"TL 1|120120\",\"utm_content\":\"cv 05|222222\""
 COMPRADOR='"customer":{"name":"Nome Da API","email":"cliente-api@exemplo.com","cpf":"99999999999","mobile":"+5511999999999"}'
 cat >"$DADOS/kiwify-falsa-vendas.json" <<EOF
 [
  {"id":"pedido-1","reference":"RefUm01","type":"product","parent_order_id":null,"status":"paid","payment_method":"pix","created_at":"$AGORA","updated_at":"$AGORA","approved_date":"$AGORA",
-  "product":{"name":"Drive de Projetos 2.0"},"payment":{"charge_amount":5949},"tracking":{$RASTREIO},$COMPRADOR},
+  "product":{"name":"Drive de Projetos 2.0"},"payment":{"charge_amount":5949,"net_amount":5000},"tracking":{$RASTREIO},$COMPRADOR},
  {"id":"api-2","reference":"RefDois2","type":"product","parent_order_id":null,"status":"paid","payment_method":"credit_card","created_at":"$AGORA","updated_at":"$AGORA","approved_date":"$AGORA",
-  "product":{"name":"Drive de Projetos 2.0"},"payment":{"charge_amount":6700},"tracking":{$RASTREIO},$COMPRADOR},
+  "product":{"name":"Drive de Projetos 2.0"},"payment":{"charge_amount":6700,"net_amount":6000},"tracking":{$RASTREIO},$COMPRADOR},
  {"id":"api-3","reference":"RefBump3","type":"bump","parent_order_id":"api-2","status":"paid","payment_method":"credit_card","created_at":"$AGORA","updated_at":"$AGORA","approved_date":"$AGORA",
-  "product":{"name":"Memorial Descritivo"},"payment":{"charge_amount":2990},"tracking":{$RASTREIO},$COMPRADOR},
+  "product":{"name":"Memorial Descritivo"},"payment":{"charge_amount":2990,"net_amount":2500},"tracking":{$RASTREIO},$COMPRADOR},
  {"id":"api-4","reference":"RefPix04","type":"product","parent_order_id":null,"status":"waiting_payment","payment_method":"pix","created_at":"$AGORA","updated_at":"$AGORA","approved_date":null,
-  "product":{"name":"Drive de Projetos"},"payment":{"charge_amount":6700},"tracking":{"utm_source":"FB","utm_medium":"conjunto 2|222"},$COMPRADOR}
+  "product":{"name":"Drive de Projetos"},"payment":{"charge_amount":6700},"tracking":{"utm_source":"FB","utm_medium":"{{adset.name}}|{{adset.id}}","utm_term":"{{placement}}"},$COMPRADOR}
 ]
 EOF
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/kiwify-api.php")
@@ -281,6 +284,36 @@ r=$(meta "$csrf" "$LEITURA" act_587364236934346)
 confere "$(tem 'Token conferido e salvo. Conta DRIVE DE PROJETOS: R$ 1.539,22 investidos nos últimos 7 dias' "$r")" "token só de leitura é conferido e salvo, com o gasto de 7 dias"
 confere "$(grep -q "$LEITURA" <<<"$r"; [ $? -ne 0 ]; echo $?)" "token da Meta não volta para a tela"
 confere "$(tem 'consulta(s) no último minuto' "$r")" "aba API Meta mostra o uso da API"
+
+echo "Gestor de anúncios"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem 'id="sync" data-sync="1"' "$r")" "gestor pede a busca na Meta em segundo plano"
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "volta=./?aba=gestor&periodo=tudo" "$URL/sincronizar.php"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem 'gasto da Meta atualizado em' "$r")" "botão Atualizar busca o gasto na Meta"
+confere "$(tem '<strong>TL 1</strong>' "$r")" "campanha aparece com o nome da Meta"
+linha=$(grep -o '<strong>TL 1</strong>.*</tr>' <<<"$r" | head -1 | sed 's#</tr>.*##')
+confere "$(tem 'R$ 40,00<br><span class="suave">Diário' "$linha")" "orçamento diário da campanha"
+confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$linha")" "gasto, 2 vendas (bump fora) e faturamento líquido com bump"
+confere "$(tem 'positivo">R$ 78,92' "$linha")" "lucro desconta gasto e imposto de 12,15% (igual à UTMify)"
+confere "$(tem 'R$ 25,00</td><td class="positivo">2,58</td><td>R$ 16,67</td>' "$linha")" "CPA, ROI e custo por checkout"
+confere "$(tem 'status-meta ativo" title="Ativo na Meta">Ativo</span></td><td class="quebra"><strong>TL 1</strong>' "$r")" "campanha ativa na Meta"
+confere "$(tem 'negativo">R$ -11,22' "$r")" "campanha pausada com gasto e sem venda aparece no prejuízo"
+confere "$(tem '1 venda(s) não trackeada(s)' "$r")" "venda orgânica conta como não trackeada"
+confere "$(grep -q 'name="dominio"' <<<"$r"; [ $? -ne 0 ]; echo $?)" "no gestor o topo só tem o período"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos")
+confere "$(tem '<strong>conjunto 5</strong><br><span class="suave">TL 1</span>' "$r")" "conjunto mostra a campanha dele"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios")
+confere "$(tem '<strong>cv 05</strong><br><span class="suave">conjunto 5</span></td><td><span class="suave">—</span></td><td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "anúncio com as vendas que têm o ID dele (a API completou a do webhook)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=contas")
+confere "$(tem '<strong>DRIVE DE PROJETOS</strong>' "$r")" "nível conta com o nome da conta de anúncios"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&st=pausados")
+confere "$(tem '<strong>FREE</strong>' "$r")" "filtro de pausados mostra a FREE"
+confere "$(grep -q '<strong>TL 1</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "filtro de pausados esconde a TL 1"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&q=free")
+confere "$(grep -q '<strong>TL 1</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "busca por nome filtra as campanhas"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
+confere "$(tem '<span>Anúncio compartilhado</span>' "$r")" "etiqueta com {{placement}} vira anúncio compartilhado"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/meta-api.php")
 confere "$(tem 'Token removido do painel' "$r")" "remover o token da Meta"
 confere "$(grep -q "$LEITURA" "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "token removido sai da configuração"

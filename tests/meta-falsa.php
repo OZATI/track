@@ -34,7 +34,38 @@ if ($rota === '/graph/act_587364236934346') {
     echo json_encode(['name' => 'DRIVE DE PROJETOS', 'currency' => 'BRL', 'account_status' => 1, 'id' => 'act_587364236934346']);
     exit;
 }
+// Gestor de anuncios: TL 1 ativa (conjunto 5 / cv 05) e FREE pausada
+$listas = [
+    '/graph/act_587364236934346/campaigns' => [
+        ['id' => '120120', 'name' => 'TL 1', 'status' => 'ACTIVE', 'effective_status' => 'ACTIVE', 'daily_budget' => '4000'],
+        ['id' => '555555', 'name' => 'FREE', 'status' => 'PAUSED', 'effective_status' => 'PAUSED', 'daily_budget' => '3000'],
+    ],
+    '/graph/act_587364236934346/adsets' => [
+        ['id' => '111111', 'name' => 'conjunto 5', 'status' => 'ACTIVE', 'effective_status' => 'ACTIVE', 'campaign_id' => '120120'],
+        ['id' => '444444', 'name' => 'conjunto free', 'status' => 'PAUSED', 'effective_status' => 'CAMPAIGN_PAUSED', 'campaign_id' => '555555'],
+    ],
+    '/graph/act_587364236934346/ads' => [
+        ['id' => '222222', 'name' => 'cv 05', 'status' => 'ACTIVE', 'effective_status' => 'ACTIVE', 'adset_id' => '111111', 'campaign_id' => '120120'],
+        ['id' => '333333', 'name' => 'cv free', 'status' => 'PAUSED', 'effective_status' => 'CAMPAIGN_PAUSED', 'adset_id' => '444444', 'campaign_id' => '555555'],
+    ],
+];
+if (isset($listas[$rota])) {
+    echo json_encode(['data' => $listas[$rota], 'paging' => ['cursors' => ['before' => 'a', 'after' => 'b']]]);
+    exit;
+}
 if ($rota === '/graph/act_587364236934346/insights') {
+    if (($_GET['level'] ?? '') === 'ad') {
+        // Gasto de hoje por anuncio (dia no fuso da conta)
+        $hoje = (new DateTime('now', new DateTimeZone('America/Sao_Paulo')))->format('Y-m-d');
+        echo json_encode(['data' => [
+            ['ad_id' => '222222', 'adset_id' => '111111', 'campaign_id' => '120120', 'spend' => '50.00', 'impressions' => '4000', 'inline_link_clicks' => '60',
+                'actions' => [['action_type' => 'offsite_conversion.fb_pixel_initiate_checkout', 'value' => '3'], ['action_type' => 'omni_initiated_checkout', 'value' => '3']],
+                'date_start' => $hoje, 'date_stop' => $hoje],
+            ['ad_id' => '333333', 'adset_id' => '444444', 'campaign_id' => '555555', 'spend' => '10.00', 'impressions' => '900', 'inline_link_clicks' => '4',
+                'date_start' => $hoje, 'date_stop' => $hoje],
+        ]]);
+        exit;
+    }
     echo json_encode(['data' => [['spend' => '1539.22', 'date_start' => '2026-09-22', 'date_stop' => '2026-09-28']]]);
     exit;
 }

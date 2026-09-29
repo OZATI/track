@@ -44,13 +44,18 @@ $produto = texto($p['Product']['product_name'] ?? $p['product']['name'] ?? $p['p
 $pagamento = texto($p['payment_method'] ?? '', 40);
 
 // Valor em centavos. A Kiwify manda inteiro em centavos (5949); com ponto decimal, e em reais.
-$bruto = $p['Commissions']['charge_amount'] ?? $p['payment']['charge_amount'] ?? $p['charge_amount'] ?? null;
-$valor = null;
-if (is_int($bruto) || (is_string($bruto) && preg_match('/^\d+$/', $bruto))) {
-    $valor = (int)$bruto;
-} elseif (is_float($bruto) || (is_string($bruto) && is_numeric($bruto))) {
-    $valor = (int)round((float)$bruto * 100);
-}
+$centavos = function ($v): ?int {
+    if (is_int($v) || (is_string($v) && preg_match('/^\d+$/', $v))) {
+        return (int)$v;
+    }
+    if (is_float($v) || (is_string($v) && is_numeric($v))) {
+        return (int)round((float)$v * 100);
+    }
+    return null;
+};
+$valor = $centavos($p['Commissions']['charge_amount'] ?? $p['payment']['charge_amount'] ?? $p['charge_amount'] ?? null);
+// Liquido: a comissao do produtor, depois das taxas da Kiwify (base do lucro e do ROI)
+$liquido = $centavos($p['Commissions']['my_commission'] ?? $p['payment']['net_amount'] ?? null);
 
 $t = $p['TrackingParameters'] ?? $p['tracking'] ?? [];
 $t = is_array($t) ? $t : [];
@@ -66,9 +71,10 @@ $agora = agora_utc();
 $db = track_db();
 // fonte: 'webhook'; se a busca pela API ja tinha trazido a venda, vira 'ambos'
 $db->prepare('INSERT INTO vendas (pedido, evento, status, produto, valor, pagamento, recebida_em, atualizada_em, visitante, sck, src,
-                                  utm_source, utm_medium, utm_campaign, utm_content, utm_term, referencia, fonte)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'webhook\')
+                                  utm_source, utm_medium, utm_campaign, utm_content, utm_term, referencia, valor_liquido, fonte)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'webhook\')
               ON CONFLICT (pedido) DO UPDATE SET
+                  valor_liquido = COALESCE(excluded.valor_liquido, vendas.valor_liquido),
                   fonte = CASE WHEN vendas.fonte IN (\'api\', \'ambos\') THEN \'ambos\' ELSE \'webhook\' END,
                   referencia = COALESCE(vendas.referencia, NULLIF(excluded.referencia, \'\')),
                   evento = excluded.evento,
@@ -79,6 +85,6 @@ $db->prepare('INSERT INTO vendas (pedido, evento, status, produto, valor, pagame
                   pagamento = COALESCE(NULLIF(excluded.pagamento, \'\'), vendas.pagamento),
                   visitante = COALESCE(vendas.visitante, excluded.visitante)')
     ->execute([$pedido, $evento, $status, $produto, $valor, $pagamento, $agora, $agora, $visitante, $sck, $campo('src'),
-        $campo('utm_source'), $campo('utm_medium'), $campo('utm_campaign'), $campo('utm_content'), $campo('utm_term'), $referencia]);
+        $campo('utm_source'), $campo('utm_medium'), $campo('utm_campaign'), $campo('utm_content'), $campo('utm_term'), $referencia, $liquido]);
 
 responder_json(200, ['ok' => true]);

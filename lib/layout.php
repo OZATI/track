@@ -101,13 +101,30 @@ button.discreto.neutro{ color:var(--texto); }
 .ico{ flex:none; }
 button .ico{ vertical-align:-2px; }
 .passos{ margin:0 0 14px; padding-left:20px; font-size:13px; } .passos li{ margin-bottom:4px; }
+.gestor-niveis{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:0 0 14px; }
+.gestor-niveis a{ display:flex; align-items:center; justify-content:center; gap:8px; padding:11px 12px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md);
+  text-decoration:none; color:var(--suave); font-family:var(--f-titulo); font-weight:600; font-size:14px; }
+.gestor-niveis a.atual{ color:var(--marca); border-color:rgba(29,111,242,.45); box-shadow:inset 0 -3px 0 var(--marca); background:rgba(29,111,242,.05); }
+.gestor-filtros{ display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin:0 0 14px; }
+.gestor-filtros label{ display:flex; flex-direction:column; gap:3px; font-size:11px; color:var(--suave); font-weight:500; }
+.tabela.gestor td, .tabela.gestor th{ text-align:right; } .tabela.gestor td:nth-child(-n+2), .tabela.gestor th:nth-child(-n+2){ text-align:left; }
+.tabela.gestor td.quebra{ min-width:200px; }
+.tabela.gestor tr.total td{ background:var(--cartao-2); }
+.positivo{ color:var(--ok); font-weight:600; } .negativo{ color:var(--erro); font-weight:600; }
+.status-meta{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--suave); }
+.status-meta::before{ content:""; width:9px; height:9px; border-radius:50%; background:#B8C2CE; }
+.status-meta.ativo{ color:var(--ok); } .status-meta.ativo::before{ background:#12A150; box-shadow:0 0 0 3px rgba(18,161,80,.15); }
+.status-meta.alerta{ color:var(--alerta); } .status-meta.alerta::before{ background:#F5A623; }
+.aviso-meta{ background:rgba(29,111,242,.06); border:1px solid rgba(29,111,242,.25); border-radius:var(--r-md); padding:10px 14px; }
+.legenda{ font-size:12px; max-width:900px; }
 .filtro-eventos{ display:flex; flex-wrap:wrap; gap:8px; margin:0 0 4px; }
 .filtro-eventos a{ display:inline-flex; align-items:center; gap:8px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-sm); padding:6px 12px; text-decoration:none; color:var(--texto); font-size:12.5px; }
 .filtro-eventos a b{ font-family:var(--f-mono); color:var(--alerta); }
+.filtro-eventos a.compra{ border-color:rgba(18,161,80,.35); color:var(--ok); } .filtro-eventos a.compra b{ color:var(--ok); }
 .filtro-eventos a.atual{ background:rgba(29,111,242,.08); border-color:rgba(29,111,242,.35); color:var(--marca); font-weight:600; }
 .canal{ display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
 .canal-instagram .ico{ color:#C13584; } .canal-facebook .ico{ color:#1877F2; } .canal-meta .ico{ color:#0866FF; }
-.canal-google .ico{ color:#EA4335; } .canal-organico .ico{ color:#12A150; } .canal-outros .ico{ color:#7C5CFF; } .canal-direto .ico{ color:var(--apagado); }
+.canal-compartilhado .ico{ color:#0866FF; } .canal-google .ico{ color:#EA4335; } .canal-organico .ico{ color:#12A150; } .canal-outros .ico{ color:#7C5CFF; } .canal-direto .ico{ color:var(--apagado); }
 @media (max-width:640px){ .topo, .abas{ padding-left:16px; padding-right:16px; } main{ padding:16px; } select{ min-width:140px; } .conta{ margin-left:0; }
   .casca{ flex-direction:column; } .lateral{ width:auto; height:auto; flex-direction:row; justify-content:center; position:static; padding:6px; } }
 </style>
@@ -166,6 +183,10 @@ function icone(string $nome, int $tam = 16): string
         'folha' => '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.9-5.4 5.1-6C9.5 14.5 12 13 13 12"/>',
         'link' => '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
         'direto' => '<path d="M7 17L17 7M8 7h9v9"/>',
+        'conta' => '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>',
+        'campanha' => '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/>',
+        'conjunto' => '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+        'anuncio' => '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
     ];
     return '<svg class="ico" width="' . $tam . '" height="' . $tam . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$nome] ?? '') . '</svg>';
 }
@@ -201,7 +222,13 @@ function canal(?string $source, ?string $medium = null, ?string $term = null, ?s
         if (preg_match('/^(facebook|messenger|audience)/', $t) || ($t === '' && $s === 'facebook')) {
             return ['facebook', 'Facebook · anúncio', 'facebook', ''];
         }
-        return ['meta', 'Meta · anúncio', 'meta', ''];
+        // Etiqueta com {{...}} escrito: o link do anuncio foi aberto fora da entrega paga
+        // (post compartilhado, link copiado). A Meta nao preencheu nada, nem o posicionamento.
+        if (strpos($m . $t, '{{') !== false) {
+            return ['compartilhado', 'Anúncio compartilhado', 'link', 'link do anúncio aberto fora da entrega paga'];
+        }
+        // Anuncio pago, mas a etiqueta nao disse onde apareceu (Facebook ou Instagram)
+        return ['meta', 'Anúncio sem posicionamento', 'meta', 'a etiqueta não disse se foi Facebook ou Instagram'];
     }
     if (in_array($s, ['googleads', 'google-ads', 'adwords'], true) || ($s === 'google' && $pago)) {
         return ['google', 'Google · anúncio', 'google', ''];
@@ -228,11 +255,11 @@ function canal(?string $source, ?string $medium = null, ?string $term = null, ?s
 }
 
 // Ordem dos canais nas tabelas agrupadas
-const CANAIS_ORDEM = ['instagram', 'facebook', 'meta', 'google', 'organico', 'outros', 'direto'];
+const CANAIS_ORDEM = ['instagram', 'facebook', 'meta', 'compartilhado', 'google', 'organico', 'outros', 'direto'];
 
 function selo_canal(array $c, bool $comDetalhe = true): string
 {
-    return '<span class="canal canal-' . e($c[0]) . '">' . icone($c[2]) . '<span>' . e($c[1]) . '</span>'
+    return '<span class="canal canal-' . e($c[0]) . '"' . ($c[3] !== '' ? ' title="' . e($c[3]) . '"' : '') . '>' . icone($c[2]) . '<span>' . e($c[1]) . '</span>'
         . ($comDetalhe && $c[3] !== '' ? '<span class="suave">· ' . e($c[3]) . '</span>' : '') . '</span>';
 }
 
@@ -260,10 +287,12 @@ function topo_pagina(): void
 function barra_topo(array $filtro, array $dominios, array $paginas, string $aba): void
 {
     $periodos = ['hoje' => 'Hoje', 'ontem' => 'Ontem', '7d' => 'Últimos 7 dias', '30d' => 'Últimos 30 dias', 'tudo' => 'Tudo'];
+    $soPeriodo = $aba === 'gestor'; // no gestor, site e pagina nao se aplicam
     ?>
 <header class="topo">
 <form class="filtros" method="get" action="./" id="filtros">
   <input type="hidden" name="aba" value="<?= e($aba) ?>">
+  <?php if (!$soPeriodo): ?>
   <label>Site
     <select name="dominio" data-reinicia="pagina">
       <option value="">Todos os sites</option>
@@ -280,6 +309,9 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba)
       <?php endforeach; ?>
     </select>
   </label>
+  <?php elseif (is_string($_GET['nivel'] ?? null) && preg_match('/^[a-z]{5,10}$/', $_GET['nivel'])): ?>
+  <input type="hidden" name="nivel" value="<?= e($_GET['nivel']) ?>">
+  <?php endif; ?>
   <label>Período
     <select name="periodo">
       <?php foreach ($periodos as $v => $rotulo): ?>
@@ -299,7 +331,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba)
 // configuracao (API Kiwify e Usuarios) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
-    $abas = ['trafego' => ['Tráfego', 'trafego'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
+    $abas = ['trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
         'visitantes' => ['Visitantes', 'visitantes'], 'eventos' => ['Eventos', 'eventos']];
     echo '<nav class="abas" aria-label="Seções do painel UTM"><span class="abas-titulo">UTM · Rastreio de vendas</span>';
     foreach ($abas as $id => [$rotulo, $ico]) {
