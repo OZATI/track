@@ -2,17 +2,18 @@
 // Cliente da API de Marketing da Meta (Graph API), so para LER: quanto cada anuncio gastou,
 // para o painel calcular ROI e ROAS ao lado das vendas.
 //
-// Token de usuario do sistema com a permissao ads_read, colado uma vez na aba API Meta e
-// guardado na configuracao, fora da pasta publica. Token que tambem pode editar (ads_management,
-// business_management) e recusado: com ele, quem o pegasse poderia mexer em orcamento e
-// campanhas. Mesma protecao contra bloqueio da API da Kiwify: limite por minuto e pausa
-// automatica quando a Meta avisa que passou do limite.
+// Token de usuario do sistema, colado uma vez na aba API Meta e guardado na configuracao, fora
+// da pasta publica. Precisa de ads_read. Token que tambem pode editar (ads_management,
+// business_management) e aceito com aviso: decisao de 29/09/2026, para o gestor poder ligar,
+// pausar e mudar orcamento no futuro. Ate la o painel so le; toda edicao, quando existir, pede
+// confirmacao e fica registrada. Mesma protecao contra bloqueio da API da Kiwify: limite por
+// minuto e pausa automatica quando a Meta avisa que passou do limite.
 
 const META_API_VERSAO = 'v23.0';
 const META_ADIADA = -1;
 
-// Permissoes que o token do painel nao pode ter (escrita)
-const META_PERMISSOES_PROIBIDAS = [
+// Permissoes de escrita: aceitas, mas a tela avisa que o token pode editar
+const META_PERMISSOES_EDICAO = [
     'ads_management' => 'gerenciar anúncios (orçamento, campanhas, pausar)',
     'business_management' => 'gerenciar o negócio',
     'pages_manage_ads' => 'gerenciar anúncios da página',
@@ -140,11 +141,7 @@ function meta_api_testar(string $token, string $conta): array
             }
         }
     }
-    $proibidas = array_values(array_intersect_key(META_PERMISSOES_PROIBIDAS, array_flip($permissoes)));
-    if ($proibidas) {
-        return ['ok' => false, 'erro' => 'Este token também pode editar a conta: ' . implode(', ', $proibidas)
-            . '. O painel só precisa ler. Gere outro token marcando só "ads_read".'];
-    }
+    $edita = array_values(array_intersect_key(META_PERMISSOES_EDICAO, array_flip($permissoes)));
     if ($permissoes && !in_array('ads_read', $permissoes, true)) {
         return ['ok' => false, 'erro' => 'Este token não tem a permissão "ads_read" (ler anúncios). Gere outro marcando "ads_read".'];
     }
@@ -170,5 +167,5 @@ function meta_api_testar(string $token, string $conta): array
     foreach ((array)($ins['data'] ?? []) as $linha) {
         $gasto += meta_centavos($linha['spend'] ?? 0);
     }
-    return ['ok' => true, 'conta_nome' => $nome, 'moeda' => $moeda, 'permissoes' => $permissoes, 'gasto_7d' => $gasto];
+    return ['ok' => true, 'conta_nome' => $nome, 'moeda' => $moeda, 'permissoes' => $permissoes, 'edita' => $edita, 'gasto_7d' => $gasto];
 }

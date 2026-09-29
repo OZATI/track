@@ -279,11 +279,12 @@ r=$(meta "" "$LEITURA" 587364236934346)
 confere "$(tem 'Sessão expirada' "$r")" "salvar token sem o token do formulário é recusado"
 r=$(meta "$csrf" "TokenFalso000000000000000000000000000000000000" 587364236934346)
 confere "$(tem 'A Meta recusou o token' "$r")" "token que a Meta recusa não é salvo"
-r=$(meta "$csrf" "TokenGerencia00000000000000000000000000000000" 587364236934346)
-confere "$(tem 'também pode editar a conta: gerenciar anúncios' "$r")" "token que pode editar anúncios é recusado"
 r=$(meta "$csrf" "$LEITURA" 111222333444)
 confere "$(tem 'não enxerga a conta de anúncios 111222333444' "$r")" "conta de anúncios sem acesso é recusada"
-confere "$(grep -q 'TokenLeitura\|TokenGerencia' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "nenhum token recusado foi gravado"
+confere "$(grep -q 'TokenLeitura\|TokenFalso' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "nenhum token recusado foi gravado"
+r=$(meta "$csrf" "TokenGerencia00000000000000000000000000000000" 587364236934346)
+confere "$(tem 'Token conferido e salvo.*Atenção: este token também pode gerenciar anúncios' "$r")" "token que pode editar é aceito, com aviso"
+confere "$(tem 'Pode editar</span>' "$r")" "aba API Meta marca que o token pode editar"
 r=$(meta "$csrf" "$LEITURA" act_587364236934346)
 confere "$(tem 'Token conferido e salvo. Conta DRIVE DE PROJETOS: R$ 1.539,22 investidos nos últimos 7 dias' "$r")" "token só de leitura é conferido e salvo, com o gasto de 7 dias"
 confere "$(grep -q "$LEITURA" <<<"$r"; [ $? -ne 0 ]; echo $?)" "token da Meta não volta para a tela"

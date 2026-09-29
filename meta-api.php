@@ -1,6 +1,6 @@
 <?php
 // Token da API de Marketing da Meta: colar uma vez, conferir e guardar fora da pasta
-// publica. So aceita token que le anuncios (ads_read); token que edita e recusado.
+// publica. Precisa de ads_read; token que tambem edita e aceito com aviso (lib/meta_api.php).
 // Serve para o painel ler o gasto dos anuncios e calcular ROI e ROAS.
 
 require __DIR__ . '/lib/util.php';
@@ -40,7 +40,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     'salva_por' => usuario_atual(),
                 ];
                 if (track_salvar_config($cfg)) {
-                    $aviso = 'Token conferido e salvo. Conta ' . $r['conta_nome'] . ': ' . reais_simples($r['gasto_7d'], $r['moeda']) . ' investidos nos últimos 7 dias.';
+                    $aviso = 'Token conferido e salvo. Conta ' . $r['conta_nome'] . ': ' . reais_simples($r['gasto_7d'], $r['moeda']) . ' investidos nos últimos 7 dias.'
+                        . ($r['edita'] ? ' Atenção: este token também pode ' . implode(', ', $r['edita']) . '. Ele fica só aqui no painel; não o compartilhe.' : '');
                 } else {
                     $erros[] = 'Não foi possível gravar a configuração. Confira as permissões de ' . track_pasta_dados() . '.';
                 }
@@ -92,7 +93,9 @@ abas_painel('meta-api');
     <div class="tabela"><table>
       <tr><th>Conta de anúncios</th><td><?= e($chave['conta_nome'] ?? '') ?> <span class="suave">(<?= e($chave['conta']) ?> · <?= e($chave['moeda'] ?? '') ?>)</span></td></tr>
       <tr><th>Token</th><td><code><?= e(mascarar($chave['token'])) ?></code> <span class="suave">o resto não aparece mais</span></td></tr>
-      <tr><th>Permissões</th><td><?= e(implode(', ', $chave['permissoes'] ?? []) ?: 'a Meta não listou (a leitura da conta funcionou)') ?></td></tr>
+      <tr><th>Permissões</th><td><?= e(implode(', ', $chave['permissoes'] ?? []) ?: 'a Meta não listou (a leitura da conta funcionou)') ?>
+        <?php $podeEditar = array_intersect_key(META_PERMISSOES_EDICAO, array_flip($chave['permissoes'] ?? [])); ?>
+        <?= $podeEditar ? '<br><span class="selo alerta">Pode editar</span> <span class="suave">' . e(implode(', ', $podeEditar)) . '. Por enquanto o painel só lê.</span>' : '' ?></td></tr>
       <tr><th>Salvo</th><td><?= e(data_local($chave['salva_em'] ?? null, 'd/m/Y H:i')) ?> <span class="suave">por <?= e($chave['salva_por'] ?? '') ?></span></td></tr>
       <?php $pausa = meta_api_pausa_ate(); ?>
       <tr><th>Uso da API</th><td><?= meta_api_uso(60) ?> consulta(s) no último minuto · <?= meta_api_uso(3600) ?> na última hora
@@ -109,11 +112,11 @@ abas_painel('meta-api');
 
   <section class="cartao">
     <h2><?= $chave ? 'Trocar o token' : 'Conectar a conta de anúncios da Meta' ?></h2>
-    <p class="suave">Serve para o painel ler <strong>quanto cada anúncio gastou</strong> e mostrar ROI e ROAS ao lado das vendas. O painel só lê: token que pode editar orçamento ou campanhas é recusado.</p>
+    <p class="suave">Serve para o painel ler <strong>quanto cada anúncio gastou</strong> e mostrar lucro e ROI ao lado das vendas. Precisa de <strong>ads_read</strong>. Com ads_management, o gestor poderá, quando essa função existir, ligar, pausar e mudar orçamento (sempre com confirmação).</p>
     <ol class="suave passos">
       <li><strong>business.facebook.com</strong> → Configurações do negócio → Usuários → <strong>Usuários do sistema</strong> → Adicionar (nome: Painel UTM, função: Funcionário).</li>
       <li>No usuário criado: <strong>Atribuir ativos</strong> → Contas de anúncios → DRIVE DE PROJETOS → só <strong>Ver desempenho</strong>.</li>
-      <li><strong>Gerar novo token</strong> → escolha o app do negócio → validade <strong>Nunca</strong> → marque <strong>só ads_read</strong> → Gerar.</li>
+      <li><strong>Gerar novo token</strong> → escolha o app do negócio → validade <strong>Nunca</strong> → marque <strong>ads_read</strong> (e as de edição, se for usar) → Gerar.</li>
       <li>Copie o token e cole aqui, direto, sem passar por WhatsApp ou e-mail.</li>
     </ol>
     <form method="post" action="meta-api.php" autocomplete="off">
