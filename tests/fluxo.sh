@@ -101,6 +101,9 @@ confere "$(tem 'orgânico · www.google.com' "$r")" "visita sem etiqueta vinda d
 confere "$(tem 'direto (sem origem)' "$r")" "visita sem etiqueta e sem site de origem aparece como direto"
 confere "$(grep -q 'q=drive' <<<"$r"; [ $? -ne 0 ]; echo $?)" "parâmetros do site de origem não são guardados (LGPD)"
 confere "$(tem 'Tráfego por página' "$r")" "tabela por página aparece"
+confere "$(tem 'Clicaram no WhatsApp' "$r")" "coluna WhatsApp aparece quando o site já teve clique no WhatsApp"
+r2=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo&dominio=site.test&pagina=/drivedeprojetos/")
+confere "$(grep -q 'WhatsApp' <<<"$r2"; [ $? -ne 0 ]; echo $?)" "página que só vende pelo checkout não mostra coluna de WhatsApp"
 confere "$(tem 'class="lateral"' "$r")" "barra lateral CMS | UTM aparece quando há link do CMS"
 confere "$(tem 'href="../" title="CMS"' "$r")" "ícone CMS aponta para o link configurado"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")

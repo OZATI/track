@@ -27,6 +27,20 @@ $pagina = in_array($_GET['pagina'] ?? '', $paginas, true) ? $_GET['pagina'] : ''
 $filtro = ['dominio' => $dominio, 'pagina' => $pagina, 'periodo' => $periodo];
 [$de, $ate] = periodo_utc($periodo);
 
+// Colunas de WhatsApp so para site/pagina que ja teve clique no WhatsApp (em qualquer
+// periodo). Quem vende so pelo checkout (ex.: EngDesk) nao ve coluna sempre zerada.
+$parW = [];
+$sqlW = "SELECT 1 FROM eventos WHERE nome = 'WhatsApp'";
+if ($dominio !== '') {
+    $sqlW .= ' AND dominio = :dom';
+    $parW[':dom'] = $dominio;
+}
+if ($pagina !== '') {
+    $sqlW .= ' AND pagina = :pag';
+    $parW[':pag'] = $pagina;
+}
+$temWhats = (bool)valor($db, $sqlW . ' LIMIT 1', $parW);
+
 // Condicao dos eventos no filtro
 $condEv = 'e.em >= :de AND e.em < :ate';
 $parEv = [':de' => $de, ':ate' => $ate];
@@ -288,20 +302,20 @@ if ($aba === 'trafego') {
 
     $alvo = $dominio === '' ? 'todos os sites' : $dominio . ($pagina === '' ? ' (todas as páginas)' : $pagina);
     echo '<h2>Tráfego por origem · ' . e($alvo) . '</h2>';
-    echo '<div class="tabela"><table><tr><th>Origem (source / medium / campaign)</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th><th>Clicaram no WhatsApp</th><th>Vendas aprovadas</th><th>Faturamento</th><th>Conversão</th></tr>';
+    echo '<div class="tabela"><table><tr><th>Origem (source / medium / campaign)</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th>' . ($temWhats ? '<th>Clicaram no WhatsApp</th>' : '') . '<th>Vendas aprovadas</th><th>Faturamento</th><th>Conversão</th></tr>';
     $t = ['vis' => 0, 'pv' => 0, 'ck' => 0, 'wa' => 0, 'vendas' => 0, 'fat' => 0];
     foreach ($linhas as $k => $l) {
         foreach ($t as $campo => $_) {
             $t[$campo] += $l[$campo];
         }
-        echo '<tr><td class="quebra">' . e($k) . '</td><td>' . $l['vis'] . '</td><td>' . $l['pv'] . '</td><td>' . $l['ck'] . '</td><td>' . $l['wa'] . '</td><td>'
+        echo '<tr><td class="quebra">' . e($k) . '</td><td>' . $l['vis'] . '</td><td>' . $l['pv'] . '</td><td>' . $l['ck'] . '</td><td>' . ($temWhats ? $l['wa'] . '</td><td>' : '')
             . ($l['vendas'] ? '<span class="selo ok">' . $l['vendas'] . '</span>' : '0') . '</td><td>' . e($l['fat'] ? reais($l['fat']) : '—') . '</td><td>' . e($taxa($l['vendas'], $l['vis'])) . '</td></tr>';
     }
     if ($linhas) {
         echo '<tr><td><strong>Total</strong></td><td><strong>' . $t['vis'] . '</strong></td><td><strong>' . $t['pv'] . '</strong></td><td><strong>' . $t['ck'] . '</strong></td><td><strong>'
-            . $t['wa'] . '</strong></td><td><strong>' . $t['vendas'] . '</strong></td><td><strong>' . e(reais($t['fat'])) . '</strong></td><td><strong>' . e($taxa($t['vendas'], $t['vis'])) . '</strong></td></tr>';
+            . ($temWhats ? $t['wa'] . '</strong></td><td><strong>' : '') . $t['vendas'] . '</strong></td><td><strong>' . e(reais($t['fat'])) . '</strong></td><td><strong>' . e($taxa($t['vendas'], $t['vis'])) . '</strong></td></tr>';
     } else {
-        echo '<tr><td colspan="8" class="suave">Nenhuma visita no período. As visitas chegam pelo t.js instalado nas páginas.</td></tr>';
+        echo '<tr><td colspan="' . ($temWhats ? 8 : 7) . '" class="suave">Nenhuma visita no período. As visitas chegam pelo t.js instalado nas páginas.</td></tr>';
     }
     echo '</table></div>';
     if ($semVisitante) {
@@ -313,10 +327,10 @@ if ($aba === 'trafego') {
                                            COUNT(DISTINCT CASE WHEN e.nome = 'CliqueCheckout' THEN e.visitante END) AS ck,
                                            COUNT(DISTINCT CASE WHEN e.nome = 'WhatsApp' THEN e.visitante END) AS wa
                                     FROM eventos e WHERE $condEv GROUP BY e.dominio, e.pagina ORDER BY vis DESC", $parEv);
-        echo '<h2>Tráfego por página</h2><div class="tabela"><table><tr><th>Página</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th><th>Clicaram no WhatsApp</th><th>Taxa de clique no checkout</th></tr>';
+        echo '<h2>Tráfego por página</h2><div class="tabela"><table><tr><th>Página</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th>' . ($temWhats ? '<th>Clicaram no WhatsApp</th>' : '') . '<th>Taxa de clique no checkout</th></tr>';
         foreach ($porPagina as $p) {
             echo '<tr><td>' . e($p['dominio'] . $p['pagina']) . '</td><td>' . (int)$p['vis'] . '</td><td>' . (int)$p['pv'] . '</td><td>' . (int)$p['ck'] . '</td><td>'
-                . (int)$p['wa'] . '</td><td>' . e($taxa((int)$p['ck'], (int)$p['vis'])) . '</td></tr>';
+                . ($temWhats ? (int)$p['wa'] . '</td><td>' : '') . e($taxa((int)$p['ck'], (int)$p['vis'])) . '</td></tr>';
         }
         if (!$porPagina) {
             echo '<tr><td colspan="6" class="suave">Nenhuma visita no período.</td></tr>';
@@ -344,16 +358,19 @@ if ($aba === 'resumo') {
     $total = count($aprovadas);
     $pct = fn($n) => $total ? round($n * 100 / $total) . '%' : '—';
 
-    echo '<div class="numeros">';
-    foreach ([
+    $numeros = [
         [$visitantes, 'Visitantes (aparelhos)'],
         [$pageviews, 'Visualizações de página'],
         [$cliques, 'Visitantes que clicaram no checkout'],
-        [$whats, 'Visitantes que clicaram no WhatsApp'],
-        [$total, 'Vendas aprovadas'],
-        [reais($faturamento), 'Faturamento aprovado (com order bump)'],
-        [$contagem['Bate'] . ' (' . $pct($contagem['Bate']) . ')', 'Vendas em que os dados batem'],
-    ] as [$n, $rotulo]) {
+    ];
+    if ($temWhats) {
+        $numeros[] = [$whats, 'Visitantes que clicaram no WhatsApp'];
+    }
+    $numeros[] = [$total, 'Vendas aprovadas'];
+    $numeros[] = [reais($faturamento), 'Faturamento aprovado (com order bump)'];
+    $numeros[] = [$contagem['Bate'] . ' (' . $pct($contagem['Bate']) . ')', 'Vendas em que os dados batem'];
+    echo '<div class="numeros">';
+    foreach ($numeros as [$n, $rotulo]) {
         echo '<div class="numero"><b>' . e($n) . '</b><span>' . e($rotulo) . '</span></div>';
     }
     echo '</div>';
@@ -436,7 +453,7 @@ if ($aba === 'visitantes') {
     $lista = consulta($db, "SELECT e.visitante, MIN(e.em) AS primeiro, MAX(e.em) AS ultimo, COUNT(*) AS total,
                                    SUM(e.nome = 'CliqueCheckout') AS cliques, SUM(e.nome = 'WhatsApp') AS whats
                             FROM eventos e WHERE $condEv GROUP BY e.visitante ORDER BY ultimo DESC LIMIT 300", $parEv);
-    echo '<h2>Visitantes (' . count($lista) . ')</h2><div class="tabela"><table><tr><th>Última atividade</th><th>Visitante</th><th>Aparelho</th><th>IP</th><th>Chegou por</th><th>Eventos</th><th>Checkout</th><th>WhatsApp</th><th>Venda</th></tr>';
+    echo '<h2>Visitantes (' . count($lista) . ')</h2><div class="tabela"><table><tr><th>Última atividade</th><th>Visitante</th><th>Aparelho</th><th>IP</th><th>Chegou por</th><th>Eventos</th><th>Checkout</th>' . ($temWhats ? '<th>WhatsApp</th>' : '') . '<th>Venda</th></tr>';
     foreach ($lista as $l) {
         $st = $db->prepare('SELECT * FROM visitantes WHERE id = ?');
         $st->execute([$l['visitante']]);
@@ -448,7 +465,7 @@ if ($aba === 'visitantes') {
         $temVenda = (int)valor($db, 'SELECT COUNT(*) FROM vendas WHERE visitante = ?', [$l['visitante']]);
         echo '<tr><td>' . e(data_local($l['ultimo'])) . '</td><td><a href="' . e(link_visitante($l['visitante'], $parLink)) . '">' . e(substr($l['visitante'], 0, 8)) . '</a></td>'
             . '<td>' . e(($vis['dispositivo'] ?? '') . ' · ' . ($vis['navegador'] ?? '')) . '</td><td>' . e($vis['ip'] ?? '') . '</td><td>' . e($chegou) . '</td>'
-            . '<td>' . (int)$l['total'] . '</td><td>' . ((int)$l['cliques'] ? (int)$l['cliques'] : '') . '</td><td>' . ((int)$l['whats'] ? (int)$l['whats'] : '') . '</td>'
+            . '<td>' . (int)$l['total'] . '</td><td>' . ((int)$l['cliques'] ? (int)$l['cliques'] : '') . '</td>' . ($temWhats ? '<td>' . ((int)$l['whats'] ? (int)$l['whats'] : '') . '</td>' : '')
             . '<td>' . ($temVenda ? '<span class="selo ok">' . $temVenda . '</span>' : '') . '</td></tr>';
     }
     if (!$lista) {
