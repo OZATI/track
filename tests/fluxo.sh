@@ -26,10 +26,16 @@ export TRACK_KIWIFY_API="http://127.0.0.1:$PORTA_API/v1"
 # shellcheck disable=SC2086
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_API" "$RAIZ/tests/kiwify-falsa.php" >"$DADOS/api-falsa.log" 2>&1 &
 API_FALSA=$!
+# Graph API da Meta falsa (tests/meta-falsa.php)
+PORTA_META=$((PORTA + 2))
+export TRACK_META_API="http://127.0.0.1:$PORTA_META/graph"
+# shellcheck disable=SC2086
+"$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_META" "$RAIZ/tests/meta-falsa.php" >"$DADOS/meta-falsa.log" 2>&1 &
+META_FALSA=$!
 # shellcheck disable=SC2086
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA" -t "$RAIZ" >"$DADOS/servidor.log" 2>&1 &
 SERVIDOR=$!
-trap 'kill $SERVIDOR $API_FALSA 2>/dev/null; rm -rf "$DADOS"' EXIT
+trap 'kill $SERVIDOR $API_FALSA $META_FALSA 2>/dev/null; rm -rf "$DADOS"' EXIT
 sleep 1
 
 echo "Instalação"
@@ -253,6 +259,31 @@ confere "$(tem 'Webhook + API</td><td>2 (67%)' "$r")" "duas vendas pelos dois ca
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/kiwify-api.php")
 confere "$(tem 'Chave removida do painel' "$r")" "remover a chave"
 confere "$(grep -q 'SegredoLeitura' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "chave removida sai da configuração"
+
+echo "API da Meta"
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/meta-api.php")
+confere "$(tem 'entrar.php' "$destino")" "tela da API Meta exige login"
+r=$(curl -s -b "$JAR" "$URL/meta-api.php")
+confere "$(tem 'Conectar a conta de anúncios da Meta' "$r")" "tela da API Meta abre com o passo a passo"
+confere "$(tem 'href="meta-api.php" class="atual"' "$r")" "aba API Meta aparece marcada"
+meta() { curl -s -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=salvar" --data-urlencode "token=$2" --data-urlencode "conta=$3" "$URL/meta-api.php"; }
+LEITURA="TokenLeitura0000000000000000000000000000000000"
+r=$(meta "" "$LEITURA" 587364236934346)
+confere "$(tem 'Sessão expirada' "$r")" "salvar token sem o token do formulário é recusado"
+r=$(meta "$csrf" "TokenFalso000000000000000000000000000000000000" 587364236934346)
+confere "$(tem 'A Meta recusou o token' "$r")" "token que a Meta recusa não é salvo"
+r=$(meta "$csrf" "TokenGerencia00000000000000000000000000000000" 587364236934346)
+confere "$(tem 'também pode editar a conta: gerenciar anúncios' "$r")" "token que pode editar anúncios é recusado"
+r=$(meta "$csrf" "$LEITURA" 111222333444)
+confere "$(tem 'não enxerga a conta de anúncios 111222333444' "$r")" "conta de anúncios sem acesso é recusada"
+confere "$(grep -q 'TokenLeitura\|TokenGerencia' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "nenhum token recusado foi gravado"
+r=$(meta "$csrf" "$LEITURA" act_587364236934346)
+confere "$(tem 'Token conferido e salvo. Conta DRIVE DE PROJETOS: R$ 1.539,22 investidos nos últimos 7 dias' "$r")" "token só de leitura é conferido e salvo, com o gasto de 7 dias"
+confere "$(grep -q "$LEITURA" <<<"$r"; [ $? -ne 0 ]; echo $?)" "token da Meta não volta para a tela"
+confere "$(tem 'consulta(s) no último minuto' "$r")" "aba API Meta mostra o uso da API"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/meta-api.php")
+confere "$(tem 'Token removido do painel' "$r")" "remover o token da Meta"
+confere "$(grep -q "$LEITURA" "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "token removido sai da configuração"
 
 echo "Proteção contra bloqueio da API"
 # Limite interno, num banco separado: com limite 3 por minuto, a 4ª chamada nem sai

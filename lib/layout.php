@@ -100,6 +100,7 @@ button.discreto.neutro{ color:var(--texto); }
 .abas-espaco{ margin-left:auto; }
 .ico{ flex:none; }
 button .ico{ vertical-align:-2px; }
+.passos{ margin:0 0 14px; padding-left:20px; font-size:13px; } .passos li{ margin-bottom:4px; }
 .filtro-eventos{ display:flex; flex-wrap:wrap; gap:8px; margin:0 0 4px; }
 .filtro-eventos a{ display:inline-flex; align-items:center; gap:8px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-sm); padding:6px 12px; text-decoration:none; color:var(--texto); font-size:12.5px; }
 .filtro-eventos a b{ font-family:var(--f-mono); color:var(--alerta); }
@@ -307,5 +308,6 @@ function abas_painel(string $aba, array $filtro = []): void
     }
     echo '<span class="abas-espaco"></span>';
     echo '<a href="kiwify-api.php" class="' . ($aba === 'kiwify-api' ? 'atual' : '') . '">' . icone('chave') . 'API Kiwify</a>';
+    echo '<a href="meta-api.php" class="' . ($aba === 'meta-api' ? 'atual' : '') . '">' . icone('meta') . 'API Meta</a>';
     echo '<a href="usuarios.php" class="' . ($aba === 'usuarios' ? 'atual' : '') . '">' . icone('usuario') . 'Usuários</a></nav>';
 }
