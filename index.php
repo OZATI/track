@@ -6,13 +6,14 @@ require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/layout.php';
 require_once __DIR__ . '/lib/kiwify_sync.php';
 require_once __DIR__ . '/lib/gestor.php';
+require_once __DIR__ . '/lib/resumo.php';
 
 exigir_login();
 $db = track_db();
 
 // ---------------------------------------------------------------- filtros
-$abasValidas = ['trafego', 'gestor', 'resumo', 'vendas', 'visitantes', 'eventos'];
-$aba = in_array($_GET['aba'] ?? '', $abasValidas, true) ? $_GET['aba'] : 'trafego';
+$abasValidas = ['geral', 'trafego', 'gestor', 'resumo', 'vendas', 'visitantes', 'eventos'];
+$aba = in_array($_GET['aba'] ?? '', $abasValidas, true) ? $_GET['aba'] : 'geral';
 $periodosValidos = ['hoje', 'ontem', '7d', '30d', 'tudo'];
 $periodo = in_array($_GET['periodo'] ?? '', $periodosValidos, true) ? $_GET['periodo'] : '7d';
 
@@ -141,14 +142,11 @@ function barra_vendas(array $parLink, string $aba): void
         return;
     }
     $s = kiwify_sync_estado();
-    $texto = 'Vendas da Kiwify pelo webhook e pela API';
     if ($s['ok_em']) {
-        $texto .= ' · última busca na API: ' . data_local($s['ok_em'], 'd/m H:i');
-        if ($s['resumo']) {
-            $texto .= ' (' . (int)$s['resumo']['novas'] . ' nova(s), ' . (int)$s['resumo']['atualizadas'] . ' atualizada(s))';
-        }
+        $novas = (int)($s['resumo']['novas'] ?? 0);
+        $texto = 'Vendas da Kiwify atualizadas em ' . data_local($s['ok_em'], 'd/m H:i') . ($novas ? ' · ' . $novas . ' nova(s)' : '');
     } else {
-        $texto .= ' · primeira busca na API ainda não feita (traz os últimos 89 dias)';
+        $texto = 'Vendas da Kiwify: primeira busca pela API ainda não feita';
     }
     $volta = './?' . http_build_query(['aba' => $aba] + $parLink);
     echo '<div class="barra-vendas" id="sync"' . (kiwify_sync_vencida() ? ' data-sync="1"' : '') . '>'
@@ -325,7 +323,10 @@ if ($aba === 'trafego') {
     $taxa = fn($n, $d) => $d ? number_format($n * 100 / $d, 1, ',', '') . '%' : '—';
 
     $tabelaTrafego = function (string $cabecalho, array $grupo, callable $primeiraCelula) use ($temWhats, $taxa): void {
-        echo '<div class="tabela"><table><tr><th>' . e($cabecalho) . '</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th>' . ($temWhats ? '<th>Clicaram no WhatsApp</th>' : '') . '<th>Vendas aprovadas</th><th>Faturamento</th><th>Conversão</th></tr>';
+        echo '<div class="tabela"><table><tr><th>' . e($cabecalho) . '</th><th>Visitantes ' . info('Aparelhos diferentes.') . '</th><th>Visualizações ' . info('Páginas abertas.') . '</th>'
+            . '<th>Clicaram no checkout ' . info('Visitantes que clicaram no botão de compra.') . '</th>' . ($temWhats ? '<th>Clicaram no WhatsApp</th>' : '')
+            . '<th>Vendas aprovadas ' . info('Vendas aprovadas desses visitantes (sem contar order bump).') . '</th><th>Faturamento ' . info('Valor cobrado das vendas aprovadas, com order bump.') . '</th>'
+            . '<th>Conversão ' . info('Vendas aprovadas ÷ visitantes.') . '</th></tr>';
         $t = ['vis' => 0, 'pv' => 0, 'ck' => 0, 'wa' => 0, 'vendas' => 0, 'fat' => 0];
         foreach ($grupo as $k => $l) {
             foreach ($t as $campo => $_) {
@@ -344,9 +345,9 @@ if ($aba === 'trafego') {
     };
 
     $alvo = $dominio === '' ? 'todos os sites' : $dominio . ($pagina === '' ? ' (todas as páginas)' : $pagina);
-    echo '<h2>Tráfego por canal · ' . e($alvo) . '</h2>';
+    echo titulo('Tráfego por canal · ' . $alvo, 'Visitantes agrupados pelo canal da primeira visita no período: anúncio no Instagram ou no Facebook, orgânico, direto...');
     $tabelaTrafego('Canal', $porCanal, fn($k, $l) => selo_canal($l['canal'], false));
-    echo '<h2>Tráfego por origem · ' . e($alvo) . '</h2>';
+    echo titulo('Tráfego por origem · ' . $alvo, 'As mesmas visitas pela etiqueta completa (source / medium / campaign) da primeira visita.');
     $tabelaTrafego('Origem (source / medium / campaign)', $linhas, fn($k, $l) => com_icone_canal($l['canal'], $k));
     if ($semVisitante) {
         echo '<p class="suave">Mais ' . $semVisitante . ' venda(s) aprovada(s), ' . e(reais($fatSemVisitante)) . ', sem visitante no período (outra página, link direto da Kiwify ou outro aparelho): veja a aba Conferência.</p>';
@@ -357,7 +358,7 @@ if ($aba === 'trafego') {
                                            COUNT(DISTINCT CASE WHEN e.nome = 'CliqueCheckout' THEN e.visitante END) AS ck,
                                            COUNT(DISTINCT CASE WHEN e.nome = 'WhatsApp' THEN e.visitante END) AS wa
                                     FROM eventos e WHERE $condEv GROUP BY e.dominio, e.pagina ORDER BY vis DESC", $parEv);
-        echo '<h2>Tráfego por página</h2><div class="tabela"><table><tr><th>Página</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th>' . ($temWhats ? '<th>Clicaram no WhatsApp</th>' : '') . '<th>Taxa de clique no checkout</th></tr>';
+        echo titulo('Tráfego por página', 'Visitantes e cliques no botão de compra em cada página com o painel.') . '<div class="tabela"><table><tr><th>Página</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th>' . ($temWhats ? '<th>Clicaram no WhatsApp</th>' : '') . '<th>Taxa de clique no checkout</th></tr>';
         foreach ($porPagina as $p) {
             echo '<tr><td>' . e($p['dominio'] . $p['pagina']) . '</td><td>' . (int)$p['vis'] . '</td><td>' . (int)$p['pv'] . '</td><td>' . (int)$p['ck'] . '</td><td>'
                 . ($temWhats ? (int)$p['wa'] . '</td><td>' : '') . e($taxa((int)$p['ck'], (int)$p['vis'])) . '</td></tr>';
@@ -367,6 +368,11 @@ if ($aba === 'trafego') {
         }
         echo '</table></div>';
     }
+}
+
+// ---------------------------------------------------------------- resumo (tela inicial)
+if ($aba === 'geral') {
+    resumo_render($db, $periodo, $de, $ate);
 }
 
 // ---------------------------------------------------------------- gestor de anuncios
@@ -393,24 +399,17 @@ if ($aba === 'resumo') {
     $total = count($aprovadas);
     $pct = fn($n) => $total ? round($n * 100 / $total) . '%' : '—';
 
-    $numeros = [
-        [$visitantes, 'Visitantes (aparelhos)'],
-        [$pageviews, 'Visualizações de página'],
-        [$cliques, 'Visitantes que clicaram no checkout'],
-    ];
-    if ($temWhats) {
-        $numeros[] = [$whats, 'Visitantes que clicaram no WhatsApp'];
-    }
-    $numeros[] = [$total, 'Vendas aprovadas'];
-    $numeros[] = [reais($faturamento), 'Faturamento aprovado (com order bump)'];
-    $numeros[] = [$contagem['Bate'] . ' (' . $pct($contagem['Bate']) . ')', 'Vendas em que os dados batem'];
-    echo '<div class="numeros">';
-    foreach ($numeros as [$n, $rotulo]) {
-        echo '<div class="numero"><b>' . e($n) . '</b><span>' . e($rotulo) . '</span></div>';
-    }
-    echo '</div>';
+    echo '<div class="numeros">'
+        . numero((string)$visitantes, 'Visitantes (aparelhos)', 'Aparelhos diferentes que abriram as páginas com o painel (cookie do painel).')
+        . numero((string)$pageviews, 'Visualizações de página', 'Quantas vezes as páginas foram abertas.')
+        . numero((string)$cliques, 'Visitantes que clicaram no checkout', 'Visitantes que clicaram no botão de compra.')
+        . ($temWhats ? numero((string)$whats, 'Visitantes que clicaram no WhatsApp', 'Visitantes que clicaram no botão do WhatsApp.') : '')
+        . numero((string)$total, 'Vendas aprovadas', 'Pedidos principais aprovados no período. Order bump não conta como outra venda.')
+        . numero(reais($faturamento), 'Faturamento aprovado (com order bump)', 'Valor cobrado das vendas aprovadas, com order bump (antes das taxas da Kiwify).')
+        . numero($contagem['Bate'] . ' (' . $pct($contagem['Bate']) . ')', 'Vendas em que os dados batem', 'Vendas em que a campanha do clique na página é a mesma que a Kiwify gravou: origem confirmada.')
+        . '</div>';
 
-    echo '<h2>Conferência das vendas aprovadas</h2><div class="tabela"><table><tr><th>Resultado</th><th>Vendas</th><th>O que significa</th></tr>';
+    echo titulo('Conferência das vendas aprovadas', 'Para cada venda aprovada, compara a campanha que o painel viu no clique do botão de compra com a que a Kiwify gravou.') . '<div class="tabela"><table><tr><th>Resultado</th><th>Vendas</th><th>O que significa</th></tr>';
     $sentido = [
         'Bate' => 'Origem confirmada: a campanha que o painel viu no clique do botão de compra é a mesma que a Kiwify gravou na venda (e que a UTMify usa).',
         'Diferente' => 'O painel viu uma campanha no clique e a Kiwify gravou outra. Abra a venda para ver as duas: a UTMify pode estar atribuindo errado.',
@@ -433,7 +432,7 @@ if ($aba === 'resumo') {
             'Só pela API' => 'O webhook não entregou; a busca pela API trouxe. Se aparecer muito, confira o webhook na Kiwify (Apps → Webhooks).',
             'Só webhook' => 'Chegou pelo webhook e a API ainda não buscou (ou a venda é mais antiga que a busca).',
         ];
-        echo '<h2>Como as vendas aprovadas chegaram ao painel</h2><div class="tabela"><table><tr><th>Caminho</th><th>Vendas</th><th>O que significa</th></tr>';
+        echo titulo('Como as vendas aprovadas chegaram ao painel', 'Webhook da Kiwify, busca pela API ou os dois. Muita venda só pela API indica webhook com problema.') . '<div class="tabela"><table><tr><th>Caminho</th><th>Vendas</th><th>O que significa</th></tr>';
         foreach ($chegou as $rotulo => $n) {
             echo '<tr><td>' . e($rotulo) . '</td><td>' . $n . ' (' . e($pct($n)) . ')</td><td class="quebra suave">' . e($sentidoChegada[$rotulo]) . '</td></tr>';
         }
@@ -460,7 +459,7 @@ if ($aba === 'resumo') {
     uksort($porCanal, fn($a, $b) => array_search($a, CANAIS_ORDEM, true) <=> array_search($b, CANAIS_ORDEM, true));
     uasort($porOrigem, fn($a, $b) => [$b['n'], $b['fat']] <=> [$a['n'], $a['fat']]);
 
-    echo '<h2>Vendas aprovadas por canal (como a Kiwify gravou)</h2><div class="tabela"><table><tr><th>Canal</th><th>Vendas</th><th>Faturamento (com order bump)</th></tr>';
+    echo titulo('Vendas aprovadas por canal', 'Pelo canal da etiqueta que a Kiwify gravou na venda (a mesma que a UTMify usa).') . '<div class="tabela"><table><tr><th>Canal</th><th>Vendas</th><th>Faturamento (com order bump)</th></tr>';
     foreach ($porCanal as $g) {
         echo '<tr><td>' . selo_canal($g['canal'], false) . '</td><td>' . $g['n'] . ' (' . e($pct($g['n'])) . ')</td><td>' . e(reais($g['fat'])) . '</td></tr>';
     }
@@ -468,7 +467,7 @@ if ($aba === 'resumo') {
         echo '<tr><td colspan="3" class="suave">Nenhuma venda aprovada no período.</td></tr>';
     }
     echo '</table></div>';
-    echo '<h2>Detalhe por origem / meio</h2><div class="tabela"><table><tr><th>Origem / meio</th><th>Vendas</th><th>Faturamento (com order bump)</th></tr>';
+    echo titulo('Detalhe por origem / meio', 'As mesmas vendas pela etiqueta source / medium.') . '<div class="tabela"><table><tr><th>Origem / meio</th><th>Vendas</th><th>Faturamento (com order bump)</th></tr>';
     foreach ($porOrigem as $k => $g) {
         echo '<tr><td class="quebra">' . com_icone_canal($g['canal'], (string)$k) . '</td><td>' . $g['n'] . '</td><td>' . e(reais($g['fat'])) . '</td></tr>';
     }
@@ -481,14 +480,28 @@ if ($aba === 'resumo') {
 // ---------------------------------------------------------------- vendas
 if ($aba === 'vendas') {
     $vendas = consulta($db, "SELECT v.*, vi.dispositivo, vi.navegador FROM vendas v LEFT JOIN visitantes vi ON vi.id = v.visitante WHERE $condVd ORDER BY v.recebida_em DESC LIMIT 500", $parVd);
-    echo '<h2>Vendas (' . count($vendas) . ' pedidos)</h2><div class="tabela"><table><tr><th>Quando</th><th>Pedido</th><th>Produto</th><th>Valor</th><th>Situação</th><th>Chegou por</th><th>Etiquetas na Kiwify</th><th>Visitante</th><th>Conferência</th><th>Recebida via</th></tr>';
+    // Filtro "fora de anuncio" (link do gestor): vendas aprovadas sem o ID de uma campanha da Meta, com o motivo
+    $soFora = ($_GET['filtro'] ?? '') === 'fora';
+    if ($soFora) {
+        $vendas = array_values(array_filter($vendas, fn($v) => aprovada($v) && !eh_bump($v) && gestor_id_utm($v['utm_campaign']) === null));
+        echo '<p class="suave"><a href="' . e('./?' . http_build_query(['aba' => 'vendas'] + $parLink)) . '">← Todas as vendas</a></p>';
+    }
+    echo ($soFora
+            ? titulo('Vendas fora de anúncio (' . count($vendas) . ')', 'Vendas aprovadas sem o ID de uma campanha da Meta na etiqueta. A UTMify chama de "não trackeadas". Orgânica é normal ficar fora; as outras mostram o que ajustar.')
+            : '<h2>Vendas (' . count($vendas) . ' pedidos)</h2>')
+        . '<div class="tabela"><table><tr><th>Quando</th><th>Pedido</th><th>Produto</th><th>Valor</th><th>Situação</th><th>Chegou por ' . info('Canal pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto...') . '</th>'
+        . '<th>Etiquetas na Kiwify</th><th>Visitante ' . info('Quem o painel reconheceu na página antes da compra (pelo sck). Clique para ver o caminho.') . '</th>'
+        . ($soFora ? '<th>Por quê</th>' : '<th>Conferência ' . info('Compara a campanha do clique na página com a que a Kiwify gravou. Bate = origem confirmada.') . '</th>')
+        . '<th>Recebida via ' . info('Como a venda chegou ao painel: webhook da Kiwify, busca pela API ou os dois.') . '</th></tr>';
     foreach ($vendas as $v) {
         [$sit, $cls] = situacao($v);
         [$via, $vcls] = chegada($v['fonte'] ?? null);
         $vis = $v['visitante']
             ? '<a href="' . e(link_visitante($v['visitante'], $parLink)) . '">' . e(substr($v['visitante'], 0, 8)) . '</a> <span class="suave">' . e($v['dispositivo'] . ' · ' . $v['navegador']) . '</span>'
             : '<span class="suave">—</span>';
-        if (eh_bump($v)) {
+        if ($soFora) {
+            $confCel = '<span class="suave">' . e(gestor_motivo_fora($v)[1]) . '</span>';
+        } elseif (eh_bump($v)) {
             $confCel = '<span class="suave">Order bump: conferido no pedido principal</span>';
         } else {
             [$conf, $ccls, $explica] = conferir($db, $v);

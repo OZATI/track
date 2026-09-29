@@ -54,12 +54,22 @@ if (isset($listas[$rota])) {
     exit;
 }
 if ($rota === '/graph/act_587364236934346/insights') {
+    if (($_GET['breakdowns'] ?? '') === 'hourly_stats_aggregated_by_advertiser_time_zone') {
+        // Gasto da conta por hora de hoje
+        $hoje = (new DateTime('now', new DateTimeZone('America/Sao_Paulo')))->format('Y-m-d');
+        echo json_encode(['data' => [
+            ['spend' => '20.00', 'hourly_stats_aggregated_by_advertiser_time_zone' => '00:00:00 - 00:59:59', 'date_start' => $hoje, 'date_stop' => $hoje],
+            ['spend' => '40.00', 'hourly_stats_aggregated_by_advertiser_time_zone' => '01:00:00 - 01:59:59', 'date_start' => $hoje, 'date_stop' => $hoje],
+        ]]);
+        exit;
+    }
     if (($_GET['level'] ?? '') === 'ad') {
         // Gasto de hoje por anuncio (dia no fuso da conta)
         $hoje = (new DateTime('now', new DateTimeZone('America/Sao_Paulo')))->format('Y-m-d');
         echo json_encode(['data' => [
             ['ad_id' => '222222', 'adset_id' => '111111', 'campaign_id' => '120120', 'spend' => '50.00', 'impressions' => '4000', 'inline_link_clicks' => '60',
-                'actions' => [['action_type' => 'offsite_conversion.fb_pixel_initiate_checkout', 'value' => '3'], ['action_type' => 'omni_initiated_checkout', 'value' => '3']],
+                'actions' => [['action_type' => 'offsite_conversion.fb_pixel_initiate_checkout', 'value' => '3'], ['action_type' => 'omni_initiated_checkout', 'value' => '3'],
+                    ['action_type' => 'landing_page_view', 'value' => '50']],
                 'date_start' => $hoje, 'date_stop' => $hoje],
             ['ad_id' => '333333', 'adset_id' => '444444', 'campaign_id' => '555555', 'spend' => '10.00', 'impressions' => '900', 'inline_link_clicks' => '4',
                 'date_start' => $hoje, 'date_stop' => $hoje],

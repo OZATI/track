@@ -146,8 +146,8 @@ function meta_sync_buscar(array $k, bool $completa): array
     }
     $db->beginTransaction();
     $db->prepare('DELETE FROM meta_gasto WHERE dia >= ? AND dia <= ?')->execute([$de->format('Y-m-d'), $ate->format('Y-m-d')]);
-    $ins = $db->prepare('INSERT OR REPLACE INTO meta_gasto (dia, anuncio_id, conjunto_id, campanha_id, gasto, impressoes, cliques, checkouts)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    $ins = $db->prepare('INSERT OR REPLACE INTO meta_gasto (dia, anuncio_id, conjunto_id, campanha_id, gasto, impressoes, cliques, checkouts, visualizacoes)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
     foreach ($r['itens'] as $l) {
         $ad = meta_so_numeros($l['ad_id'] ?? '');
         $dia = (string)($l['date_start'] ?? '');
@@ -155,15 +155,42 @@ function meta_sync_buscar(array $k, bool $completa): array
             continue;
         }
         // Inicio de checkout: a Meta pode mandar o mesmo numero em mais de um tipo de acao
-        $checkouts = 0;
+        $checkouts = $visualizacoes = 0;
         foreach ((array)($l['actions'] ?? []) as $a) {
-            if (in_array($a['action_type'] ?? '', ['offsite_conversion.fb_pixel_initiate_checkout', 'initiate_checkout', 'omni_initiated_checkout'], true)) {
+            $tipo = $a['action_type'] ?? '';
+            if (in_array($tipo, ['offsite_conversion.fb_pixel_initiate_checkout', 'initiate_checkout', 'omni_initiated_checkout'], true)) {
                 $checkouts = max($checkouts, (int)($a['value'] ?? 0));
+            } elseif (in_array($tipo, ['landing_page_view', 'omni_landing_page_view'], true)) {
+                $visualizacoes = max($visualizacoes, (int)($a['value'] ?? 0));
             }
         }
         $ins->execute([$dia, $ad, meta_so_numeros($l['adset_id'] ?? ''), meta_so_numeros($l['campaign_id'] ?? ''),
-            meta_centavos($l['spend'] ?? 0), (int)($l['impressions'] ?? 0), (int)($l['inline_link_clicks'] ?? 0), $checkouts]);
+            meta_centavos($l['spend'] ?? 0), (int)($l['impressions'] ?? 0), (int)($l['inline_link_clicks'] ?? 0), $checkouts, $visualizacoes]);
     }
     $db->commit();
+
+    // 3. Gasto por hora do dia (grafico acumulado do Resumo). Se a conta nao liberar esse
+    //    detalhe, o resto da busca continua valendo.
+    $r = meta_listar($conta . '/insights', [
+        'level' => 'account',
+        'time_increment' => '1',
+        'time_range' => json_encode(['since' => $de->format('Y-m-d'), 'until' => $ate->format('Y-m-d')]),
+        'breakdowns' => 'hourly_stats_aggregated_by_advertiser_time_zone',
+        'fields' => 'spend',
+        'limit' => '500',
+    ], $k['token']);
+    if ($r['ok']) {
+        $db->beginTransaction();
+        $db->prepare('DELETE FROM meta_gasto_hora WHERE dia >= ? AND dia <= ?')->execute([$de->format('Y-m-d'), $ate->format('Y-m-d')]);
+        $insH = $db->prepare('INSERT OR REPLACE INTO meta_gasto_hora (dia, hora, gasto) VALUES (?, ?, ?)');
+        foreach ($r['itens'] as $l) {
+            $dia = (string)($l['date_start'] ?? '');
+            $faixa = (string)($l['hourly_stats_aggregated_by_advertiser_time_zone'] ?? '');
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dia) && preg_match('/^(\d{2}):/', $faixa, $m)) {
+                $insH->execute([$dia, (int)$m[1], meta_centavos($l['spend'] ?? 0)]);
+            }
+        }
+        $db->commit();
+    }
     return ['ok' => true, 'inicio' => $inicio, 'completa' => $completa, 'objetos' => $objetos, 'linhas' => count($r['itens'])];
 }

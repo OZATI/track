@@ -76,6 +76,21 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 3;
             SQL);
     }
+    if ($versao < 4) {
+        // Resumo: visualizacoes da pagina (funil da Meta) e gasto por hora (grafico acumulado).
+        // Apagar a ultima busca completa da Meta faz a proxima trazer os 89 dias com isso.
+        track_migrar_para($pdo, 4, <<<'SQL'
+            ALTER TABLE meta_gasto ADD COLUMN visualizacoes INTEGER NOT NULL DEFAULT 0;
+            CREATE TABLE IF NOT EXISTS meta_gasto_hora (
+                dia   TEXT NOT NULL,
+                hora  INTEGER NOT NULL,
+                gasto INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (dia, hora)
+            );
+            DELETE FROM ajustes WHERE chave = 'meta_sync_completa_em';
+            PRAGMA user_version = 4;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas
