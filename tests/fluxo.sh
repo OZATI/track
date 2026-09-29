@@ -303,14 +303,14 @@ confere "$(tem 'R$ 40,00<br><span class="suave">Diário' "$linha")" "orçamento 
 confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$linha")" "gasto, 2 vendas (bump fora) e faturamento líquido com bump"
 confere "$(tem 'positivo">R$ 78,92' "$linha")" "lucro desconta gasto e imposto de 12,15% (igual à UTMify)"
 confere "$(tem 'R$ 25,00</td><td><span class="positivo">2,58</span></td><td>R$ 16,67</td><td>3</td><td>R$ 0,83</td><td>1,50%</td><td><span class="positivo">58,5%</span>' "$linha")" "CPA, ROI, CPI, IC, CPC, CTR e margem"
-confere "$(tem 'status-meta ativo" title="Ativo na Meta">Ativo</span></td><td class="quebra"><strong>TL 1</strong>' "$r")" "campanha ativa na Meta"
+confere "$(tem 'status-meta ativo" title="Ativo na Meta">Ativo</span></td><td class="quebra"><a class="abre" href="./?aba=gestor&amp;periodo=tudo&amp;nivel=conjuntos&amp;campanha=120120"' "$r")" "campanha ativa na Meta, com o nome abrindo os conjuntos dela"
 confere "$(tem 'negativo">R$ -11,22' "$r")" "campanha pausada com gasto e sem venda aparece no prejuízo"
 confere "$(tem '1 venda(s) fora de anúncio' "$r")" "venda orgânica conta como fora de anúncio"
 confere "$(tem 'data-dica="Vendas aprovadas sem o ID de uma campanha da Meta (a UTMify chama de &quot;não trackeadas&quot;): 1 orgânico' "$r")" "(i) do aviso diz o motivo de cada uma"
 confere "$(tem 'data-dica="Faturamento − gasto − imposto da Meta (12,15%).' "$r")" "coluna Lucro tem o (i) com a conta"
 confere "$(grep -q 'name="dominio"' <<<"$r"; [ $? -ne 0 ]; echo $?)" "no gestor o topo só tem o período"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos")
-confere "$(tem '<strong>conjunto 5</strong><br><span class="suave">TL 1</span>' "$r")" "conjunto mostra a campanha dele"
+confere "$(tem '<strong>conjunto 5</strong></a><br><span class="suave">TL 1</span>' "$r")" "conjunto mostra a campanha dele"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios")
 confere "$(tem '<strong>cv 05</strong><br><span class="suave">conjunto 5</span></td><td><span class="suave">—</span></td><td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "anúncio com as vendas que têm o ID dele (a API completou a do webhook)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=contas")
@@ -320,16 +320,30 @@ confere "$(tem '<strong>FREE</strong>' "$r")" "filtro de pausados mostra a FREE"
 confere "$(grep -q '<strong>TL 1</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "filtro de pausados esconde a TL 1"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&q=free")
 confere "$(grep -q '<strong>TL 1</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "busca por nome filtra as campanhas"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos&campanha=555555")
+confere "$(tem '<strong>conjunto free</strong>' "$r")" "abrir a campanha mostra só os conjuntos dela"
+confere "$(grep -q '<strong>conjunto 5</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "conjuntos de outra campanha ficam de fora"
+confere "$(tem 'Todas as campanhas</a> <span class="suave">›</span> <a' "$r")" "caminho aberto: Todas as campanhas › FREE"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&campanha=120120&conjunto=111111")
+confere "$(tem '<strong>cv 05</strong>' "$r")" "abrir o conjunto mostra só os anúncios dele"
+confere "$(grep -q '<strong>cv free</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "anúncios de outro conjunto ficam de fora"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$([ "$(grep -o '<strong>\(TL 1\|FREE\)</strong>' <<<"$r" | head -1)" = '<strong>TL 1</strong>' ]; echo $?)" "ordem padrão: maior gasto primeiro"
+confere "$(tem '>Gasto ↓</a>' "$r")" "coluna ordenada marcada com a seta"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&ordem=gasto&dir=asc")
+confere "$([ "$(grep -o '<strong>\(TL 1\|FREE\)</strong>' <<<"$r" | head -1)" = '<strong>FREE</strong>' ]; echo $?)" "clicar no título inverte a ordem"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d")
+confere "$(tem 'As setas comparam com o período anterior' "$r")" "com 7 dias, o gestor compara com os 7 dias anteriores"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
 confere "$(tem '<span>Anúncio compartilhado</span>' "$r")" "etiqueta com {{placement}} vira anúncio compartilhado"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo&filtro=fora")
 confere "$(tem 'Vendas fora de anúncio (1)' "$(sem_tags "$r")")" "link do aviso lista só as vendas fora de anúncio"
 confere "$(tem 'Venda orgânica (WhatsApp): não veio de anúncio' "$r")" "cada venda fora de anúncio mostra o motivo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=gasto&cols[]=cpm&cols[]=impressoes")
-confere "$(tem '<th><span class="nw">CPM&nbsp;' "$r")" "escolher colunas mostra a coluna pedida"
-confere "$(grep -q '<th><span class="nw">Lucro&nbsp;' <<<"$r"; [ $? -ne 0 ]; echo $?)" "escolher colunas esconde as outras"
+confere "$(tem '>CPM</a>' "$r")" "escolher colunas mostra a coluna pedida"
+confere "$(grep -q '>Lucro</a>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "escolher colunas esconde as outras"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
-confere "$(tem '<th><span class="nw">CPM&nbsp;' "$r")" "escolha de colunas fica salva"
+confere "$(tem '>CPM</a>' "$r")" "escolha de colunas fica salva"
 confere "$(tem '<td>R$ 50,00</td><td>4.000</td><td>R$ 12,50</td>' "$r")" "CPM e impressões calculados"
 curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=orcamento&cols[]=gasto&cols[]=vendas&cols[]=fat&cols[]=lucro&cols[]=cpa&cols[]=roi"
 
@@ -346,6 +360,15 @@ confere "$(tem '<span class="nw">Visualizações&nbsp;' "$r")" "funil com visual
 confere "$(tem 'Funil do site' "$(sem_tags "$r")")" "funil do site"
 confere "$(tem 'class="grafico"' "$r")" "gráficos por hora em SVG"
 confere "$(tem 'data-dica="(Faturamento líquido − imposto) ÷ gasto.' "$r")" "número do Resumo tem o (i) com a conta"
+
+echo "Orgânico"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=tudo")
+confere "$(tem '1Vendas orgânicas' "$(sem_tags "$r")")" "vendas orgânicas do período"
+confere "$(tem 'R$ 67,00Faturamento orgânico' "$(sem_tags "$r")")" "faturamento orgânico"
+confere "$(tem '<span>WhatsApp</span></span></td><td>0</td><td>0</td><td><span class="selo ok">1</span></td><td>R$ 67,00</td>' "$r")" "venda orgânica pelo WhatsApp no canal certo"
+confere "$(tem '<span>Google</span></span></td><td>1</td>' "$r")" "visita orgânica vinda do Google"
+confere "$(tem '<span>Direto / sem origem</span>' "$r")" "visita sem origem aparece à parte"
+confere "$(tem 'Perfil do Instagram' "$(sem_tags "$r")")" "bloco do perfil do Instagram explica o que falta"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/meta-api.php")
 confere "$(tem 'Token removido do painel' "$r")" "remover o token da Meta"
 confere "$(grep -q "$LEITURA" "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "token removido sai da configuração"

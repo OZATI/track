@@ -163,42 +163,39 @@ function gestor_motivo_fora(array $v): array
     }
 }
 
-function gestor_render(PDO $db, string $periodo, string $de, string $ate, array $parLink): void
+
+function gestor_linha_nova(): array
 {
-    $nivel = isset(GESTOR_NIVEIS[$_GET['nivel'] ?? '']) ? $_GET['nivel'] : 'campanhas';
-    [$rotuloNivel, $colGasto, $campoUtm, $nivelMeta] = GESTOR_NIVEIS[$nivel];
-    $busca = mb_strtolower(texto($_GET['q'] ?? '', 80));
-    $stFiltro = in_array($_GET['st'] ?? '', ['ativos', 'pausados'], true) ? $_GET['st'] : '';
-    $temMeta = (bool)meta_api_chave();
-    $pct = gestor_imposto_pct();
-    [$dia1, $dia2] = gestor_dias($periodo);
-    $todas = gestor_colunas($pct);
-    $colunas = gestor_colunas_escolhidas($todas);
+    return ['gasto' => 0, 'checkouts' => 0, 'cliques' => 0, 'impressoes' => 0, 'visualizacoes' => 0, 'vendas' => 0, 'fat' => 0,
+        'pend' => 0, 'reemb' => 0, 'reemb_fat' => 0, 'recusadas' => 0, 'nome_utm' => null, 'pai_camp' => null, 'pai_conj' => null];
+}
 
-    // Campanhas, conjuntos e anuncios conhecidos da Meta
-    $objetos = [];
-    foreach (consulta($db, 'SELECT * FROM meta_objetos', []) as $o) {
-        $objetos[$o['id']] = $o;
-    }
-
-    // Gasto e numeros da Meta no periodo, por objeto do nivel
+// Soma gasto (Meta) e vendas (Kiwify) por objeto do nivel num periodo. Guarda tambem a
+// campanha e o conjunto de cada linha (para abrir campanha -> conjuntos -> anuncios).
+// Devolve [linhas por id, vendas fora de anuncio por motivo].
+function gestor_agregar(PDO $db, string $nivel, string $dia1, string $dia2, string $de, string $ate, array $conhecidas): array
+{
+    [, $colGasto, $campoUtm] = GESTOR_NIVEIS[$nivel];
     $linhas = [];
-    $nova = fn() => ['gasto' => 0, 'checkouts' => 0, 'cliques' => 0, 'impressoes' => 0, 'visualizacoes' => 0, 'vendas' => 0, 'fat' => 0,
-        'pend' => 0, 'reemb' => 0, 'reemb_fat' => 0, 'recusadas' => 0, 'nome_utm' => null];
     $campos = 'SUM(gasto) AS gasto, SUM(checkouts) AS checkouts, SUM(cliques) AS cliques, SUM(impressoes) AS impressoes, SUM(visualizacoes) AS visualizacoes';
-    $sqlGasto = $colGasto
-        ? "SELECT $colGasto AS id, $campos FROM meta_gasto WHERE dia >= ? AND dia <= ? GROUP BY $colGasto"
+    $pais = ['conjunto_id' => ', MAX(campanha_id) AS pai_camp', 'anuncio_id' => ', MAX(campanha_id) AS pai_camp, MAX(conjunto_id) AS pai_conj'][$colGasto] ?? '';
+    $sql = $colGasto
+        ? "SELECT $colGasto AS id, $campos $pais FROM meta_gasto WHERE dia >= ? AND dia <= ? GROUP BY $colGasto"
         : "SELECT 'conta' AS id, $campos FROM meta_gasto WHERE dia >= ? AND dia <= ?";
-    foreach (consulta($db, $sqlGasto, [$dia1, $dia2]) as $g) {
+    foreach (consulta($db, $sql, [$dia1, $dia2]) as $g) {
         if ($g['id'] === null || (int)$g['gasto'] + (int)$g['impressoes'] === 0) {
             continue;
         }
-        $linhas[$g['id']] = array_map('intval', array_intersect_key($g, $nova())) + $nova();
+        $l = gestor_linha_nova();
+        foreach (['gasto', 'checkouts', 'cliques', 'impressoes', 'visualizacoes'] as $c) {
+            $l[$c] = (int)$g[$c];
+        }
+        $l['pai_camp'] = $g['pai_camp'] ?? null;
+        $l['pai_conj'] = $g['pai_conj'] ?? null;
+        $linhas[$g['id']] = $l;
     }
 
-    // Vendas no periodo, ligadas pelo ID da etiqueta; as de fora de anuncio, com o motivo
     $fora = [];
-    $conhecidas = array_filter($objetos, fn($o) => $o['nivel'] === 'campaign');
     foreach (consulta($db, 'SELECT * FROM vendas WHERE recebida_em >= ? AND recebida_em < ?', [$de, $ate]) as $v) {
         $principal = !eh_bump($v);
         $aprov = aprovada($v);
@@ -212,7 +209,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         if (!$id) {
             continue;
         }
-        $l = $linhas[$id] ?? $nova();
+        $l = $linhas[$id] ?? gestor_linha_nova();
         if ($aprov) {
             $l['fat'] += (int)($v['valor_liquido'] ?? $v['valor'] ?? 0);
             $l['vendas'] += $principal ? 1 : 0;
@@ -225,23 +222,106 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
             $l['recusadas']++;
         }
         $l['nome_utm'] = $l['nome_utm'] ?? ($campoUtm ? nome_curto($v[$campoUtm]) : null);
+        $l['pai_camp'] = $l['pai_camp'] ?? $camp;
+        $l['pai_conj'] = $l['pai_conj'] ?? gestor_id_utm($v['utm_medium']);
         $linhas[$id] = $l;
     }
+    return [$linhas, $fora];
+}
+
+// Periodo anterior do mesmo tamanho, para comparar: [dia1, dia2, de UTC, ate UTC] ou null.
+// "Hoje" nao compara: o dia ainda esta pela metade e o gasto por anuncio vem por dia inteiro.
+function gestor_periodo_anterior(string $periodo): ?array
+{
+    if (!in_array($periodo, ['ontem', '7d', '30d'], true)) {
+        return null;
+    }
+    [$de] = periodo_utc($periodo);
+    [$d1, $d2] = gestor_dias($periodo);
+    $dias = (int)(new DateTime($d1))->diff(new DateTime($d2))->days + 1;
+    $utc = new DateTimeZone('UTC');
+    return [
+        (new DateTime($d1))->modify("-$dias days")->format('Y-m-d'),
+        (new DateTime($d1))->modify('-1 day')->format('Y-m-d'),
+        (new DateTime($de, $utc))->modify("-$dias days")->format('Y-m-d H:i:s'),
+        $de,
+    ];
+}
+
+// Seta de variacao contra o periodo anterior. $melhorMenor: CPA (subir e ruim); $neutro: gasto
+function gestor_delta(?float $atual, ?float $antes, bool $melhorMenor = false, bool $neutro = false): string
+{
+    if ($atual === null || $antes === null || abs($antes) < 0.0001) {
+        return '';
+    }
+    $pct = ($atual - $antes) * 100 / abs($antes);
+    if (abs($pct) < 0.5) {
+        return '<small class="delta">=</small>';
+    }
+    $bom = $melhorMenor ? $pct < 0 : $pct > 0;
+    return '<small class="delta ' . ($neutro ? '' : ($bom ? 'bom' : 'ruim')) . '">' . ($pct > 0 ? '▲' : '▼') . ' ' . number_format(abs($pct), 0, ',', '.') . '%</small>';
+}
+
+// Valor de ordenacao de uma linha por coluna (null vai para o fim)
+function gestor_valor_ordem(array $r, string $col)
+{
+    if ($col === 'nome') {
+        return mb_strtolower($r['nome']);
+    }
+    if ($col === 'orcamento') {
+        return $r['obj'] ? ($r['obj']['orcamento_diario'] ?: $r['obj']['orcamento_total']) : null;
+    }
+    $campo = ['ic' => 'checkouts'][$col] ?? $col;
+    return $r[$campo] ?? null;
+}
+
+function gestor_render(PDO $db, string $periodo, string $de, string $ate, array $parLink): void
+{
+    $nivel = isset(GESTOR_NIVEIS[$_GET['nivel'] ?? '']) ? $_GET['nivel'] : 'campanhas';
+    [$rotuloNivel, , , $nivelMeta] = GESTOR_NIVEIS[$nivel];
+    $busca = mb_strtolower(texto($_GET['q'] ?? '', 80));
+    $stFiltro = in_array($_GET['st'] ?? '', ['ativos', 'pausados'], true) ? $_GET['st'] : '';
+    $idOk = fn($v) => is_string($v) && preg_match('/^\d{3,25}$/', $v) ? $v : '';
+    $fCamp = in_array($nivel, ['conjuntos', 'anuncios'], true) ? $idOk($_GET['campanha'] ?? '') : '';
+    $fConj = $nivel === 'anuncios' ? $idOk($_GET['conjunto'] ?? '') : '';
+    $temMeta = (bool)meta_api_chave();
+    $pct = gestor_imposto_pct();
+    [$dia1, $dia2] = gestor_dias($periodo);
+    $todas = gestor_colunas($pct);
+    $colunas = gestor_colunas_escolhidas($todas);
+    $ordem = ($_GET['ordem'] ?? '') === 'nome' || isset($todas[$_GET['ordem'] ?? '']) ? $_GET['ordem'] : 'gasto';
+    $dir = ($_GET['dir'] ?? '') === 'asc' ? 'asc' : 'desc';
+
+    // Campanhas, conjuntos e anuncios conhecidos da Meta
+    $objetos = [];
+    foreach (consulta($db, 'SELECT * FROM meta_objetos', []) as $o) {
+        $objetos[$o['id']] = $o;
+    }
+    $conhecidas = array_filter($objetos, fn($o) => $o['nivel'] === 'campaign');
+
+    [$linhas, $fora] = gestor_agregar($db, $nivel, $dia1, $dia2, $de, $ate, $conhecidas);
+    $anterior = gestor_periodo_anterior($periodo);
+    $antes = $anterior ? gestor_agregar($db, $nivel, $anterior[0], $anterior[1], $anterior[2], $anterior[3], $conhecidas)[0] : [];
 
     // Objetos ativos aparecem mesmo sem gasto no periodo (como na UTMify)
     if ($nivelMeta !== 'conta') {
         foreach ($objetos as $id => $o) {
             if ($o['nivel'] === $nivelMeta && $o['status_efetivo'] === 'ACTIVE' && !isset($linhas[$id])) {
-                $linhas[$id] = $nova();
+                $linhas[$id] = gestor_linha_nova();
             }
         }
     }
 
-    // Nome, filtros e ordem
+    // Nome, filtros (busca, status, campanha/conjunto aberto) e ordem
     $contaNome = meta_api_chave()['conta_nome'] ?? 'Conta de anúncios';
     $tabela = [];
     foreach ($linhas as $id => $l) {
         $obj = $objetos[$id] ?? null;
+        $camp = $obj['campanha_id'] ?? $l['pai_camp'];
+        $conj = $nivel === 'anuncios' ? ($obj['conjunto_id'] ?? $l['pai_conj']) : ($nivel === 'conjuntos' ? (string)$id : null);
+        if (($fCamp !== '' && (string)$camp !== $fCamp) || ($fConj !== '' && (string)$conj !== $fConj)) {
+            continue;
+        }
         $nome = $nivel === 'contas' ? $contaNome : ($obj['nome'] ?? $l['nome_utm'] ?? (string)$id);
         if ($busca !== '' && mb_strpos(mb_strtolower($nome), $busca) === false) {
             continue;
@@ -251,21 +331,33 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
             continue;
         }
         $pai = null;
-        if ($obj && $nivel === 'conjuntos') {
-            $pai = $objetos[$obj['campanha_id']]['nome'] ?? null;
-        } elseif ($obj && $nivel === 'anuncios') {
-            $pai = $objetos[$obj['conjunto_id']]['nome'] ?? null;
+        if ($nivel === 'conjuntos') {
+            $pai = $objetos[$camp]['nome'] ?? null;
+        } elseif ($nivel === 'anuncios') {
+            $pai = $objetos[$conj]['nome'] ?? null;
         }
-        $tabela[] = gestor_metricas(['id' => (string)$id, 'nome' => $nome, 'pai' => $pai, 'obj' => $nivel === 'contas' ? null : $obj] + $l, $pct);
+        $r = gestor_metricas(['id' => (string)$id, 'nome' => $nome, 'pai' => $pai, 'camp' => $camp, 'conj' => $conj, 'obj' => $nivel === 'contas' ? null : $obj] + $l, $pct);
+        $r['antes'] = isset($antes[$id]) ? gestor_metricas($antes[$id], $pct) : null;
+        $tabela[] = $r;
     }
-    usort($tabela, fn($a, $b) => [$b['gasto'], $b['fat']] <=> [$a['gasto'], $a['fat']]);
+    usort($tabela, function ($a, $b) use ($ordem, $dir) {
+        $va = gestor_valor_ordem($a, $ordem);
+        $vb = gestor_valor_ordem($b, $ordem);
+        if ($va === null || $vb === null) {
+            return ($va === null) <=> ($vb === null); // sem valor vai para o fim
+        }
+        return $dir === 'asc' ? $va <=> $vb : $vb <=> $va;
+    });
 
-    // Topo: niveis, vendas fora de anuncio, ultima busca e Atualizar
-    $link = fn(array $extra) => './?' . http_build_query(['aba' => 'gestor', 'periodo' => $periodo] + $extra);
+    // Links: nivel e filtros atuais mais o que mudar
+    $base = ['aba' => 'gestor', 'periodo' => $periodo];
+    $atuais = $base + array_filter(['nivel' => $nivel, 'q' => $busca, 'st' => $stFiltro, 'campanha' => $fCamp, 'conjunto' => $fConj, 'ordem' => $ordem, 'dir' => $dir]);
+    $link = fn(array $mudar) => './?' . http_build_query(array_filter($mudar + $atuais, fn($v) => $v !== null && $v !== ''));
+
     echo '<div class="gestor-niveis">';
     $icones = ['contas' => 'conta', 'campanhas' => 'campanha', 'conjuntos' => 'conjunto', 'anuncios' => 'anuncio'];
     foreach (GESTOR_NIVEIS as $n => [$rot]) {
-        echo '<a href="' . e($link(['nivel' => $n])) . '" class="' . ($nivel === $n ? 'atual' : '') . '">' . icone($icones[$n], 18) . e($rot) . '</a>';
+        echo '<a href="' . e('./?' . http_build_query($base + ['nivel' => $n])) . '" class="' . ($nivel === $n ? 'atual' : '') . '">' . icone($icones[$n], 18) . e($rot) . '</a>';
     }
     echo '</div>';
 
@@ -285,7 +377,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     $quando = $meta['ok_em'] ? 'gasto da Meta atualizado em ' . data_local($meta['ok_em'], 'd/m H:i') : ($temMeta ? 'primeira busca na Meta ainda não feita' : '');
     echo '<span data-sync-texto>' . e($quando) . '</span>';
     echo '<form method="post" action="sincronizar.php"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
-        . '<input type="hidden" name="volta" value="' . e($link(['nivel' => $nivel])) . '"><button type="submit">Atualizar</button></form></div>';
+        . '<input type="hidden" name="volta" value="' . e($link([])) . '"><button type="submit">Atualizar</button></form></div>';
     if (!$temMeta) {
         echo '<p class="aviso-meta">Sem a conta de anúncios conectada, o gestor mostra só as vendas por campanha. Para ver gasto, lucro, CPA e ROI, conecte na aba <a href="meta-api.php">API Meta</a>.</p>';
     } elseif ($meta['adiada']) {
@@ -294,9 +386,24 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         echo '<p class="erro">Última busca na Meta falhou: ' . e($meta['erro']) . '</p>';
     }
 
+    // Caminho aberto (campanha -> conjunto)
+    if ($fCamp !== '' || $fConj !== '') {
+        $trilha = ['<a href="' . e('./?' . http_build_query($base + ['nivel' => 'campanhas'])) . '">Todas as campanhas</a>'];
+        if ($fCamp !== '') {
+            $trilha[] = '<a href="' . e('./?' . http_build_query($base + ['nivel' => 'conjuntos', 'campanha' => $fCamp])) . '">' . e($objetos[$fCamp]['nome'] ?? $fCamp) . '</a>';
+        }
+        if ($fConj !== '') {
+            $trilha[] = '<span>' . e($objetos[$fConj]['nome'] ?? $fConj) . '</span>';
+        }
+        echo '<p class="trilha">' . implode(' <span class="suave">›</span> ', $trilha) . '</p>';
+    }
+
     // Filtros do nivel e escolha de colunas
     echo '<form class="gestor-filtros" method="get" action="./"><input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
         . '<input type="hidden" name="nivel" value="' . e($nivel) . '">'
+        . ($fCamp !== '' ? '<input type="hidden" name="campanha" value="' . e($fCamp) . '">' : '')
+        . ($fConj !== '' ? '<input type="hidden" name="conjunto" value="' . e($fConj) . '">' : '')
+        . '<input type="hidden" name="ordem" value="' . e($ordem) . '"><input type="hidden" name="dir" value="' . e($dir) . '">'
         . '<label>Nome<input type="search" name="q" value="' . e($busca) . '" placeholder="Filtrar por nome"></label>'
         . '<label>Status<select name="st"><option value="">Qualquer</option><option value="ativos"' . ($stFiltro === 'ativos' ? ' selected' : '') . '>Ativos</option>'
         . '<option value="pausados"' . ($stFiltro === 'pausados' ? ' selected' : '') . '>Pausados</option></select></label>'
@@ -307,30 +414,52 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     }
     echo '<button type="submit">Aplicar</button></div></details></form>';
 
-    // Tabela
+    // Cabecalho: clicar no titulo ordena (de novo, inverte)
+    $cab = function (string $col, string $titulo, string $dica = '') use ($ordem, $dir, $link): string {
+        $atual = $ordem === $col;
+        $novoDir = $atual && $dir === 'desc' ? 'asc' : 'desc';
+        $seta = $atual ? ($dir === 'desc' ? ' ↓' : ' ↑') : '';
+        return '<th><a class="ordena' . ($atual ? ' atual' : '') . '" href="' . e($link(['ordem' => $col, 'dir' => $novoDir])) . '">' . e($titulo) . $seta . '</a>'
+            . ($dica !== '' ? '&nbsp;' . info($dica) : '') . '</th>';
+    };
     $singular = ['contas' => 'Conta', 'campanhas' => 'Campanha', 'conjuntos' => 'Conjunto', 'anuncios' => 'Anúncio'][$nivel];
-    echo '<div class="tabela gestor"><table><tr><th>Status ' . info('Situação na Meta agora: ativo, pausado ou com problema (ex.: reprovado).') . '</th><th>' . e($singular) . '</th>';
+    echo '<div class="tabela gestor"><table><tr><th>Status ' . info('Situação na Meta agora: ativo, pausado ou com problema (ex.: reprovado).') . '</th>' . $cab('nome', $singular);
     foreach ($colunas as $k) {
-        echo '<th>' . com_info($todas[$k][0], $todas[$k][1]) . '</th>';
+        echo $cab($k, $todas[$k][0], $todas[$k][1]);
     }
     echo '</tr>';
-    $total = $nova();
+
+    // Variacao contra o periodo anterior, nas colunas que mais importam
+    $deltas = ['gasto' => [false, true], 'vendas' => [false, false], 'fat' => [false, false], 'lucro' => [false, false], 'roi' => [false, false], 'cpa' => [true, false]];
+    $total = gestor_linha_nova();
     foreach ($tabela as $r) {
         foreach ($total as $c => $v) {
             if (is_int($v)) {
                 $total[$c] += $r[$c];
             }
         }
+        // Nome abre o proximo nivel: campanha -> conjuntos dela -> anuncios do conjunto
+        $nomeHtml = '<strong>' . e($r['nome']) . '</strong>';
+        if ($nivel === 'campanhas') {
+            $nomeHtml = '<a class="abre" href="' . e('./?' . http_build_query($base + ['nivel' => 'conjuntos', 'campanha' => $r['id']])) . '" title="Ver os conjuntos desta campanha">' . $nomeHtml . '</a>';
+        } elseif ($nivel === 'conjuntos') {
+            $nomeHtml = '<a class="abre" href="' . e('./?' . http_build_query($base + array_filter(['nivel' => 'anuncios', 'campanha' => (string)$r['camp'], 'conjunto' => $r['id']]))) . '" title="Ver os anúncios deste conjunto">' . $nomeHtml . '</a>';
+        }
         echo '<tr><td>' . gestor_status($r['obj']) . '</td>'
-            . '<td class="quebra"><strong>' . e($r['nome']) . '</strong>' . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
+            . '<td class="quebra">' . $nomeHtml . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
         foreach ($colunas as $k) {
-            echo '<td>' . $todas[$k][2]($r) . '</td>';
+            $delta = '';
+            if (isset($deltas[$k]) && $r['antes']) {
+                $campo = $k;
+                $delta = gestor_delta(isset($r[$campo]) ? (float)$r[$campo] : null, isset($r['antes'][$campo]) ? (float)$r['antes'][$campo] : null, $deltas[$k][0], $deltas[$k][1]);
+            }
+            echo '<td>' . $todas[$k][2]($r) . ($delta !== '' ? '<br>' . $delta : '') . '</td>';
         }
         echo '</tr>';
     }
     if ($tabela) {
         $t = gestor_metricas(['id' => '', 'obj' => null] + $total, $pct);
-        echo '<tr class="total"><td></td><td>' . count($tabela) . ' ' . e(mb_strtolower($rotuloNivel)) . '</td>';
+        echo '<tr class="total"><td></td><td>' . count($tabela) . ' ' . e(mb_strtolower(count($tabela) === 1 ? $singular : $rotuloNivel)) . '</td>';
         foreach ($colunas as $k) {
             echo '<td>' . ($k === 'orcamento' || $k === 'id' ? '' : $todas[$k][2]($t)) . '</td>';
         }
@@ -339,6 +468,9 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         echo '<tr><td colspan="' . (2 + count($colunas)) . '" class="suave">Nada no período.' . ($temMeta ? '' : ' Conecte a API Meta para ver o gasto.') . '</td></tr>';
     }
     echo '</table></div>';
-    echo '<p class="suave legenda">Faturamento líquido da Kiwify, com order bump. Lucro = faturamento − gasto − imposto da Meta (' . e(number_format($pct, 2, ',', '.')) . '%). '
-        . 'Para ligar, pausar ou mudar orçamento, use o Gerenciador de Anúncios da Meta.</p>';
+    $comparacao = $anterior
+        ? 'As setas comparam com o período anterior do mesmo tamanho (' . data_local($anterior[2], 'd/m') . ' a ' . (new DateTime($anterior[1]))->format('d/m') . '). '
+        : '';
+    echo '<p class="suave legenda">' . e($comparacao) . 'Clique no nome da campanha para ver os conjuntos, e no conjunto para ver os anúncios; clique no título da coluna para ordenar. '
+        . 'Faturamento líquido da Kiwify, com order bump. Lucro = faturamento − gasto − imposto da Meta (' . e(number_format($pct, 2, ',', '.')) . '%).</p>';
 }

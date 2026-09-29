@@ -133,6 +133,10 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor td.quebra{ min-width:200px; }
 .tabela.gestor tr.total td{ background:var(--cartao-2); font-weight:600; }
 .positivo{ color:var(--ok); } .negativo{ color:var(--erro); }
+.tabela.gestor a.ordena{ color:inherit; } .tabela.gestor a.ordena.atual{ color:var(--texto); font-weight:600; }
+.tabela.gestor a.abre{ color:var(--texto); } .tabela.gestor a.abre:hover strong{ color:var(--marca); text-decoration:underline; }
+.delta{ font-size:11px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); }
+.trilha{ margin:0 0 12px; }
 .status-meta{ display:inline-flex; align-items:center; gap:6px; color:var(--suave); }
 .status-meta::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--apagado); }
 .status-meta.ativo{ color:var(--texto); } .status-meta.ativo::before{ background:#16A34A; }
@@ -373,7 +377,7 @@ function topo_pagina(): void
 function barra_topo(array $filtro, array $dominios, array $paginas, string $aba): void
 {
     $periodos = ['hoje' => 'Hoje', 'ontem' => 'Ontem', '7d' => 'Últimos 7 dias', '30d' => 'Últimos 30 dias', 'tudo' => 'Tudo'];
-    $soPeriodo = in_array($aba, ['gestor', 'geral'], true); // no gestor e no resumo, site e pagina nao se aplicam
+    $soPeriodo = in_array($aba, ['gestor', 'geral', 'organico'], true); // no gestor, no resumo e no organico, site e pagina nao se aplicam
     ?>
 <header class="topo">
 <form class="filtros" method="get" action="./" id="filtros">
@@ -417,7 +421,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba)
 // configuracao (API Kiwify e Usuarios) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
-    $abas = ['geral' => ['Resumo', 'trafego'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
+    $abas = ['geral' => ['Resumo', 'trafego'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
         'visitantes' => ['Visitantes', 'visitantes'], 'eventos' => ['Eventos', 'eventos']];
     echo '<nav class="abas" aria-label="Seções do painel UTM"><span class="abas-titulo">UTM · Rastreio de vendas</span>';
     foreach ($abas as $id => [$rotulo, $ico]) {

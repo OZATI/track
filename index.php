@@ -7,12 +7,13 @@ require __DIR__ . '/lib/layout.php';
 require_once __DIR__ . '/lib/kiwify_sync.php';
 require_once __DIR__ . '/lib/gestor.php';
 require_once __DIR__ . '/lib/resumo.php';
+require_once __DIR__ . '/lib/organico.php';
 
 exigir_login();
 $db = track_db();
 
 // ---------------------------------------------------------------- filtros
-$abasValidas = ['geral', 'trafego', 'gestor', 'resumo', 'vendas', 'visitantes', 'eventos'];
+$abasValidas = ['geral', 'trafego', 'gestor', 'organico', 'resumo', 'vendas', 'visitantes', 'eventos'];
 $aba = in_array($_GET['aba'] ?? '', $abasValidas, true) ? $_GET['aba'] : 'geral';
 $periodosValidos = ['hoje', 'ontem', '7d', '30d', 'tudo'];
 $periodo = in_array($_GET['periodo'] ?? '', $periodosValidos, true) ? $_GET['periodo'] : '7d';
@@ -373,6 +374,11 @@ if ($aba === 'trafego') {
 // ---------------------------------------------------------------- resumo (tela inicial)
 if ($aba === 'geral') {
     resumo_render($db, $periodo, $de, $ate);
+}
+
+// ---------------------------------------------------------------- organico
+if ($aba === 'organico') {
+    organico_render($db, $periodo, $de, $ate);
 }
 
 // ---------------------------------------------------------------- gestor de anuncios
