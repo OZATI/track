@@ -23,6 +23,8 @@ Página de venda (engdesk.pro/drivedeprojetos/)
                          │
 Kiwify (pay.kiwify.com.br) ── webhook ──► track.engdesk.pro/kiwify.php?chave=...
                                             venda + etiquetas + sck (volta o visitante)
+Kiwify API (public-api.kiwify.com) ◄── painel busca a cada 10 min (com a chave da aba API Kiwify)
+                                            o que o webhook não entregou, Pix pago, reembolso
 
 track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 ```
@@ -62,7 +64,7 @@ Exemplo real: `admin.engdesk.pro/utm/`, dentro do admin do site, com a barra lat
    ```
    A página precisa ter o script da UTMify com `data-utmify-prevent-xcod-sck`, para a UTMify não sobrescrever o `sck`.
 6. **Conferir:** abrir a página de venda, clicar no botão de compra e ver o visitante e o clique em **Eventos**. Fazer uma compra de teste e ver a venda em **Vendas** com a conferência.
-7. **API da Kiwify (opcional):** na Kiwify, Apps → API → Criar API Key com **só "Vendas"** marcado. No painel, aba **API Kiwify**, colar `client_secret`, `client_id` e `account_id` direto (sem WhatsApp ou e-mail). O painel confere a chave na Kiwify antes de salvar. Serve para buscar pela API as vendas que o webhook não entregou.
+7. **API da Kiwify (recomendado):** na Kiwify, Apps → API → Criar API Key com **só "Vendas"** marcado. No painel, aba **API Kiwify**, colar `client_secret`, `client_id` e `account_id` direto (sem WhatsApp ou e-mail). O painel confere a chave na Kiwify antes de salvar. Com a chave, o painel busca as vendas pela API: na primeira vez, os últimos 89 dias; depois, a cada 10 minutos com o painel aberto, só o que mudou; uma vez por dia, os 89 dias de novo. A venda que o webhook não entregou aparece como **Só pela API** na Conferência. Botão **Atualizar vendas** nas abas Tráfego, Conferência e Vendas.
 
 **Atualizar:** melhore o painel aqui, commite, rode o `copiar-para.sh` de novo e publique o site. Nunca edite a cópia: a próxima cópia apagaria a mudança.
 
@@ -112,7 +114,7 @@ O `?volta=` só aceita caminho do próprio site. Quem entra e sai do painel se c
 | IP **parcial** (IPv4 sem o último número; IPv6 só o prefixo /48) | IP completo |
 | Aparelho, sistema e navegador | O user agent completo |
 | Página, evento, etiquetas UTM e o site de onde a pessoa veio (sem os parâmetros) | Os parâmetros do endereço de origem |
-| Pedido, produto, valor, status e etiquetas da venda | Dados de pagamento |
+| Pedido, produto, valor, status e etiquetas da venda (pelo webhook e pela API) | Dados de pagamento e do comprador que a API da Kiwify devolve |
 
 Tudo é apagado depois de `dias_retencao` (padrão 90). Cite o painel e o cookie na política de privacidade do site.
 

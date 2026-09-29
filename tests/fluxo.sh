@@ -150,6 +150,23 @@ confere "$(tem 'senha atual não confere' "$r")" "trocar a senha exige a senha a
 
 echo "API da Kiwify"
 CID="a1b2c3d4-0000-4000-8000-000000000001"
+# Vendas que a API falsa devolve: pedido-1 (o webhook ja trouxe), api-2 (so a API tem),
+# api-3 (order bump do api-2) e api-4 (Pix nao pago). O comprador vem junto, como na Kiwify.
+AGORA=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
+RASTREIO="\"sck\":\"trk_$VID\",\"utm_source\":\"MetaAds\",\"utm_medium\":\"conjunto 5|111\",\"utm_campaign\":\"TL 1|120\""
+COMPRADOR='"customer":{"name":"Nome Da API","email":"cliente-api@exemplo.com","cpf":"99999999999","mobile":"+5511999999999"}'
+cat >"$DADOS/kiwify-falsa-vendas.json" <<EOF
+[
+ {"id":"pedido-1","reference":"RefUm01","type":"product","parent_order_id":null,"status":"paid","payment_method":"pix","created_at":"$AGORA","updated_at":"$AGORA","approved_date":"$AGORA",
+  "product":{"name":"Drive de Projetos 2.0"},"payment":{"charge_amount":5949},"tracking":{$RASTREIO},$COMPRADOR},
+ {"id":"api-2","reference":"RefDois2","type":"product","parent_order_id":null,"status":"paid","payment_method":"credit_card","created_at":"$AGORA","updated_at":"$AGORA","approved_date":"$AGORA",
+  "product":{"name":"Drive de Projetos 2.0"},"payment":{"charge_amount":6700},"tracking":{$RASTREIO},$COMPRADOR},
+ {"id":"api-3","reference":"RefBump3","type":"bump","parent_order_id":"api-2","status":"paid","payment_method":"credit_card","created_at":"$AGORA","updated_at":"$AGORA","approved_date":"$AGORA",
+  "product":{"name":"Memorial Descritivo"},"payment":{"charge_amount":2990},"tracking":{$RASTREIO},$COMPRADOR},
+ {"id":"api-4","reference":"RefPix04","type":"product","parent_order_id":null,"status":"waiting_payment","payment_method":"pix","created_at":"$AGORA","updated_at":"$AGORA","approved_date":null,
+  "product":{"name":"Drive de Projetos"},"payment":{"charge_amount":6700},"tracking":{"utm_source":"FB","utm_medium":"conjunto 2|222"},$COMPRADOR}
+]
+EOF
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/kiwify-api.php")
 confere "$(tem 'entrar.php' "$destino")" "tela da API exige login"
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
@@ -170,12 +187,48 @@ r=$(salvar "$csrf" "$CID" SegredoLeitura0000000000000000 ContaErrada999)
 confere "$(tem 'Confira o account_id' "$r")" "account_id errado é recusado"
 confere "$(grep -q 'client_secret' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "nenhuma chave recusada foi gravada"
 r=$(salvar "$csrf" "$CID" SegredoLeitura0000000000000000 ContaCerta123)
-confere "$(tem 'Chave conferida e salva. A API encontrou 3 venda' "$r")" "chave só de vendas é conferida e salva"
+confere "$(tem 'Chave conferida e salva. A API encontrou 4 venda' "$r")" "chave só de vendas é conferida e salva"
 confere "$(grep -q 'SegredoLeitura' <<<"$r"; [ $? -ne 0 ]; echo $?)" "client_secret não volta para a tela"
 confere "$(tem 'a1b2…0001' "$r")" "client_id aparece mascarado"
 confere "$(grep -q 'SegredoLeitura' "$DADOS/config.php"; echo $?)" "chave gravada na configuração, fora do projeto"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=testar" "$URL/kiwify-api.php")
 confere "$(tem 'Conexão OK' "$r")" "testar conexão com a chave salva"
+
+echo "Vendas pela API"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
+confere "$(tem 'id="sync" data-sync="1"' "$r")" "com a chave nova, o painel pede a busca em segundo plano"
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "X-CSRF: x" "$URL/sincronizar.php")
+confere "$([ "$code" = "401" ]; echo $?)" "busca sem login é recusada ($code)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X POST -H "X-CSRF: errado" "$URL/sincronizar.php")
+confere "$([ "$code" = "403" ]; echo $?)" "busca sem o token certo é recusada ($code)"
+r=$(curl -s -b "$JAR" -X POST -H "X-CSRF: $csrf" "$URL/sincronizar.php")
+confere "$(tem '"buscou":true,"novas":3,"atualizadas":1' "$r")" "busca em segundo plano: 3 novas e pedido-1 atualizado, em 2 páginas ($r)"
+r=$(curl -s -b "$JAR" -X POST -H "X-CSRF: $csrf" "$URL/sincronizar.php")
+confere "$(tem '"buscou":false' "$r")" "nova busca automática espera 10 minutos"
+confere "$(grep -rq 'cliente-api@exemplo.com\|Nome Da API\|99999999999' "$DADOS"/track.sqlite*; [ $? -ne 0 ]; echo $?)" "dados do comprador vindos da API não são gravados (LGPD)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
+confere "$(tem 'Vendas (5 pedidos)' "$r")" "vendas da API somam com as do webhook, sem duplicar"
+confere "$(tem 'RefDois2' "$r")" "pedido aparece pela referência curta da Kiwify"
+confere "$(tem 'Só pela API' "$r")" "venda que só a API trouxe fica marcada"
+confere "$(tem 'Webhook + API' "$r")" "venda que chegou pelos dois caminhos fica marcada"
+confere "$(tem 'order bump</span>' "$r")" "order bump aparece marcado"
+confere "$(tem 'última busca na API' "$r")" "barra mostra a última busca"
+confere "$(grep -q 'data-sync="1"' <<<"$r"; [ $? -ne 0 ]; echo $?)" "sem busca pendente, a tela não pede outra"
+r=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo")
+confere "$(tem '<span class="selo ok">2</span></td><td>R$ 156,39' "$r")" "tráfego: 2 vendas do anúncio (bump fora da contagem) e faturamento com bump"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
+confere "$(tem 'R$ 223,39' "$r")" "conferência: faturamento aprovado com order bump"
+confere "$(tem 'Só pela API</td><td>1 (33%)' "$r")" "conferência mostra a venda que o webhook não entregou"
+r=$(curl -s -b "$JAR" -o /dev/null -w '%{redirect_url}' --data-urlencode "csrf=$csrf" --data-urlencode "completa=1" \
+    --data-urlencode "volta=./?aba=vendas&periodo=tudo" "$URL/sincronizar.php")
+confere "$(tem '/?aba=vendas&periodo=tudo' "$r")" "botão Atualizar vendas volta para a mesma tela"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
+confere "$(tem 'Vendas (5 pedidos)' "$r")" "busca completa de novo não duplica"
+curl -s --data '{"order_id":"api-2","order_ref":"RefDois2","order_status":"paid","webhook_event_type":"order_approved"}' "$URL/kiwify.php?chave=$CHAVE" >/dev/null
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
+confere "$(tem 'Só pela API</td><td>0 (0%)' "$r")" "webhook atrasado junta com a venda da API (Webhook + API)"
+confere "$(tem 'Webhook + API</td><td>2 (67%)' "$r")" "duas vendas pelos dois caminhos"
+
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/kiwify-api.php")
 confere "$(tem 'Chave removida do painel' "$r")" "remover a chave"
 confere "$(grep -q 'SegredoLeitura' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "chave removida sai da configuração"

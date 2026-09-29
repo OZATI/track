@@ -59,14 +59,18 @@ $campo = function (string $k) use ($t) {
     return $v === '' ? null : $v;
 };
 $sck = $campo('sck');
+$referencia = texto($p['order_ref'] ?? $p['reference'] ?? '', 40);
 $visitante = ($sck && preg_match('/^trk_([a-f0-9]{32})$/', $sck, $m)) ? $m[1] : null;
 
 $agora = agora_utc();
 $db = track_db();
+// fonte: 'webhook'; se a busca pela API ja tinha trazido a venda, vira 'ambos'
 $db->prepare('INSERT INTO vendas (pedido, evento, status, produto, valor, pagamento, recebida_em, atualizada_em, visitante, sck, src,
-                                  utm_source, utm_medium, utm_campaign, utm_content, utm_term)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                  utm_source, utm_medium, utm_campaign, utm_content, utm_term, referencia, fonte)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'webhook\')
               ON CONFLICT (pedido) DO UPDATE SET
+                  fonte = CASE WHEN vendas.fonte IN (\'api\', \'ambos\') THEN \'ambos\' ELSE \'webhook\' END,
+                  referencia = COALESCE(vendas.referencia, NULLIF(excluded.referencia, \'\')),
                   evento = excluded.evento,
                   status = excluded.status,
                   atualizada_em = excluded.atualizada_em,
@@ -75,6 +79,6 @@ $db->prepare('INSERT INTO vendas (pedido, evento, status, produto, valor, pagame
                   pagamento = COALESCE(NULLIF(excluded.pagamento, \'\'), vendas.pagamento),
                   visitante = COALESCE(vendas.visitante, excluded.visitante)')
     ->execute([$pedido, $evento, $status, $produto, $valor, $pagamento, $agora, $agora, $visitante, $sck, $campo('src'),
-        $campo('utm_source'), $campo('utm_medium'), $campo('utm_campaign'), $campo('utm_content'), $campo('utm_term')]);
+        $campo('utm_source'), $campo('utm_medium'), $campo('utm_campaign'), $campo('utm_content'), $campo('utm_term'), $referencia]);
 
 responder_json(200, ['ok' => true]);

@@ -61,6 +61,9 @@ h2{ font-size:15px; margin:20px 0 8px; }
 button.discreto{ background:transparent; color:var(--erro); border:1px solid var(--linha); padding:3px 10px; }
 .linha-botoes{ display:flex; gap:8px; flex-wrap:wrap; }
 .linha-botoes button.discreto{ padding:7px 14px; }
+.barra-vendas{ display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; margin:0 0 12px; }
+.barra-vendas form{ margin:0; }
+button.discreto.neutro{ color:var(--texto); }
 .casca{ display:flex; min-height:100vh; }
 .conteudo{ flex:1; min-width:0; }
 .lateral{ width:68px; flex:none; background:#061424; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 0; position:sticky; top:0; height:100vh; }

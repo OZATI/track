@@ -22,9 +22,54 @@ function track_db(): PDO
 
 function track_migrar(PDO $pdo): void
 {
-    if ((int)$pdo->query('PRAGMA user_version')->fetchColumn() >= 1) {
-        return;
+    $versao = (int)$pdo->query('PRAGMA user_version')->fetchColumn();
+    if ($versao < 1) {
+        track_migrar_v1($pdo);
     }
+    if ($versao < 2) {
+        // Vendas tambem pela API da Kiwify: de onde chegaram, order bump e referencia curta.
+        // Em transacao, conferindo de novo a versao: duas requisicoes ao mesmo tempo nao
+        // tentam criar a mesma coluna.
+        $pdo->exec('BEGIN IMMEDIATE');
+        if ((int)$pdo->query('PRAGMA user_version')->fetchColumn() >= 2) {
+            $pdo->exec('COMMIT');
+            return;
+        }
+        $pdo->exec(<<<'SQL'
+            ALTER TABLE vendas ADD COLUMN referencia TEXT;
+            ALTER TABLE vendas ADD COLUMN tipo TEXT;
+            ALTER TABLE vendas ADD COLUMN pedido_pai TEXT;
+            ALTER TABLE vendas ADD COLUMN fonte TEXT;
+            ALTER TABLE vendas ADD COLUMN aprovada_em TEXT;
+            UPDATE vendas SET fonte = 'webhook' WHERE fonte IS NULL;
+            CREATE INDEX IF NOT EXISTS idx_vendas_recebida ON vendas (recebida_em);
+            CREATE TABLE IF NOT EXISTS ajustes (
+                chave TEXT PRIMARY KEY,
+                valor TEXT
+            );
+            PRAGMA user_version = 2;
+            SQL);
+        $pdo->exec('COMMIT');
+    }
+}
+
+// Valores pequenos do painel que mudam sozinhos (ex.: ultima busca na API)
+function ajuste(string $chave): ?string
+{
+    $st = track_db()->prepare('SELECT valor FROM ajustes WHERE chave = ?');
+    $st->execute([$chave]);
+    $v = $st->fetchColumn();
+    return $v === false ? null : (string)$v;
+}
+
+function definir_ajuste(string $chave, ?string $valor): void
+{
+    track_db()->prepare('INSERT INTO ajustes (chave, valor) VALUES (?, ?) ON CONFLICT (chave) DO UPDATE SET valor = excluded.valor')
+        ->execute([$chave, $valor]);
+}
+
+function track_migrar_v1(PDO $pdo): void
+{
     $pdo->exec(<<<'SQL'
         CREATE TABLE IF NOT EXISTS visitantes (
             id          TEXT PRIMARY KEY,
