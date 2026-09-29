@@ -62,6 +62,7 @@ Exemplo real: `admin.engdesk.pro/utm/`, dentro do admin do site, com a barra lat
    ```
    A página precisa ter o script da UTMify com `data-utmify-prevent-xcod-sck`, para a UTMify não sobrescrever o `sck`.
 6. **Conferir:** abrir a página de venda, clicar no botão de compra e ver o visitante e o clique em **Eventos**. Fazer uma compra de teste e ver a venda em **Vendas** com a conferência.
+7. **API da Kiwify (opcional):** na Kiwify, Apps → API → Criar API Key com **só "Vendas"** marcado. No painel, aba **API Kiwify**, colar `client_secret`, `client_id` e `account_id` direto (sem WhatsApp ou e-mail). O painel confere a chave na Kiwify antes de salvar. Serve para buscar pela API as vendas que o webhook não entregou.
 
 **Atualizar:** melhore o painel aqui, commite, rode o `copiar-para.sh` de novo e publique o site. Nunca edite a cópia: a próxima cópia apagaria a mudança.
 
@@ -120,6 +121,7 @@ Tudo é apagado depois de `dias_retencao` (padrão 90). Cite o painel e o cookie
 - Login por usuário e senha (`password_hash`), sessão `HttpOnly` + `SameSite=Strict`, token em todo formulário, 5 senhas erradas bloqueiam o IP por 15 minutos. Usuário inexistente e senha errada dão a mesma resposta, no mesmo tempo. Tirar o acesso de alguém derruba a sessão dele na hora.
 - Coleta só aceita os sites da lista, confere que a página é do mesmo domínio que chamou, valida o nome do evento e limita 240 eventos por minuto por IP.
 - Webhook só grava com a chave secreta da URL (a Kiwify não documenta assinatura dos avisos).
+- Chave da API da Kiwify: só entra depois de conferida na Kiwify, e só se for de leitura (recusa chave com permissão de reembolsar, financeiro, afiliados, webhooks ou parcelado). Fica na configuração, fora da pasta pública; o `client_secret` nunca volta para a tela.
 - Toda saída escapada (sem XSS), SQL só com parâmetros, CSP restrita, `noindex`, pastas `lib/`, `tests/`, `scripts/` e arquivos `.md/.sqlite` bloqueados no `.htaccess`.
 - Instalação só abre enquanto não há configuração e por 1 hora depois do deploy.
 
@@ -131,7 +133,7 @@ bash tests/fluxo.sh
 PHP=/caminho/php.exe PHP_FLAGS="-d extension_dir=ext -d extension=pdo_sqlite -d extension=mbstring" bash tests/fluxo.sh
 ```
 
-Sobe um servidor local com dados temporários e confere instalação, coleta, webhook, LGPD, login, tabela de tráfego, barra lateral, conferência, filtros por site e página, XSS e limite de login. Não toca em nenhum site real.
+Sobe um servidor local com dados temporários e confere instalação, coleta, webhook, LGPD, login, tabela de tráfego, barra lateral, conferência, filtros por site e página, XSS, limite de login e a tela da API da Kiwify (contra uma API falsa, `tests/kiwify-falsa.php`). Não toca em nenhum site real nem na Kiwify. Precisa das extensões `pdo_sqlite`, `mbstring` e `curl`.
 
 ## Contribuir
 

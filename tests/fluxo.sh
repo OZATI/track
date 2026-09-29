@@ -20,10 +20,16 @@ tem() { grep -q -- "$1" <<<"$2"; echo $?; }
 
 # No Git Bash do Windows, o PHP nativo precisa do caminho no formato do Windows
 export TRACK_DADOS="$(cygpath -w "$DADOS" 2>/dev/null || echo "$DADOS")"
+# API da Kiwify falsa (tests/kiwify-falsa.php): o painel nunca fala com a Kiwify de verdade
+PORTA_API=$((PORTA + 1))
+export TRACK_KIWIFY_API="http://127.0.0.1:$PORTA_API/v1"
+# shellcheck disable=SC2086
+"$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_API" "$RAIZ/tests/kiwify-falsa.php" >"$DADOS/api-falsa.log" 2>&1 &
+API_FALSA=$!
 # shellcheck disable=SC2086
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA" -t "$RAIZ" >"$DADOS/servidor.log" 2>&1 &
 SERVIDOR=$!
-trap 'kill $SERVIDOR 2>/dev/null; rm -rf "$DADOS"' EXIT
+trap 'kill $SERVIDOR $API_FALSA 2>/dev/null; rm -rf "$DADOS"' EXIT
 sleep 1
 
 echo "Instalação"
@@ -141,6 +147,38 @@ destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J3" "$URL/index.php")
 confere "$(tem 'entrar.php' "$destino")" "sessão de quem perdeu o acesso cai na hora"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=trocar_senha" --data-urlencode "atual=errada" --data-urlencode "nova=x" --data-urlencode "nova2=x" "$URL/usuarios.php")
 confere "$(tem 'senha atual não confere' "$r")" "trocar a senha exige a senha atual"
+
+echo "API da Kiwify"
+CID="a1b2c3d4-0000-4000-8000-000000000001"
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/kiwify-api.php")
+confere "$(tem 'entrar.php' "$destino")" "tela da API exige login"
+r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
+confere "$(tem 'Colar a chave da API' "$r")" "tela da API abre com o formulário"
+confere "$(tem 'href="kiwify-api.php" class="atual"' "$r")" "aba API Kiwify aparece marcada"
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f0-9]\{32\}')
+salvar() { curl -s -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=salvar" --data-urlencode "client_id=$2" \
+    --data-urlencode "client_secret=$3" --data-urlencode "account_id=$4" "$URL/kiwify-api.php"; }
+r=$(salvar "" "$CID" SegredoLeitura0000000000000000 ContaCerta123)
+confere "$(tem 'Sessão expirada' "$r")" "salvar sem o token é recusado"
+r=$(salvar "$csrf" "nao-e-uuid" SegredoLeitura0000000000000000 ContaCerta123)
+confere "$(tem 'Confira os três campos' "$r")" "client_id fora do formato é recusado"
+r=$(salvar "$csrf" "$CID" SegredoErrado00000000000000000 ContaCerta123)
+confere "$(tem 'A Kiwify recusou a chave' "$r")" "chave que a Kiwify recusa não é salva"
+r=$(salvar "$csrf" "$CID" SegredoPerigoso000000000000000 ContaCerta123)
+confere "$(tem 'permissões demais: Reembolsar vendas, Financeiro' "$r")" "chave com reembolso e financeiro é recusada"
+r=$(salvar "$csrf" "$CID" SegredoLeitura0000000000000000 ContaErrada999)
+confere "$(tem 'Confira o account_id' "$r")" "account_id errado é recusado"
+confere "$(grep -q 'client_secret' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "nenhuma chave recusada foi gravada"
+r=$(salvar "$csrf" "$CID" SegredoLeitura0000000000000000 ContaCerta123)
+confere "$(tem 'Chave conferida e salva. A API encontrou 3 venda' "$r")" "chave só de vendas é conferida e salva"
+confere "$(grep -q 'SegredoLeitura' <<<"$r"; [ $? -ne 0 ]; echo $?)" "client_secret não volta para a tela"
+confere "$(tem 'a1b2…0001' "$r")" "client_id aparece mascarado"
+confere "$(grep -q 'SegredoLeitura' "$DADOS/config.php"; echo $?)" "chave gravada na configuração, fora do projeto"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=testar" "$URL/kiwify-api.php")
+confere "$(tem 'Conexão OK' "$r")" "testar conexão com a chave salva"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/kiwify-api.php")
+confere "$(tem 'Chave removida do painel' "$r")" "remover a chave"
+confere "$(grep -q 'SegredoLeitura' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "chave removida sai da configuração"
 
 echo "Proteções"
 for i in 1 2 3 4 5 6; do r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" "$URL/entrar.php"); c=$(grep -o '[a-f0-9]\{32\}' <<<"$r" | head -1); r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" --data "csrf=$c&senha=errada" "$URL/entrar.php"); done

@@ -59,6 +59,8 @@ h2{ font-size:15px; margin:20px 0 8px; }
 .cartao label{ display:flex; flex-direction:column; gap:4px; margin-bottom:10px; color:var(--suave); font-size:13px; }
 .cartao input{ width:100%; }
 button.discreto{ background:transparent; color:var(--erro); border:1px solid var(--linha); padding:3px 10px; }
+.linha-botoes{ display:flex; gap:8px; flex-wrap:wrap; }
+.linha-botoes button.discreto{ padding:7px 14px; }
 .casca{ display:flex; min-height:100vh; }
 .conteudo{ flex:1; min-width:0; }
 .lateral{ width:68px; flex:none; background:#061424; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 0; position:sticky; top:0; height:100vh; }
@@ -141,7 +143,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba)
     abas_painel($aba, $filtro);
 }
 
-// Abas do painel, Usuarios e Sair. $filtro vazio (tela de usuarios): links sem filtro.
+// Abas do painel, API Kiwify, Usuarios e Sair. $filtro vazio (tela de usuarios): links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
     echo '<form class="topo-sair" method="post" action="sair.php" id="form-sair"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '"></form>';
@@ -151,6 +153,7 @@ function abas_painel(string $aba, array $filtro = []): void
         $q = http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1]));
         echo '<a href="./?' . e($q) . '" class="' . ($aba === $id ? 'atual' : '') . '">' . e($rotulo) . '</a>';
     }
+    echo '<a href="kiwify-api.php" class="' . ($aba === 'kiwify-api' ? 'atual' : '') . '">API Kiwify</a>';
     echo '<a href="usuarios.php" class="' . ($aba === 'usuarios' ? 'atual' : '') . '">Usuários</a>';
     echo '<a href="#" data-sair>Sair (' . e((string)usuario_atual()) . ')</a></nav>';
 }
