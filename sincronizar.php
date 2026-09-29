@@ -33,9 +33,12 @@ if ($json) {
     responder_json(200, ['ok' => $r['ok'], 'buscou' => true, 'novas' => $r['novas'] ?? 0, 'atualizadas' => $r['atualizadas'] ?? 0]);
 }
 
-if (!dentro_do_limite('sincronizar:' . ip_cliente(), 10, 600)) {
-    definir_ajuste('kiwify_sync_erro', 'Muitas buscas seguidas. Espere alguns minutos.');
-} else {
-    kiwify_sincronizar(($_POST['completa'] ?? '') === '1');
+// Botao: no maximo uma busca por minuto (para todos os usuarios) e uma releitura completa
+// a cada 10 minutos. Clique a mais so volta para a tela, sem erro: as vendas acabaram de
+// ser buscadas. O limite por IP so segura abuso.
+$ultima = (int)(ajuste('kiwify_sync_tentativa') ?? 0);
+if (time() - $ultima >= 60 && dentro_do_limite('sincronizar:' . ip_cliente(), 30, 600)) {
+    $completa = ($_POST['completa'] ?? '') === '1' && time() - (int)(ajuste('kiwify_sync_completa_em') ?? 0) >= 600;
+    kiwify_sincronizar($completa);
 }
 header('Location: ' . destino_seguro((string)($_POST['volta'] ?? '')));

@@ -43,6 +43,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     definir_ajuste('kiwify_sync_ok_em', null);
                     definir_ajuste('kiwify_sync_tentativa', null);
                     definir_ajuste('kiwify_sync_erro', null);
+                    definir_ajuste('kiwify_sync_adiada', null);
+                    definir_ajuste('kiwify_api_token', null);
                     $aviso = 'Chave conferida e salva.' . ($r['vendas'] !== null ? ' A API encontrou ' . $r['vendas'] . ' venda(s) entre ontem e hoje.' : '')
                         . ' Ao abrir o painel, ele busca as vendas dos últimos 89 dias.';
                 } else {
@@ -64,6 +66,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     } elseif ($acao === 'remover') {
         unset($cfg['kiwify_api']);
+        definir_ajuste('kiwify_api_token', null);
         if (track_salvar_config($cfg)) {
             $aviso = 'Chave removida do painel. Se não for usar mais, apague-a também na Kiwify (Apps → API).';
         } else {
@@ -95,9 +98,13 @@ casca_inicio();
       <tr><th>Salva</th><td><?= e(data_local($chave['salva_em'] ?? null, 'd/m/Y H:i')) ?> <span class="suave">por <?= e($chave['salva_por'] ?? '') ?></span></td></tr>
       <?php $sync = kiwify_sync_estado(); ?>
       <tr><th>Última busca de vendas</th><td><?= $sync['ok_em'] ? e(data_local($sync['ok_em'], 'd/m/Y H:i')) : '<span class="suave">ainda não feita</span>' ?>
-        <?= $sync['erro'] ? '<br><span class="erro">' . e($sync['erro']) . '</span>' : '' ?></td></tr>
+        <?= $sync['adiada'] ? '<br><span class="suave">Adiada: ' . e($sync['adiada']) . '</span>' : ($sync['erro'] ? '<br><span class="erro">' . e($sync['erro']) . '</span>' : '') ?></td></tr>
+      <?php $pausa = kiwify_api_pausa_ate(); ?>
+      <tr><th>Uso da API</th><td><?= kiwify_api_uso(60) ?> chamada(s) no último minuto · <?= kiwify_api_uso(3600) ?> na última hora
+        <br><span class="suave">Limite interno: <?= kiwify_api_limite_minuto() ?> por minuto (a Kiwify aceita 100).</span>
+        <?= $pausa ? '<br><span class="erro">A Kiwify pediu uma pausa: o painel volta a buscar sozinho às ' . e(data_local(gmdate('Y-m-d H:i:s', $pausa), 'H:i')) . '.</span>' : '' ?></td></tr>
     </table></div>
-    <p class="suave">Com o painel aberto, as vendas são buscadas pela API a cada 10 minutos, junto com o webhook. O botão <strong>Atualizar vendas</strong> fica nas abas Tráfego, Conferência e Vendas.</p>
+    <p class="suave">Com o painel aberto, as vendas são buscadas pela API a cada 10 minutos, junto com o webhook. O botão <strong>Atualizar vendas</strong> fica nas abas Tráfego, Conferência e Vendas e busca no máximo uma vez por minuto. Se a Kiwify pedir pausa (limite de chamadas), o painel espera sozinho, sem insistir.</p>
     <form method="post" action="kiwify-api.php" class="linha-botoes">
       <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
       <button type="submit" name="acao" value="testar">Testar conexão</button>

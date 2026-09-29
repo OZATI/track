@@ -36,9 +36,43 @@ function kiwify_api_formato_valido(string $clientId, string $secret, string $con
         && (bool)preg_match('/^[A-Za-z0-9]{6,60}$/', $conta);
 }
 
-// Requisicao HTTP. Devolve [status, corpo decodificado ou null]. Status 0 = sem conexao.
+// Protecao contra bloqueio da conta: a Kiwify aceita 100 chamadas por minuto (HTTP 429
+// acima disso). O painel usa no maximo 40, somando busca automatica, botao e teste, de
+// qualquer aba ou usuario. Se a Kiwify mesmo assim responder 429, o painel para sozinho:
+// 5 minutos, dobrando a cada novo 429 ate 1 hora (ou o Retry-After, se ela mandar).
+const KIWIFY_ADIADA = -1; // status de chamada que o painel nao fez (limite interno ou pausa)
+
+function kiwify_api_limite_minuto(): int
+{
+    return max(1, (int)(getenv('TRACK_KIWIFY_LIMITE_MINUTO') ?: 40));
+}
+
+// Chamadas feitas a Kiwify na janela (para a tela)
+function kiwify_api_uso(int $janela): int
+{
+    $st = track_db()->prepare("SELECT COUNT(*) FROM limites WHERE chave = 'kiwify-api' AND em >= ?");
+    $st->execute([time() - $janela]);
+    return (int)$st->fetchColumn();
+}
+
+// Ate quando a Kiwify pediu pausa (0 = sem pausa)
+function kiwify_api_pausa_ate(): int
+{
+    $ate = (int)(ajuste('kiwify_api_pausa_ate') ?? 0);
+    return $ate > time() ? $ate : 0;
+}
+
+// Requisicao HTTP. Devolve [status, corpo decodificado ou null]. Status 0 = sem conexao;
+// KIWIFY_ADIADA = nao chamou (limite interno ou pausa pedida pela Kiwify).
 function kiwify_api_http(string $metodo, string $url, array $cabecalhos, ?string $corpo = null): array
 {
+    if ($ate = kiwify_api_pausa_ate()) {
+        return [KIWIFY_ADIADA, ['message' => 'A Kiwify pediu uma pausa nas buscas; o painel volta a buscar sozinho às ' . data_local(gmdate('Y-m-d H:i:s', $ate), 'H:i') . '.']];
+    }
+    if (!dentro_do_limite('kiwify-api', kiwify_api_limite_minuto(), 60)) {
+        return [KIWIFY_ADIADA, ['message' => 'Limite interno de ' . kiwify_api_limite_minuto() . ' chamadas por minuto atingido (proteção contra bloqueio). A próxima busca sai em até 1 minuto.']];
+    }
+    $esperar = 0;
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_CUSTOMREQUEST => $metodo,
@@ -48,6 +82,12 @@ function kiwify_api_http(string $metodo, string $url, array $cabecalhos, ?string
         CURLOPT_TIMEOUT => 20,
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
+        CURLOPT_HEADERFUNCTION => function ($c, $linha) use (&$esperar) {
+            if (preg_match('/^retry-after:\s*(\d+)/i', $linha, $m)) {
+                $esperar = (int)$m[1];
+            }
+            return strlen($linha);
+        },
     ]);
     if ($corpo !== null) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, $corpo);
@@ -55,6 +95,13 @@ function kiwify_api_http(string $metodo, string $url, array $cabecalhos, ?string
     $resposta = curl_exec($ch);
     $status = $resposta === false ? 0 : (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     curl_close($ch);
+    if ($status === 429) {
+        $pausa = min(3600, max(300, 2 * (int)(ajuste('kiwify_api_pausa_seg') ?? 150), $esperar));
+        definir_ajuste('kiwify_api_pausa_seg', (string)$pausa);
+        definir_ajuste('kiwify_api_pausa_ate', (string)(time() + $pausa));
+    } elseif ($status >= 200 && $status < 300) {
+        definir_ajuste('kiwify_api_pausa_seg', null);
+    }
     $json = is_string($resposta) ? json_decode($resposta, true) : null;
     return [$status, is_array($json) ? $json : null];
 }
@@ -75,6 +122,9 @@ function kiwify_api_token(string $clientId, string $secret): array
     if ($status === 0) {
         return ['ok' => false, 'erro' => 'Sem conexão com a API da Kiwify. Tente de novo em instantes.'];
     }
+    if ($status === KIWIFY_ADIADA || $status === 429) {
+        return ['ok' => false, 'adiada' => true, 'erro' => $status === 429 ? 'A Kiwify pediu uma pausa nas buscas (muitas chamadas). O painel espera e tenta sozinho.' : kiwify_api_mensagem($corpo)];
+    }
     $token = $corpo['access_token'] ?? '';
     if ($status !== 200 || !is_string($token) || $token === '') {
         $m = kiwify_api_mensagem($corpo);
@@ -88,7 +138,27 @@ function kiwify_api_token(string $clientId, string $secret): array
         $escopo = is_array($carga) && is_string($carga['scope'] ?? null) ? $carga['scope'] : '';
     }
     $escopos = array_values(array_filter(preg_split('/[\s,]+/', $escopo) ?: []));
-    return ['ok' => true, 'token' => $token, 'escopos' => $escopos];
+    $validade = (int)($corpo['expires_in'] ?? 3600);
+    return ['ok' => true, 'token' => $token, 'escopos' => $escopos, 'validade' => min(86400, max(300, $validade))];
+}
+
+// Token guardado para as buscas (a Kiwify da validade de 24 h): economiza uma chamada por
+// busca. Fica no banco, fora da pasta publica, e so vale para a mesma chave.
+// $novo = pede outro (ex.: a Kiwify recusou o guardado).
+function kiwify_api_token_salvo(array $k, bool $novo = false): array
+{
+    $dono = hash('sha256', $k['client_id'] . '|' . $k['account_id'] . '|' . $k['client_secret']);
+    $salvo = json_decode((string)ajuste('kiwify_api_token'), true);
+    if (!$novo && is_array($salvo) && ($salvo['dono'] ?? '') === $dono && (int)($salvo['expira'] ?? 0) > time() + 300) {
+        return ['ok' => true, 'token' => (string)$salvo['token'], 'escopos' => (array)($salvo['escopos'] ?? [])];
+    }
+    $t = kiwify_api_token($k['client_id'], $k['client_secret']);
+    if ($t['ok']) {
+        definir_ajuste('kiwify_api_token', json_encode(['token' => $t['token'], 'escopos' => $t['escopos'], 'expira' => time() + $t['validade'], 'dono' => $dono]));
+    } elseif (empty($t['adiada'])) {
+        definir_ajuste('kiwify_api_token', null);
+    }
+    return $t;
 }
 
 // Data para start_date/end_date. A Kiwify le data sem hora como meia-noite em UTC
@@ -134,6 +204,9 @@ function kiwify_api_testar(string $clientId, string $secret, string $conta): arr
     ], $t['token'], $conta);
     if ($status === 0) {
         return ['ok' => false, 'erro' => 'Sem conexão com a API da Kiwify. Tente de novo em instantes.'];
+    }
+    if ($status === KIWIFY_ADIADA || $status === 429) {
+        return ['ok' => false, 'adiada' => true, 'erro' => $status === 429 ? 'A Kiwify pediu uma pausa nas buscas (muitas chamadas). Tente de novo mais tarde.' : kiwify_api_mensagem($corpo)];
     }
     if ($status !== 200) {
         $m = kiwify_api_mensagem($corpo);

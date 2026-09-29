@@ -32,6 +32,7 @@ function kiwify_sync_estado(): array
         'ok_em' => ajuste('kiwify_sync_ok_em'),
         'resumo' => is_array($resumo) ? $resumo : null,
         'erro' => ajuste('kiwify_sync_erro'),
+        'adiada' => ajuste('kiwify_sync_adiada'), // limite interno ou pausa: nao e erro
     ];
 }
 
@@ -70,8 +71,12 @@ function kiwify_sincronizar(bool $completa = false): array
         }
         definir_ajuste('kiwify_sync_resumo', json_encode(['novas' => $r['novas'], 'atualizadas' => $r['atualizadas'], 'lidas' => $r['lidas'], 'completa' => $r['completa']]));
         definir_ajuste('kiwify_sync_erro', null);
+        definir_ajuste('kiwify_sync_adiada', null);
+    } elseif (!empty($r['adiada'])) {
+        definir_ajuste('kiwify_sync_adiada', $r['erro']);
     } else {
         definir_ajuste('kiwify_sync_erro', $r['erro']);
+        definir_ajuste('kiwify_sync_adiada', null);
     }
     return $r;
 }
@@ -79,10 +84,11 @@ function kiwify_sincronizar(bool $completa = false): array
 function kiwify_sync_buscar(array $k, bool $completa): array
 {
     $inicio = agora_utc();
-    $t = kiwify_api_token($k['client_id'], $k['client_secret']);
+    $t = kiwify_api_token_salvo($k);
     if (!$t['ok']) {
         return $t;
     }
+    $tokenNovo = false;
     $dias = min(89, max(7, (int)(track_config()['dias_retencao'] ?? 90)));
     $agora = new DateTime('now', new DateTimeZone('UTC'));
     $consulta = [
@@ -106,6 +112,20 @@ function kiwify_sync_buscar(array $k, bool $completa): array
     $novas = $atualizadas = $lidas = $vistas = 0;
     for ($pagina = 1; $pagina <= KIWIFY_SYNC_PAGINAS; $pagina++) {
         [$status, $corpo] = kiwify_api_get('/sales', $consulta + ['page_number' => (string)$pagina], $t['token'], $k['account_id']);
+        if ($status === 401 && !$tokenNovo) {
+            // Token guardado venceu ou foi revogado: pede outro uma vez e repete a pagina
+            $tokenNovo = true;
+            $t = kiwify_api_token_salvo($k, true);
+            if (!$t['ok']) {
+                return $t;
+            }
+            $pagina--;
+            continue;
+        }
+        if ($status === KIWIFY_ADIADA || $status === 429) {
+            $m = $status === 429 ? 'A Kiwify pediu uma pausa nas buscas (muitas chamadas). O painel espera e tenta sozinho.' : kiwify_api_mensagem($corpo);
+            return ['ok' => false, 'adiada' => true, 'erro' => $m . ($lidas ? ' ' . $lidas . ' venda(s) já gravadas.' : '')];
+        }
         if ($status !== 200) {
             $m = kiwify_api_mensagem($corpo);
             $erro = $status === 0 ? 'Sem conexão com a API da Kiwify.' : 'A API da Kiwify respondeu HTTP ' . $status . ($m ? ': ' . $m : '') . '.';

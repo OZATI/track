@@ -155,7 +155,9 @@ function barra_vendas(array $parLink, string $aba): void
         . '<form method="post" action="sincronizar.php"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
         . '<input type="hidden" name="volta" value="' . e($volta) . '"><button type="submit" class="discreto neutro">Atualizar vendas</button></form>'
         . '</div>';
-    if ($s['erro']) {
+    if ($s['adiada']) {
+        echo '<p class="suave">Busca adiada: ' . e($s['adiada']) . '</p>';
+    } elseif ($s['erro']) {
         echo '<p class="erro">Última busca na API falhou: ' . e($s['erro']) . '</p>';
     }
 }

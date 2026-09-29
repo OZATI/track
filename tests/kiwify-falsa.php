@@ -43,6 +43,13 @@ if ($rota === '/v1/sales' && $_SERVER['REQUEST_METHOD'] === 'GET') {
         echo json_encode(['message' => 'ValidationError: "page_size" must be less than or equal to 100']);
         exit;
     }
+    if (($_SERVER['HTTP_X_KIWIFY_ACCOUNT_ID'] ?? '') === 'ContaLimite123') {
+        // Conta que "estourou" o limite da Kiwify: 429 com Retry-After
+        http_response_code(429);
+        header('Retry-After: 120');
+        echo json_encode(['message' => 'Too Many Requests']);
+        exit;
+    }
     if (strpos($_SERVER['HTTP_AUTHORIZATION'] ?? '', 'Bearer tok-') !== 0 || ($_SERVER['HTTP_X_KIWIFY_ACCOUNT_ID'] ?? '') !== 'ContaCerta123') {
         http_response_code(401);
         echo json_encode(['message' => 'Unauthorized']);

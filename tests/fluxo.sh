@@ -240,6 +240,10 @@ r=$(curl -s -b "$JAR" -o /dev/null -w '%{redirect_url}' --data-urlencode "csrf=$
     --data-urlencode "volta=./?aba=vendas&periodo=tudo" "$URL/sincronizar.php")
 confere "$(tem '/?aba=vendas&periodo=tudo' "$r")" "botão Atualizar vendas volta para a mesma tela"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
+confere "$(grep -q 'Última busca na API falhou\|Muitas buscas' <<<"$r"; [ $? -ne 0 ]; echo $?)" "clique repetido no botão não vira erro (espera 1 minuto em silêncio)"
+r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
+confere "$(tem 'chamada(s) no último minuto' "$r")" "aba API Kiwify mostra o uso da API"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
 confere "$(tem 'Vendas (5 pedidos)' "$r")" "busca completa de novo não duplica"
 curl -s --data '{"order_id":"api-2","order_ref":"RefDois2","order_status":"paid","webhook_event_type":"order_approved"}' "$URL/kiwify.php?chave=$CHAVE" >/dev/null
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
@@ -249,6 +253,21 @@ confere "$(tem 'Webhook + API</td><td>2 (67%)' "$r")" "duas vendas pelos dois ca
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/kiwify-api.php")
 confere "$(tem 'Chave removida do painel' "$r")" "remover a chave"
 confere "$(grep -q 'SegredoLeitura' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "chave removida sai da configuração"
+
+echo "Proteção contra bloqueio da API"
+# Limite interno, num banco separado: com limite 3 por minuto, a 4ª chamada nem sai
+D2="$DADOS/limite"; mkdir -p "$D2"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && TRACK_DADOS="$(cygpath -w "$D2" 2>/dev/null || echo "$D2")" TRACK_KIWIFY_LIMITE_MINUTO=3 "$PHP" $PHP_FLAGS -r '
+  require "lib/util.php"; require "lib/kiwify_api.php";
+  for ($i = 1; $i <= 4; $i++) { $t = kiwify_api_token("a1b2c3d4-0000-4000-8000-000000000001", "SegredoLeitura0000000000000000");
+    echo $i, ":", $t["ok"] ? "ok" : (empty($t["adiada"]) ? "erro" : "adiada"), " "; }')
+confere "$(tem '1:ok 2:ok 3:ok 4:adiada' "$saida")" "limite interno segura a chamada acima do limite por minuto ($saida)"
+# Kiwify responde 429: o painel para sozinho e nem tenta a chamada seguinte
+r=$(salvar "$csrf" "$CID" SegredoLeitura0000000000000000 ContaLimite123)
+confere "$(tem 'A Kiwify pediu uma pausa' "$r")" "429 da Kiwify vira pausa, sem salvar nada"
+r=$(salvar "$csrf" "$CID" SegredoLeitura0000000000000000 ContaCerta123)
+confere "$(tem 'volta a buscar sozinho às' "$r")" "durante a pausa o painel não chama a Kiwify"
 
 echo "Proteções"
 for i in 1 2 3 4 5 6; do r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" "$URL/entrar.php"); c=$(grep -o '[a-f0-9]\{32\}' <<<"$r" | head -1); r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" --data "csrf=$c&senha=errada" "$URL/entrar.php"); done
