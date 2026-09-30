@@ -574,6 +574,23 @@ saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '
   require "lib/util.php"; require "lib/instagram_sync.php"; putenv("TRACK_IG_MIDIA_HOST");
   foreach (["https://scontent.cdninstagram.com/v/a.jpg", "https://x.fbcdn.net/a.jpg", "http://scontent.cdninstagram.com/a.jpg", "https://cdninstagram.com.evil.test/a.jpg", "https://evil.test/a.jpg", "file:///etc/passwd"] as $u) { echo ig_url_midia_ok($u) ? "s" : "n"; }')
 confere "$([ "$saida" = "ssnnnn" ]; echo $?)" "capa só vem do CDN do Instagram e do Facebook, em HTTPS ($saida)"
+# Publico do Instagram: sexo, idade, cidades e paises (seguidores, alcancadas, engajadas)
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d")
+t=$(sem_tags "$r")
+confere "$(tem 'Público do Instagram' "$t")" "orgânico com o público do Instagram"
+confere "$(tem 'Mulheres56,7%' "$(tr -d ' ' <<<"$t" | tr -d '\n')")" "seguidores: 56,7% mulheres (700 de 1.234)"
+confere "$(tem '25-34 anos' "$t")" "faixa de idade principal: 25-34"
+confere "$(tem 'class="barra barra-f"' "$r")" "idade por sexo, com barras de mulheres e homens"
+confere "$(tem 'São Paulo' "$t")" "cidades sem o estado no nome"
+confere "$(tem 'Brasil' "$t")" "países com o nome em português"
+confere "$(tem 'Quem segue × quem interage' "$t")" "comparação entre quem segue e quem interage"
+confere "$(tem '▲ +8,1 p.p.' "$t")" "mulheres interagem mais (64,9%) do que o peso nos seguidores (56,7%)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d&publico=engajadas")
+confere "$(tem 'class="atual">Contas engajadas</a>' "$r")" "trocar para as contas engajadas"
+confere "$(tem 'Curitiba' "$(sem_tags "$r")")" "contas engajadas com as cidades delas"
+# shellcheck disable=SC2086
+n=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; $p = json_decode((string)ajuste("ig_publico"), true); echo count($p["publicos"] ?? []), ":", isset($p["publicos"]["alcancadas"]["erro"]) ? "erro" : "ok";')
+confere "$([ "$n" = "3:ok" ]; echo $?)" "os três públicos guardados, alcançadas e engajadas com o mês (timeframe) ($n)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d&feed_formato=foto")
 confere "$(grep -q 'midia.php?id=17900000000000001' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "filtro de formato: só fotos, sem o reel"
 confere "$(tem 'midia.php?id=17900000000000002' "$r")" "filtro de formato mostra a foto"

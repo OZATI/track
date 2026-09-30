@@ -282,6 +282,12 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .grafico text{ font:11px var(--f-texto); fill:var(--suave); }
 .grafico .grade-l{ stroke:var(--linha); stroke-width:1; }
 .grafico .barra{ fill:var(--marca); }
+.grafico .barra-f{ fill:#C13584; } .grafico .barra-m{ fill:#1D6FF2; }
+/* Organico: quem segue x quem interage */
+.publico-comp{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; font-size:13px; }
+.publico-comp li{ display:grid; grid-template-columns:minmax(0,1fr) 58px 66px 80px; align-items:center; gap:8px; font-variant-numeric:tabular-nums; }
+.publico-comp li > span:not(:first-child){ text-align:right; }
+.publico-comp .pc-cab{ font-size:12px; color:var(--suave); }
 .legenda-grafico{ display:flex; align-items:center; gap:6px; margin:0; color:var(--suave); font-size:12px; }
 .legenda-grafico i{ display:inline-block; width:12px; height:3px; margin-left:10px; }
 .legenda-grafico i:first-child{ margin-left:0; }

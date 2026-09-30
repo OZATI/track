@@ -51,6 +51,40 @@ if ($rota === '/ig/v23.0/me/insights') {
     if ($de('IGAASemViews') && in_array('views', $metricas, true)) {
         $erro(400, 100, '(#100) metric[1] must be one of the following values: reach, accounts_engaged, total_interactions, profile_links_taps');
     }
+    // Publico: sexo, idade, idade por sexo, cidade e pais (seguidores, alcancadas, engajadas)
+    $publicos = [
+        'follower_demographics' => [
+            'gender' => ['F' => 700, 'M' => 500, 'U' => 34],
+            'age' => ['18-24' => 200, '25-34' => 600, '35-44' => 300, '45-54' => 100, '55-64' => 34],
+            'age,gender' => ['18-24|F' => 120, '18-24|M' => 80, '25-34|F' => 340, '25-34|M' => 260, '35-44|F' => 170, '35-44|M' => 130, '45-54|F' => 50, '45-54|M' => 30],
+            'city' => ['São Paulo, São Paulo (state)' => 300, 'Rio de Janeiro, Rio de Janeiro (state)' => 150, 'Belo Horizonte, Minas Gerais' => 80],
+            'country' => ['BR' => 1150, 'PT' => 50, 'US' => 34],
+        ],
+        'reached_audience_demographics' => [
+            'gender' => ['F' => 1500, 'M' => 1400], 'age' => ['18-24' => 900, '25-34' => 1500, '35-44' => 500],
+            'age,gender' => ['18-24|F' => 500, '18-24|M' => 400, '25-34|F' => 800, '25-34|M' => 700], 'city' => ['São Paulo, São Paulo (state)' => 700], 'country' => ['BR' => 2900],
+        ],
+        'engaged_audience_demographics' => [
+            'gender' => ['F' => 120, 'M' => 60, 'U' => 5], 'age' => ['18-24' => 70, '25-34' => 80, '35-44' => 25, '45-54' => 10],
+            'age,gender' => ['18-24|F' => 50, '18-24|M' => 20, '25-34|F' => 50, '25-34|M' => 30], 'city' => ['Curitiba, Paraná' => 40, 'São Paulo, São Paulo (state)' => 30], 'country' => ['BR' => 185],
+        ],
+    ];
+    if (isset($publicos[$q['metric'] ?? ''])) {
+        $m = $q['metric'];
+        $b = (string)($q['breakdown'] ?? '');
+        if ($m !== 'follower_demographics' && empty($q['timeframe'])) {
+            $erro(400, 100, '(#100) The parameter timeframe is required');
+        }
+        if (!isset($publicos[$m][$b])) {
+            $erro(400, 100, '(#100) Invalid breakdown');
+        }
+        $res = [];
+        foreach ($publicos[$m][$b] as $k => $v) {
+            $res[] = ['dimension_values' => explode('|', $k), 'value' => $v];
+        }
+        echo json_encode(['data' => [['name' => $m, 'period' => 'lifetime', 'total_value' => ['breakdowns' => [['dimension_keys' => explode(',', $b), 'results' => $res]]]]]]);
+        exit;
+    }
     if (($q['metric'] ?? '') === 'follows_and_unfollows') {
         echo json_encode(['data' => [['name' => 'follows_and_unfollows', 'period' => 'day', 'total_value' => ['breakdowns' => [[
             'dimension_keys' => ['follow_type'],

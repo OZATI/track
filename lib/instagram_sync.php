@@ -10,6 +10,7 @@
 // proxima busca continua em 2 minutos. Toda consulta passa por lib/instagram_api.php.
 
 require_once __DIR__ . '/instagram_api.php';
+require_once __DIR__ . '/instagram_publico.php';
 
 const IG_SYNC_INTERVALO = 3600;
 const IG_SYNC_DIAS = 28;
@@ -176,6 +177,10 @@ function ig_sync_buscar(array $k): array
     }
     if (!$semInsights && !$pendente) {
         $pendente = ig_sync_posts($ctx);
+    }
+    // 4. Publico (sexo, idade, cidades e paises), uma vez por dia
+    if (!$semInsights && !$pendente && ig_publico_vencido()) {
+        $pendente = !ig_sync_publico($ctx);
     }
     return ['ok' => true, 'inicio' => $inicio, 'dias' => $dias, 'posts' => $posts, 'pendente' => $pendente];
 }

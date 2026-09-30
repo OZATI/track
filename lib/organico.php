@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/resumo.php';
 require_once __DIR__ . '/instagram_sync.php';
+require_once __DIR__ . '/organico_publico.php';
 
 // Grupo organico de uma origem: [chave, rotulo] ou null quando e anuncio
 function organico_grupo(?string $source, ?string $medium, ?string $term, ?string $referrer = null, ?string $campaign = null): ?array
@@ -281,6 +282,7 @@ function organico_instagram(PDO $db, string $periodo, array $grupos): void
             . ($porDia ? organico_svg_dias($porDia, 'contas alcançadas', 'Alcance por dia') : '<p class="suave">Escolha um período de mais de um dia.</p>') . '</section>';
     }
 
+    organico_publico($periodo);
     organico_feed($db, $periodo);
 }
 
