@@ -150,7 +150,7 @@ function gestor_colunas_escolhidas(array $todas): array
 // Por que uma venda aprovada ficou fora de anuncio (pelo canal da etiqueta)
 function gestor_motivo_fora(array $v): array
 {
-    $cn = canal($v['utm_source'], $v['utm_medium'], $v['utm_term']);
+    $cn = canal($v['utm_source'], $v['utm_medium'], $v['utm_term'], null, $v['utm_campaign']);
     switch ($cn[0]) {
         case 'organico':
             return [$cn, 'Venda orgânica' . ($cn[3] !== '' ? ' (' . $cn[3] . ')' : '') . ': não veio de anúncio. Normal ficar fora das campanhas.'];

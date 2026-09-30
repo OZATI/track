@@ -1,15 +1,27 @@
 <?php
 // API do Instagram falsa, so para o tests/fluxo.sh (servidor embutido do PHP, com este
-// arquivo como roteador). Imita /me, /me/insights, /me/media, /<post>/insights e
-// /refresh_access_token.
+// arquivo como roteador). Imita /me, /me/insights, /me/media, /<post>/insights,
+// /refresh_access_token e o CDN das capas dos posts (/midia/<id>.jpg).
 //
 //   token IGAATeste... ou IGAARenovado...  -> tudo liberado
 //   token IGAASemInsights...               -> perfil e posts, insights recusados
 //   token IGAASemViews...                  -> a metrica "views" da conta e recusada
 //   outro                                  -> erro 190
 
-header('Content-Type: application/json');
 $rota = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+// CDN das capas: uma imagem 600 x 750 (ou um JPEG minimo, sem a biblioteca de imagem)
+if (preg_match('~^/midia/\d+\.jpg$~', $rota)) {
+    header('Content-Type: image/jpeg');
+    if (function_exists('imagecreatetruecolor')) {
+        $im = imagecreatetruecolor(600, 750);
+        imagefill($im, 0, 0, imagecolorallocate($im, 29, 111, 242));
+        imagejpeg($im, null, 70);
+    } else {
+        echo base64_decode('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=');
+    }
+    exit;
+}
+header('Content-Type: application/json');
 parse_str((string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY), $q);
 $token = preg_replace('/^Bearer\s+/i', '', $_SERVER['HTTP_AUTHORIZATION'] ?? '');
 $erro = function (int $http, int $codigo, string $msg) {
@@ -58,11 +70,14 @@ if ($rota === '/ig/v23.0/me/insights') {
     exit;
 }
 if ($rota === '/ig/v23.0/me/media') {
+    $cdn = 'http://' . (getenv('TRACK_IG_MIDIA_HOST') ?: $_SERVER['HTTP_HOST']) . '/midia/';
     echo json_encode(['data' => [
         ['id' => '17900000000000001', 'caption' => 'Reel do Drive de Projetos', 'media_type' => 'VIDEO', 'media_product_type' => 'REELS',
-            'permalink' => 'https://www.instagram.com/reel/abc/', 'timestamp' => gmdate('Y-m-d\TH:i:s+0000', time() - 3600), 'like_count' => 50, 'comments_count' => 5],
+            'permalink' => 'https://www.instagram.com/reel/abc/', 'timestamp' => gmdate('Y-m-d\TH:i:s+0000', time() - 3600), 'like_count' => 50, 'comments_count' => 5,
+            'media_url' => $cdn . 'video.mp4', 'thumbnail_url' => $cdn . '17900000000000001.jpg'],
         ['id' => '17900000000000002', 'caption' => 'Post da planta', 'media_type' => 'IMAGE', 'media_product_type' => 'FEED',
-            'permalink' => 'https://www.instagram.com/p/def/', 'timestamp' => gmdate('Y-m-d\TH:i:s+0000', time() - 2 * 86400), 'like_count' => 20, 'comments_count' => 2],
+            'permalink' => 'https://www.instagram.com/p/def/', 'timestamp' => gmdate('Y-m-d\TH:i:s+0000', time() - 2 * 86400), 'like_count' => 20, 'comments_count' => 2,
+            'media_url' => $cdn . '17900000000000002.jpg'],
     ]]);
     exit;
 }

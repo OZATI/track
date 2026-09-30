@@ -10,7 +10,12 @@ require_once __DIR__ . '/gestor.php';
 
 function resumo_pct(float $parte, float $todo): string
 {
-    return $todo > 0 ? number_format($parte * 100 / $todo, 1, ',', '') . '%' : '—';
+    if ($todo <= 0) {
+        return '—';
+    }
+    // Taxa pequena (ex.: 10 visitas de 90 mil de alcance) nao vira "0,0%"
+    $p = $parte * 100 / $todo;
+    return number_format($p, $p > 0 && $p < 0.1 ? 3 : ($p > 0 && $p < 1 ? 2 : 1), ',', '') . '%';
 }
 
 // Lista com barra: [rotulo => valor]; $texto formata o numero da direita
@@ -140,7 +145,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
                 $aprovadas++;
                 $porPagamento[$meio] = ($porPagamento[$meio] ?? 0) + 1;
                 $aprovPorMeio[$meio] = ($aprovPorMeio[$meio] ?? 0) + 1;
-                $cn = canal($v['utm_source'], $v['utm_medium'], $v['utm_term']);
+                $cn = canal($v['utm_source'], $v['utm_medium'], $v['utm_term'], null, $v['utm_campaign']);
                 $porFonte[$cn[1]] = ($porFonte[$cn[1]] ?? 0) + 1;
                 $porHora[$h] = ($porHora[$h] ?? 0) + 1;
                 $metaAprovadas += $daMeta ? 1 : 0;

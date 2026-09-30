@@ -116,10 +116,30 @@ td.quebra{ white-space:normal; min-width:220px; }
 .lateral svg{ width:20px; height:20px; }
 
 /* Gestor de anuncios */
-.gestor-niveis{ display:inline-flex; background:var(--cartao-2); border:1px solid var(--linha); border-radius:var(--r-sm); padding:2px; margin:0 0 14px; }
-.gestor-niveis a{ padding:5px 14px; border-radius:4px; color:var(--suave); font-weight:500; }
-.gestor-niveis a:hover{ color:var(--texto); text-decoration:none; }
-.gestor-niveis a.atual{ background:var(--cartao); color:var(--texto); box-shadow:0 0 0 1px var(--linha); }
+.gestor-niveis, .segmentos{ display:inline-flex; background:var(--cartao-2); border:1px solid var(--linha); border-radius:var(--r-sm); padding:2px; margin:0 0 14px; }
+.gestor-niveis a, .segmentos a{ padding:5px 14px; border-radius:4px; color:var(--suave); font-weight:500; }
+.gestor-niveis a:hover, .segmentos a:hover{ color:var(--texto); text-decoration:none; }
+.gestor-niveis a.atual, .segmentos a.atual{ background:var(--cartao); color:var(--texto); box-shadow:0 0 0 1px var(--linha); }
+.segmentos{ flex-wrap:wrap; margin:0; }
+.segmentos a{ padding:4px 10px; }
+/* Feed do Instagram (aba Organico) */
+.feed-controles{ display:flex; flex-wrap:wrap; gap:8px 12px; margin:0 0 10px; }
+.feed-legenda{ margin:0 0 12px; font-size:12px; color:var(--suave); }
+.feed{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
+.post{ display:flex; flex-direction:column; border:1px solid var(--linha); border-radius:var(--r-md); overflow:hidden; background:var(--cartao); }
+.post-capa{ position:relative; display:block; aspect-ratio:4/5; background:var(--cartao-2); }
+.post-capa img{ display:block; width:100%; height:100%; object-fit:cover; }
+.post-capa .sem-capa{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--apagado); }
+.post-tipo, .post-vendas{ position:absolute; left:8px; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; }
+.post-tipo{ top:8px; background:rgba(17,24,39,.78); color:#fff; }
+.post-vendas{ bottom:8px; background:#DCFCE7; color:#166534; }
+.post-corpo{ display:flex; flex-direction:column; gap:6px; padding:10px 12px 12px; }
+.post-data{ margin:0; font-size:12px; color:var(--suave); }
+.post-legenda{ margin:0; font-size:12px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.post-num{ display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; margin:2px 0 0; }
+.post-num div{ min-width:0; }
+.post-num dt{ font-size:11px; color:var(--suave); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.post-num dd{ margin:0; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
 .gestor-niveis .ico{ display:none; }
 .gestor-filtros{ display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin:0 0 14px; }
 .colunas{ position:relative; }
@@ -266,17 +286,25 @@ function rotulo_meio(string $m): string
 // Anuncio da Meta vira Instagram ou Facebook pelo posicionamento (utm_term, ex.:
 // Instagram_Reels); sem posicionamento, "Meta". Organico leva a folha. Sem etiqueta,
 // o site de onde a pessoa veio (so para visitantes; venda nao tem referrer).
-function canal(?string $source, ?string $medium = null, ?string $term = null, ?string $referrer = null): array
+function canal(?string $source, ?string $medium = null, ?string $term = null, ?string $referrer = null, ?string $campaign = null): array
 {
     $s = strtolower(trim((string)$source));
     $m = strtolower(trim((string)$medium));
     $t = strtolower(trim((string)$term));
     $pago = strpos($m, '|') !== false || in_array($m, ['cpc', 'ppc', 'paid', 'paid_social', 'ads'], true);
+    // O Instagram troca utm_source e utm_medium do link por "ig" e "social" e mantem o resto:
+    // com a campanha da Meta ("Nome|120..."), e anuncio, mesmo parecendo organico
+    $anuncioTrocado = 'o Instagram trocou a origem para ig / social; a campanha é de anúncio';
+    $idCampanha = (bool)preg_match('/\|\s*\d{6,25}\s*$/', (string)$campaign);
     if (in_array($s, ['organico', 'orgânico', 'organic'], true)) {
         return ['organico', 'Orgânico', 'folha', rotulo_meio($m)];
     }
     if ($s === 'ig') { // marca automatica do Instagram no link da bio
-        return ['organico', 'Orgânico', 'folha', 'Instagram (bio)'];
+        return $idCampanha ? ['instagram', 'Instagram · anúncio', 'instagram', $anuncioTrocado] : ['organico', 'Orgânico', 'folha', 'Instagram (bio)'];
+    }
+    if ($idCampanha && in_array($s, ['facebook', 'instagram'], true) && !$pago) {
+        return $s === 'instagram' ? ['instagram', 'Instagram · anúncio', 'instagram', $anuncioTrocado]
+            : ['facebook', 'Facebook · anúncio', 'facebook', 'origem "facebook" sem marca de anúncio, mas a campanha é de anúncio'];
     }
     if (in_array($s, ['metaads', 'meta', 'fb', 'facebookads', 'instagramads'], true) || (in_array($s, ['facebook', 'instagram'], true) && $pago)) {
         if (strpos($t, 'instagram') === 0 || ($t === '' && in_array($s, ['instagram', 'instagramads'], true))) {

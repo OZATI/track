@@ -127,6 +127,33 @@ casca_inicio();
       <button type="submit">Conferir e salvar</button>
     </form>
   </section>
+
+  <?php
+  // Webhook: a venda chega na hora. Se as vendas recentes vieram so pela API, ele parou
+  // (URL antiga depois de troca de dominio, webhook apagado ou evento desmarcado).
+  $db = track_db();
+  $ultimoWebhook = $db->query("SELECT MAX(recebida_em) FROM vendas WHERE fonte IN ('webhook', 'ambos')")->fetchColumn() ?: null;
+  $st = $db->prepare("SELECT COUNT(*) FROM vendas WHERE fonte = 'api' AND recebida_em >= ?");
+  $st->execute([gmdate('Y-m-d H:i:s', time() - 7 * 86400)]);
+  $soApi = (int)$st->fetchColumn();
+  $parado = $soApi > 0 && (!$ultimoWebhook || strtotime($ultimoWebhook . ' UTC') < time() - 7 * 86400);
+  $urlWebhook = (https() ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '') . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? '/'), '/\\')
+      . '/kiwify.php?chave=' . (track_config()['chave_webhook'] ?? '');
+  ?>
+  <section class="cartao">
+    <h2><?= com_info('Webhook da Kiwify', 'Com o webhook, a Kiwify avisa o painel na hora de cada venda. A API confere de 10 em 10 minutos e completa o que faltar; as duas juntas não deixam venda de fora.') ?></h2>
+    <?php if ($parado): ?>
+    <p class="erro">O webhook não está chegando: <?= $soApi ?> venda(s) dos últimos 7 dias vieram só pela API. Na Kiwify, em Apps → Webhooks, confira se a URL é a de baixo (a do domínio antigo não funciona mais) e se as compras aprovadas, recusadas, reembolsadas e o Pix gerado estão marcados.</p>
+    <?php endif; ?>
+    <div class="tabela"><table>
+      <tr><th>Última venda pelo webhook</th><td><?= $ultimoWebhook ? e(data_local($ultimoWebhook, 'd/m/Y H:i')) : 'nenhuma ainda' ?></td></tr>
+      <tr><th>Vendas só pela API (7 dias)</th><td><?= $soApi ?></td></tr>
+    </table></div>
+    <details><summary>Mostrar a URL do webhook</summary>
+      <pre><?= e($urlWebhook) ?></pre>
+      <p class="suave">A chave no fim da URL é secreta: cole só na Kiwify, em Apps → Webhooks.</p>
+    </details>
+  </section>
 </main>
 <?php
 casca_fim();

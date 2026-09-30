@@ -13,6 +13,8 @@ require_once __DIR__ . '/instagram_api.php';
 
 const IG_SYNC_INTERVALO = 3600;
 const IG_SYNC_DIAS = 28;
+const IG_MINIATURA_LARGURA = 480;
+const IG_MINIATURAS_POR_BUSCA = 24;
 const IG_METRICAS_CONTA = ['reach', 'views', 'accounts_engaged', 'total_interactions', 'profile_links_taps'];
 const IG_COLUNAS_CONTA = ['reach' => 'alcance', 'views' => 'visualizacoes', 'accounts_engaged' => 'contas_engajadas',
     'total_interactions' => 'interacoes', 'profile_links_taps' => 'toques_links'];
@@ -112,7 +114,7 @@ function ig_sync_buscar(array $k): array
         ->execute([$hoje, $seguidores]);
 
     // 2. Posts e reels (os 50 mais recentes): aparecem ja na primeira busca
-    [$st, $c] = ig_api_get($ctx, $ctx['conta'] . '/media', ['fields' => 'id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count', 'limit' => '50']);
+    [$st, $c] = ig_api_get($ctx, $ctx['conta'] . '/media', ['fields' => 'id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count,media_url,thumbnail_url', 'limit' => '50']);
     if ($st === IG_ADIADA) {
         return ['ok' => true, 'inicio' => $inicio, 'dias' => 0, 'posts' => 0, 'pendente' => true];
     }
@@ -125,6 +127,7 @@ function ig_sync_buscar(array $k): array
         ON CONFLICT (id) DO UPDATE SET tipo = excluded.tipo, produto = excluded.produto, legenda = excluded.legenda, link = excluded.link,
             publicado_em = excluded.publicado_em, curtidas = excluded.curtidas, comentarios = excluded.comentarios, atualizado_em = excluded.atualizado_em');
     $posts = 0;
+    $imagens = [];
     foreach ((array)($c['data'] ?? []) as $p) {
         if (!is_array($p)) {
             continue;
@@ -138,6 +141,15 @@ function ig_sync_buscar(array $k): array
             preg_match('~^https://(www\.)?instagram\.com/~', $link) ? texto($link, 200) : null, ig_data_utc($p['timestamp'] ?? null),
             (int)($p['like_count'] ?? 0), (int)($p['comments_count'] ?? 0), agora_utc()]);
         $posts++;
+        // Capa do feed: a miniatura do video ou a propria imagem (no carrossel, a primeira)
+        $imagens[$id] = (string)($p['thumbnail_url'] ?? '') ?: (string)($p['media_url'] ?? '');
+    }
+    $baixadas = 0;
+    foreach ($imagens as $id => $url) {
+        if ($url !== '' && $baixadas < IG_MINIATURAS_POR_BUSCA && !is_file(ig_arquivo_miniatura($id))) {
+            ig_baixar_miniatura($id, $url);
+            $baixadas++;
+        }
     }
 
     // 3. Numeros da conta por dia, depois os insights de cada post
@@ -259,17 +271,20 @@ function ig_sync_dias(array $ctx, string $hoje, int $seguidores): array
     return [$feitos, false, null];
 }
 
-// Insights dos posts: novos e dos ultimos 14 dias a cada hora, os mais velhos (ate 90 dias)
-// uma vez por dia. Devolve true se parou no limite de consultas.
+// Insights dos posts: novos e dos ultimos 14 dias a cada hora, ate 90 dias uma vez por dia e
+// os mais velhos uma vez por semana. Devolve true se parou no limite de consultas.
 function ig_sync_posts(array $ctx): bool
 {
     $db = track_db();
     $agora = time();
+    $h = fn(int $seg) => gmdate('Y-m-d H:i:s', $agora - $seg);
     $posts = consulta_ig($db, 'SELECT id, produto, tipo FROM ig_media
-        WHERE publicado_em >= ? AND (insights_em IS NULL OR (publicado_em >= ? AND insights_em < ?) OR insights_em < ?)
-        ORDER BY publicado_em DESC LIMIT 40', [
-        gmdate('Y-m-d H:i:s', $agora - 90 * 86400), gmdate('Y-m-d H:i:s', $agora - 14 * 86400),
-        gmdate('Y-m-d H:i:s', $agora - 3600), gmdate('Y-m-d H:i:s', $agora - 86400),
+        WHERE insights_em IS NULL
+           OR (publicado_em >= ? AND insights_em < ?)
+           OR (publicado_em >= ? AND insights_em < ?)
+           OR insights_em < ?
+        ORDER BY insights_em IS NOT NULL, publicado_em DESC LIMIT 50', [
+        $h(14 * 86400), $h(3600), $h(90 * 86400), $h(86400), $h(7 * 86400),
     ]);
     $gravar = $db->prepare('UPDATE ig_media SET alcance = ?, visualizacoes = ?, salvos = ?, compartilhamentos = ?, interacoes = ?,
         visitas_perfil = ?, seguiram = ?, tempo_medio_ms = ?, insights_em = ? WHERE id = ?');
@@ -302,4 +317,80 @@ function consulta_ig(PDO $db, string $sql, array $par): array
     $st = $db->prepare($sql);
     $st->execute($par);
     return $st->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Miniaturas do feed: na pasta de dados, fora do site. midia.php entrega so para quem entrou.
+function ig_arquivo_miniatura(string $id): string
+{
+    return track_pasta_dados() . DIRECTORY_SEPARATOR . 'ig-midia' . DIRECTORY_SEPARATOR . $id . '.jpg';
+}
+
+// So imagem do CDN do Instagram e do Facebook, em HTTPS (o endereco vem da API, mas o painel
+// nao busca nada fora disso). Em teste, TRACK_IG_MIDIA_HOST libera o servidor falso local.
+function ig_url_midia_ok(string $url): bool
+{
+    $p = parse_url($url);
+    $host = strtolower((string)($p['host'] ?? ''));
+    $teste = getenv('TRACK_IG_MIDIA_HOST');
+    if ($teste && $host . (isset($p['port']) ? ':' . $p['port'] : '') === $teste) {
+        return true;
+    }
+    return ($p['scheme'] ?? '') === 'https' && (bool)preg_match('/(^|\.)(cdninstagram\.com|fbcdn\.net)$/', $host);
+}
+
+// Baixa a capa do post, reduz para 480 px de largura e grava como JPEG (sem os metadados da
+// foto). Sem a biblioteca de imagem do PHP, guarda o JPEG original se for pequeno.
+function ig_baixar_miniatura(string $id, string $url): bool
+{
+    if (!preg_match('/^\d{6,25}$/', $id) || !ig_url_midia_ok($url)) {
+        return false;
+    }
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTPS | CURLPROTO_HTTP,
+        CURLOPT_NOPROGRESS => false,
+        // Mais de 8 MB: para no meio (nao e uma capa de post)
+        CURLOPT_XFERINFOFUNCTION => fn($c, $total, $baixado) => $baixado > 8 * 1024 * 1024 ? 1 : 0,
+    ]);
+    $bin = curl_exec($ch);
+    $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+    if (!is_string($bin) || $status !== 200) {
+        return false;
+    }
+    $info = @getimagesizefromstring($bin);
+    if (!$info || !in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP], true)) {
+        return false;
+    }
+    $arq = ig_arquivo_miniatura($id);
+    if (!is_dir(dirname($arq)) && !@mkdir(dirname($arq), 0750, true)) {
+        return false;
+    }
+    $tmp = $arq . '.tmp';
+    if (function_exists('imagecreatefromstring')) {
+        $im = @imagecreatefromstring($bin);
+        if (!$im) {
+            return false;
+        }
+        $w = imagesx($im);
+        $h = imagesy($im);
+        $nw = min(IG_MINIATURA_LARGURA, $w);
+        $nh = max(1, (int)round($h * $nw / max(1, $w)));
+        $novo = imagecreatetruecolor($nw, $nh);
+        imagecopyresampled($novo, $im, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        $ok = imagejpeg($novo, $tmp, 80);
+        imagedestroy($im);
+        imagedestroy($novo);
+    } else {
+        $ok = $info[2] === IMAGETYPE_JPEG && strlen($bin) <= 1500000 && file_put_contents($tmp, $bin) !== false;
+    }
+    if (!$ok || !@rename($tmp, $arq)) {
+        @unlink($tmp);
+        return false;
+    }
+    return true;
 }

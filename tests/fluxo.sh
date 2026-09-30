@@ -38,6 +38,7 @@ META_FALSA=$!
 PORTA_IG=$((PORTA + 3))
 export TRACK_IG_API="http://127.0.0.1:$PORTA_IG/ig"
 export TRACK_IG_LIMITE_MINUTO=200
+export TRACK_IG_MIDIA_HOST="127.0.0.1:$PORTA_IG"
 # shellcheck disable=SC2086
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_IG" "$RAIZ/tests/instagram-falsa.php" >"$DADOS/instagram-falsa.log" 2>&1 &
 IG_FALSA=$!
@@ -427,12 +428,42 @@ confere "$(tem 'Perfil do Instagram · @engdesk' "$t")" "bloco do perfil com o @
 confere "$(tem '1.234Seguidores' "$t")" "seguidores do perfil"
 confere "$(tem '+21Saldo de seguidores' "$t")" "saldo de seguidores do período (5 − 2 por dia, 7 dias)"
 confere "$(tem '700Alcance' "$t")" "alcance somado dos 7 dias"
-confere "$(tem '49Toques nos links do perfil' "$t")" "toques nos links do perfil"
+confere "$(tem '49Toques nos botões de contato' "$t")" "toques nos botões de contato (o Instagram não conta o link da bio)"
 confere "$(tem '2Posts no período' "$t")" "posts publicados no período"
 confere "$(tem 'Do perfil à venda' "$t")" "funil do perfil até a venda"
+confere "$([ "$(grep -o 'Toques nos botões de contato' <<<"$t" | wc -l)" -eq 1 ]; echo $?)" "funil vai do alcance direto aos visitantes (os toques nos botões ficam só nos números)"
 confere "$(tem 'aria-label="Alcance por dia"' "$r")" "gráfico de alcance por dia"
 confere "$(tem 'href="https://www.instagram.com/reel/abc/" target="_blank" rel="noopener noreferrer"' "$r")" "post abre no Instagram em outra aba"
-confere "$([ "$(grep -o 'Reel do Drive de Projetos\|Post da planta' <<<"$t" | head -1)" = 'Reel do Drive de Projetos' ]; echo $?)" "posts do maior alcance para o menor"
+confere "$(tem 'id="feed"' "$r")" "feed com os posts"
+confere "$(tem '<img src="midia.php?id=17900000000000001" alt="" loading="lazy">' "$r")" "capa do reel baixada e mostrada pelo painel"
+confere "$(tem '<img src="midia.php?id=17900000000000002"' "$r")" "capa do post de feed baixada e mostrada pelo painel"
+confere "$(tem 'Qual formato funciona melhor' "$t")" "comparação entre formatos"
+confere "$(tem '<td><strong>Reels</strong></td><td>1</td><td>1.000</td><td>2.500</td><td>9,7%</td><td>30</td><td>12</td>' "$r")" "reels: alcance, visualizações, engajamento, salvos e compartilhamentos médios"
+code=$(curl -s -o "$DADOS/capa.jpg" -w '%{http_code} %{content_type}' -b "$JAR" "$URL/midia.php?id=17900000000000001")
+confere "$([ "$code" = "200 image/jpeg" ]; echo $?)" "capa entregue pelo painel ($code)"
+# shellcheck disable=SC2086
+largura=$("$PHP" $PHP_FLAGS -r 'echo getimagesize($argv[1])[0] ?? 0;' "$(cygpath -w "$DADOS/capa.jpg" 2>/dev/null || echo "$DADOS/capa.jpg")")
+confere "$([ "$largura" = "480" ] || [ "$largura" = "1" ]; echo $?)" "capa reduzida para 480 px de largura ($largura)"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/midia.php?id=17900000000000001")
+confere "$([ "$code" = "403" ]; echo $?)" "capa não sai sem login ($code)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$URL/midia.php?id=../config")
+confere "$([ "$code" = "404" ]; echo $?)" "capa só por número de post, sem caminho ($code)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$URL/midia.php?id=17999999999999999")
+confere "$([ "$code" = "404" ]; echo $?)" "post sem capa baixada dá 404 ($code)"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '
+  require "lib/util.php"; require "lib/instagram_sync.php"; putenv("TRACK_IG_MIDIA_HOST");
+  foreach (["https://scontent.cdninstagram.com/v/a.jpg", "https://x.fbcdn.net/a.jpg", "http://scontent.cdninstagram.com/a.jpg", "https://cdninstagram.com.evil.test/a.jpg", "https://evil.test/a.jpg", "file:///etc/passwd"] as $u) { echo ig_url_midia_ok($u) ? "s" : "n"; }')
+confere "$([ "$saida" = "ssnnnn" ]; echo $?)" "capa só vem do CDN do Instagram e do Facebook, em HTTPS ($saida)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d&feed_formato=foto")
+confere "$(grep -q 'midia.php?id=17900000000000001' <<<"$r"; [ $? -ne 0 ]; echo $?)" "filtro de formato: só fotos, sem o reel"
+confere "$(tem 'midia.php?id=17900000000000002' "$r")" "filtro de formato mostra a foto"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d&feed_ver=tabela&feed_ordem=alcance")
+t=$(sem_tags "$r")
+confere "$(tem 'Vendas em 48 h' "$t")" "feed em tabela, com as vendas em 48 h"
+confere "$([ "$(grep -o 'Reel do Drive de Projetos\|Post da planta' <<<"$t" | head -1)" = 'Reel do Drive de Projetos' ]; echo $?)" "ordenar por alcance: do maior para o menor"
+r2=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d&feed_ver=tabela&feed_ordem=salvos")
+confere "$([ "$(grep -o 'Reel do Drive de Projetos\|Post da planta' <<<"$(sem_tags "$r2")" | head -1)" = 'Reel do Drive de Projetos' ]; echo $?)" "ordenar por salvos"
 confere "$(tem '<td>1.000</td><td>2.500</td><td>50</td><td>5</td><td>30</td><td>12</td>' "$r")" "números do reel (alcance, visualizações, curtidas, comentários, salvos, compartilhamentos)"
 confere "$(tem '9,7%' "$t")" "engajamento do reel = interações ÷ alcance"
 confere "$(tem '8,5 s' "$t")" "tempo médio assistido do reel"
@@ -506,6 +537,21 @@ confere "$(tem 'volta a buscar sozinho às' "$r")" "durante a pausa o painel nã
 echo "Proteções"
 for i in 1 2 3 4 5 6; do r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" "$URL/entrar.php"); c=$(grep -o '[a-f0-9]\{32\}' <<<"$r" | head -1); r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" --data "csrf=$c&senha=errada" "$URL/entrar.php"); done
 confere "$(tem 'Muitas tentativas' "$r")" "login bloqueia depois de 5 senhas erradas"
+
+echo "Classificação e webhook"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '
+  require "lib/util.php"; require "lib/layout.php";
+  echo canal("ig", "social", null, null, "ID MID|120249173963740442")[1], ";", canal("ig", "social")[3], ";", canal("instagram", "social", null, null, "TL 1|120120")[1], ";", canal("organico", "instagram-bio", null, null, "bio")[3];')
+confere "$(tem 'Instagram · anúncio;Instagram (bio);Instagram · anúncio;Instagram (bio)' "$saida")" "ig / social com ID de campanha é anúncio; sem ID, bio ($saida)"
+r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
+confere "$(tem 'Mostrar a URL do webhook' "$r")" "aba API Kiwify mostra a URL do webhook"
+confere "$(tem "kiwify.php?chave=$CHAVE" "$r")" "URL do webhook com a chave certa"
+confere "$(grep -q 'O webhook não está chegando' <<<"$r"; [ $? -ne 0 ]; echo $?)" "webhook chegando: sem aviso"
+# shellcheck disable=SC2086
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; track_db()->exec("UPDATE vendas SET fonte = '"'"'api'"'"', recebida_em = datetime('"'"'now'"'"')");')
+r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
+confere "$(tem 'O webhook não está chegando' "$r")" "vendas recentes só pela API: aviso de webhook parado"
 
 echo
 if [ "$FALHAS" -eq 0 ]; then echo "TUDO OK"; else echo "$FALHAS FALHA(S)"; echo "--- log do servidor:"; tail -20 "$DADOS/servidor.log"; fi

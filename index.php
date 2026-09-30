@@ -314,10 +314,10 @@ if ($aba === 'trafego') {
         $c = $contas[$p['visitante']] ?? ['pv' => 0, 'ck' => 0, 'wa' => 0];
         $soma = ['vis' => 1, 'pv' => (int)$c['pv'], 'ck' => (int)$c['ck'] > 0 ? 1 : 0, 'wa' => (int)$c['wa'] > 0 ? 1 : 0,
             'vendas' => $vendasPorVisitante[$p['visitante']] ?? 0, 'fat' => $fatPorVisitante[$p['visitante']] ?? 0];
-        $cn = canal($p['utm_source'], $p['utm_medium'], $p['utm_term'], $p['referrer']);
+        $cn = canal($p['utm_source'], $p['utm_medium'], $p['utm_term'], $p['referrer'], $p['utm_campaign']);
         $somar($porCanal, $cn[0], $cn, $soma);
         // Na origem detalhada, o icone e so pela etiqueta (a mesma campanha roda no Instagram e no Facebook)
-        $somar($linhas, rotulo_origem($p), canal($p['utm_source'], $p['utm_medium'], null, $p['referrer']), $soma);
+        $somar($linhas, rotulo_origem($p), canal($p['utm_source'], $p['utm_medium'], null, $p['referrer'], $p['utm_campaign']), $soma);
     }
     uasort($linhas, fn($a, $b) => [$b['vis'], $b['vendas']] <=> [$a['vis'], $a['vendas']]);
     uksort($porCanal, fn($a, $b) => array_search($a, CANAIS_ORDEM, true) <=> array_search($b, CANAIS_ORDEM, true));
@@ -456,11 +456,11 @@ if ($aba === 'resumo') {
     $porCanal = [];
     $porOrigem = [];
     foreach ($aprovadas as $v) {
-        $cn = canal($v['utm_source'], $v['utm_medium'], $v['utm_term']);
+        $cn = canal($v['utm_source'], $v['utm_medium'], $v['utm_term'], null, $v['utm_campaign']);
         $fat = $fatVenda[$v['pedido']] ?? (int)$v['valor'];
         $porCanal[$cn[0]] = ['canal' => $cn, 'n' => ($porCanal[$cn[0]]['n'] ?? 0) + 1, 'fat' => ($porCanal[$cn[0]]['fat'] ?? 0) + $fat];
         $k = origem($v['utm_source'], $v['utm_medium'], null) ?: '(sem etiqueta)';
-        $porOrigem[$k] = ['canal' => canal($v['utm_source'], $v['utm_medium']), 'n' => ($porOrigem[$k]['n'] ?? 0) + 1, 'fat' => ($porOrigem[$k]['fat'] ?? 0) + $fat];
+        $porOrigem[$k] = ['canal' => canal($v['utm_source'], $v['utm_medium'], null, null, $v['utm_campaign']), 'n' => ($porOrigem[$k]['n'] ?? 0) + 1, 'fat' => ($porOrigem[$k]['fat'] ?? 0) + $fat];
     }
     uksort($porCanal, fn($a, $b) => array_search($a, CANAIS_ORDEM, true) <=> array_search($b, CANAIS_ORDEM, true));
     uasort($porOrigem, fn($a, $b) => [$b['n'], $b['fat']] <=> [$a['n'], $a['fat']]);
@@ -515,7 +515,7 @@ if ($aba === 'vendas') {
         }
         echo '<tr><td>' . e(data_local($v['recebida_em'])) . '</td><td><code>' . e($v['referencia'] ?: $v['pedido']) . '</code></td>'
             . '<td>' . e($v['produto']) . (eh_bump($v) ? ' <span class="selo neutro">order bump</span>' : '') . '</td><td>' . e(reais($v['valor'])) . '</td>'
-            . '<td><span class="selo ' . $cls . '">' . e($sit) . '</span></td><td>' . selo_canal(canal($v['utm_source'], $v['utm_medium'], $v['utm_term'])) . '</td>'
+            . '<td><span class="selo ' . $cls . '">' . e($sit) . '</span></td><td>' . selo_canal(canal($v['utm_source'], $v['utm_medium'], $v['utm_term'], null, $v['utm_campaign'])) . '</td>'
             . '<td class="suave">' . e(origem($v['utm_source'], $v['utm_medium'], $v['utm_campaign'])) . '</td>'
             . '<td>' . $vis . '</td><td class="quebra">' . $confCel . '</td><td><span class="selo ' . $vcls . '">' . e($via) . '</span></td></tr>';
     }
@@ -542,7 +542,7 @@ if ($aba === 'visitantes') {
         $temVenda = (int)valor($db, 'SELECT COUNT(*) FROM vendas WHERE visitante = ?', [$l['visitante']]);
         echo '<tr><td>' . e(data_local($l['ultimo'])) . '</td><td><a href="' . e(link_visitante($l['visitante'], $parLink)) . '">' . e(substr($l['visitante'], 0, 8)) . '</a></td>'
             . '<td>' . e(($vis['dispositivo'] ?? '') . ' · ' . ($vis['navegador'] ?? '')) . '</td><td>' . e($vis['ip'] ?? '') . '</td><td>'
-            . com_icone_canal(canal($primeiro['utm_source'] ?? null, $primeiro['utm_medium'] ?? null, $primeiro['utm_term'] ?? null, $primeiro['referrer'] ?? null), $chegou) . '</td>'
+            . com_icone_canal(canal($primeiro['utm_source'] ?? null, $primeiro['utm_medium'] ?? null, $primeiro['utm_term'] ?? null, $primeiro['referrer'] ?? null, $primeiro['utm_campaign'] ?? null), $chegou) . '</td>'
             . '<td>' . (int)$l['total'] . '</td><td>' . ((int)$l['cliques'] ? (int)$l['cliques'] : '') . '</td>' . ($temWhats ? '<td>' . ((int)$l['whats'] ? (int)$l['whats'] : '') . '</td>' : '')
             . '<td>' . ($temVenda ? '<span class="selo ok">' . $temVenda . '</span>' : '') . '</td></tr>';
     }
@@ -602,7 +602,7 @@ if ($aba === 'eventos') {
         $aparelho = implode(' · ', array_filter([$ev['dispositivo'], ($ev['sistema'] ?? '') !== 'Outro' ? $ev['sistema'] : null, $ev['ip']]));
         echo '<tr><td>' . e(data_local($ev['em'])) . '</td><td><strong>' . e(nome_evento($ev['nome'])) . '</strong>' . ($ev['detalhe'] ? ' <span class="suave">' . e($ev['detalhe']) . '</span>' : '') . '</td>'
             . '<td>' . e($ev['dominio'] . $ev['pagina']) . '</td>'
-            . '<td>' . selo_canal(canal($ev['utm_source'], $ev['utm_medium'], $ev['utm_term'], $ev['referrer'])) . '</td>'
+            . '<td>' . selo_canal(canal($ev['utm_source'], $ev['utm_medium'], $ev['utm_term'], $ev['referrer'], $ev['utm_campaign'])) . '</td>'
             . '<td class="quebra">' . ($anuncio !== '' ? e($anuncio) : '<span class="suave">—</span>') . '</td>'
             . '<td>' . e($ev['referrer']) . '</td><td>' . e($aparelho) . '</td>'
             . '<td><a href="' . e(link_visitante($ev['visitante'], $parLink)) . '">' . e(substr($ev['visitante'], 0, 8)) . '</a>'

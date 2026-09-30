@@ -12,9 +12,9 @@ require_once __DIR__ . '/resumo.php';
 require_once __DIR__ . '/instagram_sync.php';
 
 // Grupo organico de uma origem: [chave, rotulo] ou null quando e anuncio
-function organico_grupo(?string $source, ?string $medium, ?string $term, ?string $referrer = null): ?array
+function organico_grupo(?string $source, ?string $medium, ?string $term, ?string $referrer = null, ?string $campaign = null): ?array
 {
-    $c = canal($source, $medium, $term, $referrer);
+    $c = canal($source, $medium, $term, $referrer, $campaign);
     if ($c[0] === 'organico') {
         $rot = $c[3] !== '' ? $c[3] : 'Orgânico';
         return ['org:' . mb_strtolower($rot), mb_strtoupper(mb_substr($rot, 0, 1)) . mb_substr($rot, 1)];
@@ -59,7 +59,7 @@ function organico_render(PDO $db, string $periodo, string $de, string $ate): voi
     $novo = fn(string $rot) => ['rot' => $rot, 'vis' => 0, 'ck' => 0, 'vendas' => 0, 'fat' => 0];
 
     // Visitas: primeira visita de cada visitante no periodo, e quem clicou no checkout
-    $primeiros = consulta($db, 'SELECT e.visitante, e.utm_source, e.utm_medium, e.utm_term, e.referrer, e.dominio, e.pagina
+    $primeiros = consulta($db, 'SELECT e.visitante, e.utm_source, e.utm_medium, e.utm_campaign, e.utm_term, e.referrer, e.dominio, e.pagina
                                 FROM eventos e JOIN (SELECT visitante AS v, MIN(id) AS primeiro FROM eventos WHERE em >= ? AND em < ? GROUP BY visitante) f
                                   ON f.primeiro = e.id', [$de, $ate]);
     $clicou = [];
@@ -69,7 +69,7 @@ function organico_render(PDO $db, string $periodo, string $de, string $ate): voi
     $paginas = [];
     $visOrganicos = 0;
     foreach ($primeiros as $p) {
-        $g = organico_grupo($p['utm_source'], $p['utm_medium'], $p['utm_term'], $p['referrer']);
+        $g = organico_grupo($p['utm_source'], $p['utm_medium'], $p['utm_term'], $p['referrer'], $p['utm_campaign']);
         if (!$g) {
             continue;
         }
@@ -105,7 +105,7 @@ function organico_render(PDO $db, string $periodo, string $de, string $ate): voi
         }
         $liquido = (int)($v['valor_liquido'] ?? $v['valor'] ?? 0);
         $fatTotal += $liquido;
-        $g = organico_grupo($v['utm_source'], $v['utm_medium'], $v['utm_term']);
+        $g = organico_grupo($v['utm_source'], $v['utm_medium'], $v['utm_term'], null, $v['utm_campaign']);
         if (!$g) {
             continue;
         }
@@ -200,7 +200,7 @@ function organico_instagram(PDO $db, string $periodo, array $grupos): void
 {
     $perfil = ig_perfil();
     $estado = ig_sync_estado();
-    $explica = 'Seguidores, alcance, visualizações, toques nos links do perfil e os posts e reels do período. Vem da API do Instagram; os números de um dia podem levar até 48 horas para fechar.';
+    $explica = 'Seguidores, alcance, visualizações, interações e os posts e reels. Vem da API do Instagram; os números de um dia podem levar até 48 horas para fechar.';
     if (!$perfil) {
         echo '<section class="bloco">' . titulo('Perfil do Instagram', $explica) . '<p class="suave">'
             . (ig_api_chave() ? e($estado['erro'] ?: 'Primeira busca no Instagram em andamento: os números aparecem em instantes.')
@@ -218,8 +218,7 @@ function organico_instagram(PDO $db, string $periodo, array $grupos): void
     $temInsights = (int)$t['dias'] > 0;
 
     [$de, $ate] = periodo_utc($periodo);
-    $posts = consulta_ig($db, 'SELECT * FROM ig_media WHERE publicado_em >= ? AND publicado_em < ? ORDER BY publicado_em DESC LIMIT 60', [$de, $ate]);
-    $noPeriodo = count($posts);
+    $noPeriodo = (int)consulta_ig($db, 'SELECT COUNT(*) AS n FROM ig_media WHERE publicado_em >= ? AND publicado_em < ?', [$de, $ate])[0]['n'];
 
     // Numeros
     $saldo = (int)$t['dias_seguir'] ? (int)$t['seguiram'] - (int)$t['deixaram'] : null;
@@ -241,7 +240,7 @@ function organico_instagram(PDO $db, string $periodo, array $grupos): void
             . numero($n($t['vis']), 'Visualizações', 'Quantas vezes posts, reels e stories foram vistos no período, contando repetições.')
             . numero($n($t['inter']), 'Interações', 'Curtidas, comentários, salvamentos, compartilhamentos e respostas no período.')
             . numero($n($t['eng']), 'Contas engajadas', 'Contas que interagiram com o conteúdo, somadas dia a dia.')
-            . numero($n($t['toques']), 'Toques nos links do perfil', 'Toques no link da bio e nos botões de contato do perfil: o começo do caminho até o site.');
+            . numero($n($t['toques']), 'Toques nos botões de contato', 'Toques nos botões de contato do perfil (ligar, e-mail, endereço, mensagem). O Instagram não informa os cliques no link da bio: esses o painel mede como visitantes vindos do Instagram, no funil abaixo.');
     }
     echo numero((string)$noPeriodo, 'Posts no período', 'Posts e reels publicados no período. Stories não entram.') . '</div></section>';
 
@@ -255,11 +254,10 @@ function organico_instagram(PDO $db, string $periodo, array $grupos): void
                 $vendas += $g['vendas'];
             }
         }
-        echo '<section class="bloco">' . titulo('Do perfil à venda', 'O caminho de quem viu o perfil até comprar sem anúncio. Os dois primeiros passos vêm do Instagram; os outros, do painel e da Kiwify.')
+        echo '<section class="bloco">' . titulo('Do perfil à venda', 'O caminho de quem viu o perfil até comprar sem anúncio. O alcance vem do Instagram; os outros passos, do painel e da Kiwify. O Instagram não informa os cliques no link da bio: o painel mede quem chegou por ele.')
             . resumo_funil([
                 'Alcance' => [(int)$t['alcance'], 'Contas que viram algum conteúdo do perfil (soma dos dias).'],
-                'Toques nos links do perfil' => [(int)$t['toques'], 'Toques no link da bio e nos botões de contato.'],
-                'Visitantes vindos do Instagram' => [$vis, 'Aparelhos que chegaram às páginas pelo link da bio ou outro link do Instagram sem anúncio, medidos pelo painel.'],
+                'Visitantes vindos do Instagram' => [$vis, 'Aparelhos que chegaram às páginas pelo link da bio ou outro link do Instagram sem anúncio, medidos pelo painel. É o clique no link da bio que o Instagram não informa.'],
                 'Clicaram no checkout' => [$ck, 'Desses visitantes, quantos clicaram no botão de compra.'],
                 'Vendas' => [$vendas, 'Vendas aprovadas com a etiqueta do Instagram sem anúncio (bio e outros links). Order bump não conta como outra venda.'],
             ]) . '</section>';
@@ -280,42 +278,179 @@ function organico_instagram(PDO $db, string $periodo, array $grupos): void
             . ($porDia ? organico_svg_dias($porDia, 'contas alcançadas', 'Alcance por dia') : '<p class="suave">Escolha um período de mais de um dia.</p>') . '</section>';
     }
 
-    // Posts e reels: os do periodo, do maior alcance para o menor; sem post no periodo, os mais recentes
-    $recentes = !$posts;
-    if ($recentes) {
-        $posts = consulta_ig($db, 'SELECT * FROM ig_media ORDER BY publicado_em DESC LIMIT 6', []);
-    } else {
-        usort($posts, fn($a, $b) => [(int)$b['alcance'], $b['publicado_em']] <=> [(int)$a['alcance'], $a['publicado_em']]);
-    }
-    $cel = fn($v) => $v === null ? '<span class="suave">—</span>' : e($n($v));
-    $tipos = ['CAROUSEL_ALBUM' => 'Carrossel', 'VIDEO' => 'Vídeo', 'IMAGE' => 'Foto'];
-    echo '<section class="bloco">' . titulo('Posts e reels', 'Cada post ou reel com os números dele desde a publicação (não só os do período). Clique para abrir no Instagram.')
-        . ($recentes ? '<p class="suave">Nenhum post no período. Abaixo, os mais recentes.</p>' : '')
-        . '<div class="tabela"><table><tr><th>Post</th>'
-        . '<th>' . com_info('Alcance', 'Contas diferentes que viram o post.') . '</th>'
-        . '<th>' . com_info('Visualizações', 'Vezes que o post foi visto, contando repetições.') . '</th>'
-        . '<th>' . com_info('Curtidas', 'Curtidas no post.') . '</th>'
-        . '<th>' . com_info('Comentários', 'Comentários no post.') . '</th>'
-        . '<th>' . com_info('Salvos', 'Quantas vezes o post foi salvo.') . '</th>'
-        . '<th>' . com_info('Compartilhamentos', 'Quantas vezes o post foi enviado ou compartilhado.') . '</th>'
-        . '<th>' . com_info('Visitas ao perfil', 'Visitas ao perfil a partir do post (posts de feed).') . '</th>'
-        . '<th>' . com_info('Seguiram', 'Contas que começaram a seguir a partir do post (posts de feed).') . '</th>'
-        . '<th>' . com_info('Engajamento', 'Interações (curtidas, comentários, salvos e compartilhamentos) ÷ alcance.') . '</th>'
-        . '<th>' . com_info('Tempo médio', 'Quanto tempo, em média, cada pessoa assistiu o reel.') . '</th></tr>';
-    foreach ($posts as $p) {
-        $tipo = $p['produto'] === 'REELS' ? 'Reels' : ($tipos[$p['tipo']] ?? 'Post');
-        $leg = texto(preg_replace('/\s+/u', ' ', (string)$p['legenda']), 90);
-        $rot = '<strong>' . e($tipo) . '</strong> <span class="suave">' . e(data_local($p['publicado_em'], 'd/m H:i')) . '</span>'
-            . ($leg !== '' ? '<br><span class="suave">' . e($leg) . (mb_strlen((string)$p['legenda']) > 90 ? '…' : '') . '</span>' : '');
-        $engaj = (int)$p['alcance'] > 0 && $p['interacoes'] !== null ? number_format($p['interacoes'] * 100 / $p['alcance'], 1, ',', '.') . '%' : '—';
-        $tempo = $p['tempo_medio_ms'] !== null ? number_format($p['tempo_medio_ms'] / 1000, 1, ',', '.') . ' s' : '—';
-        echo '<tr><td class="quebra">' . ($p['link'] ? '<a class="abre" href="' . e($p['link']) . '" target="_blank" rel="noopener noreferrer">' . $rot . '</a>' : $rot) . '</td>'
-            . '<td>' . $cel($p['alcance']) . '</td><td>' . $cel($p['visualizacoes']) . '</td><td>' . $cel($p['curtidas']) . '</td><td>' . $cel($p['comentarios']) . '</td>'
-            . '<td>' . $cel($p['salvos']) . '</td><td>' . $cel($p['compartilhamentos']) . '</td><td>' . $cel($p['visitas_perfil']) . '</td><td>' . $cel($p['seguiram']) . '</td>'
-            . '<td>' . e($engaj) . '</td><td>' . e($tempo) . '</td></tr>';
-    }
+    organico_feed($db, $periodo);
+}
+
+// Feed: os 50 posts mais recentes, com a capa e os numeros de cada um desde a publicacao.
+// Ordena e filtra pelo endereco (feed_ordem, feed_formato) e troca para tabela (feed_ver).
+const FEED_ORDENS = ['recentes' => 'Recentes', 'alcance' => 'Alcance', 'engajamento' => 'Engajamento', 'salvos' => 'Salvos',
+    'compartilhamentos' => 'Compartilhamentos', 'vendas' => 'Vendas em 48 h'];
+const FEED_FORMATOS = ['todos' => 'Todos', 'reels' => 'Reels', 'carrossel' => 'Carrossel', 'foto' => 'Foto', 'video' => 'Vídeo'];
+const FEED_DICAS = [
+    'Alcance' => 'Contas diferentes que viram o post.',
+    'Visualizações' => 'Vezes que o post foi visto, contando repetições.',
+    'Curtidas' => 'Curtidas no post.',
+    'Comentários' => 'Comentários no post.',
+    'Salvos' => 'Quantas vezes o post foi salvo: sinal forte de conteúdo útil.',
+    'Compartilhamentos' => 'Quantas vezes o post foi enviado ou compartilhado.',
+    'Engajamento' => 'Interações (curtidas, comentários, salvos e compartilhamentos) ÷ alcance.',
+    'Visitas ao perfil' => 'Visitas ao perfil a partir do post (posts de feed).',
+    'Seguiram' => 'Contas que começaram a seguir a partir do post (posts de feed).',
+    'Tempo médio' => 'Quanto tempo, em média, cada pessoa assistiu o reel.',
+    'Vendas em 48 h' => 'Vendas pela bio (Instagram sem anúncio) aprovadas até 48 horas depois da publicação. Mostra coincidência no tempo, não prova que o post vendeu: com dois posts no mesmo intervalo, a venda conta para os dois.',
+];
+
+function organico_formato(array $p): string
+{
+    return $p['produto'] === 'REELS' ? 'reels' : (['CAROUSEL_ALBUM' => 'carrossel', 'VIDEO' => 'video', 'IMAGE' => 'foto'][$p['tipo']] ?? 'foto');
+}
+
+function organico_feed(PDO $db, string $periodo): void
+{
+    $posts = consulta_ig($db, 'SELECT * FROM ig_media ORDER BY publicado_em DESC LIMIT 50', []);
+    $explica = 'Os 50 posts e reels mais recentes do perfil, com os números de cada um desde a publicação (não só os do período). Clique na capa para abrir no Instagram.';
     if (!$posts) {
-        echo '<tr><td colspan="11" class="suave">Nenhum post encontrado ainda.</td></tr>';
+        echo '<section class="bloco" id="feed">' . titulo('Feed', $explica) . '<p class="suave">Nenhum post encontrado ainda.</p></section>';
+        return;
+    }
+
+    // Vendas pela bio (Instagram sem anuncio) nas 48 horas depois de cada post
+    $horas = [];
+    foreach (consulta_ig($db, 'SELECT * FROM vendas WHERE recebida_em >= ?', [end($posts)['publicado_em']]) as $v) {
+        $g = organico_grupo($v['utm_source'], $v['utm_medium'], $v['utm_term'], null, $v['utm_campaign']);
+        if (aprovada($v) && !eh_bump($v) && $g && strpos($g[0], 'org:instagram') === 0) {
+            $horas[] = strtotime(($v['aprovada_em'] ?: $v['recebida_em']) . ' UTC');
+        }
+    }
+    foreach ($posts as &$p) {
+        $ini = strtotime($p['publicado_em'] . ' UTC');
+        $p['vendas48'] = count(array_filter($horas, fn($h) => $h >= $ini && $h < $ini + 172800));
+        $p['formato'] = organico_formato($p);
+        $p['engaj'] = (int)$p['alcance'] > 0 && $p['interacoes'] !== null ? $p['interacoes'] / $p['alcance'] : null;
+    }
+    unset($p);
+
+    $n = fn($v) => $v === null ? '—' : number_format((float)$v, 0, ',', '.');
+    $pct = fn($v) => $v === null ? '—' : number_format($v * 100, 1, ',', '.') . '%';
+    organico_formatos($posts, $n, $pct);
+
+    $ordem = (string)($_GET['feed_ordem'] ?? '');
+    $ordem = isset(FEED_ORDENS[$ordem]) ? $ordem : 'recentes';
+    $formato = (string)($_GET['feed_formato'] ?? '');
+    $formato = isset(FEED_FORMATOS[$formato]) ? $formato : 'todos';
+    $tabela = ($_GET['feed_ver'] ?? '') === 'tabela';
+    $lista = $formato === 'todos' ? $posts : array_values(array_filter($posts, fn($p) => $p['formato'] === $formato));
+    $campo = ['alcance' => 'alcance', 'engajamento' => 'engaj', 'salvos' => 'salvos', 'compartilhamentos' => 'compartilhamentos', 'vendas' => 'vendas48'][$ordem] ?? null;
+    if ($campo) {
+        usort($lista, fn($a, $b) => [(float)$b[$campo], $b['publicado_em']] <=> [(float)$a[$campo], $a['publicado_em']]);
+    }
+    $atuais = ['aba' => 'organico', 'periodo' => $periodo, 'feed_ordem' => $ordem, 'feed_formato' => $formato, 'feed_ver' => $tabela ? 'tabela' : ''];
+    $link = fn(array $mudar) => './?' . http_build_query(array_filter($mudar + $atuais, fn($v) => $v !== '' && $v !== 'recentes' && $v !== 'todos')) . '#feed';
+    $contagem = array_count_values(array_column($posts, 'formato'));
+
+    echo '<section class="bloco" id="feed">' . titulo('Feed', $explica) . '<div class="feed-controles">'
+        . '<div class="segmentos" aria-label="Ordenar o feed">';
+    foreach (FEED_ORDENS as $k => $rot) {
+        echo '<a href="' . e($link(['feed_ordem' => $k])) . '" class="' . ($ordem === $k ? 'atual' : '') . '">' . e($rot) . '</a>';
+    }
+    echo '</div><div class="segmentos" aria-label="Formato">';
+    foreach (FEED_FORMATOS as $k => $rot) {
+        if ($k === 'todos' || !empty($contagem[$k])) {
+            echo '<a href="' . e($link(['feed_formato' => $k])) . '" class="' . ($formato === $k ? 'atual' : '') . '">' . e($rot) . ' <span class="suave">' . ($k === 'todos' ? count($posts) : $contagem[$k]) . '</span></a>';
+        }
+    }
+    echo '</div><div class="segmentos" aria-label="Ver como">'
+        . '<a href="' . e($link(['feed_ver' => ''])) . '" class="' . (!$tabela ? 'atual' : '') . '">Grade</a>'
+        . '<a href="' . e($link(['feed_ver' => 'tabela'])) . '" class="' . ($tabela ? 'atual' : '') . '">Tabela</a></div></div>';
+
+    $abre = fn(array $p, string $dentro, string $classe) => $p['link']
+        ? '<a class="' . $classe . '" href="' . e($p['link']) . '" target="_blank" rel="noopener noreferrer">' . $dentro . '</a>'
+        : '<div class="' . $classe . '">' . $dentro . '</div>';
+    $legenda = fn(array $p) => texto(preg_replace('/\s+/u', ' ', (string)$p['legenda']), 110) . (mb_strlen((string)$p['legenda']) > 110 ? '…' : '');
+    $tempo = fn(array $p) => $p['tempo_medio_ms'] !== null ? number_format($p['tempo_medio_ms'] / 1000, 1, ',', '.') . ' s' : '—';
+
+    if ($tabela) {
+        echo '<div class="tabela"><table><tr><th>Post</th>';
+        foreach (['Alcance', 'Visualizações', 'Curtidas', 'Comentários', 'Salvos', 'Compartilhamentos', 'Visitas ao perfil', 'Seguiram', 'Engajamento', 'Tempo médio', 'Vendas em 48 h'] as $c) {
+            echo '<th>' . com_info($c, FEED_DICAS[$c]) . '</th>';
+        }
+        echo '</tr>';
+        foreach ($lista as $p) {
+            $leg = $legenda($p);
+            $rot = '<strong>' . e(FEED_FORMATOS[$p['formato']]) . '</strong> <span class="suave">' . e(data_local($p['publicado_em'], 'd/m/Y H:i')) . '</span>'
+                . ($leg !== '' ? '<br><span class="suave">' . e($leg) . '</span>' : '');
+            echo '<tr><td class="quebra">' . $abre($p, $rot, 'abre') . '</td><td>' . $n($p['alcance']) . '</td><td>' . $n($p['visualizacoes']) . '</td>'
+                . '<td>' . $n($p['curtidas']) . '</td><td>' . $n($p['comentarios']) . '</td><td>' . $n($p['salvos']) . '</td><td>' . $n($p['compartilhamentos']) . '</td>'
+                . '<td>' . $n($p['visitas_perfil']) . '</td><td>' . $n($p['seguiram']) . '</td><td>' . e($pct($p['engaj'])) . '</td><td>' . e($tempo($p)) . '</td>'
+                . '<td>' . ($p['vendas48'] ? '<span class="selo ok">' . $p['vendas48'] . '</span>' : '0') . '</td></tr>';
+        }
+        echo '</table></div></section>';
+        return;
+    }
+
+    // Grade: legenda com o (i) de cada numero, uma vez so, e os cartoes
+    echo '<p class="feed-legenda">';
+    foreach (['Alcance', 'Visualizações', 'Salvos', 'Compartilhamentos', 'Engajamento', 'Tempo médio', 'Vendas em 48 h'] as $i => $c) {
+        echo ($i ? ' · ' : '') . com_info($c, FEED_DICAS[$c]);
+    }
+    echo '</p><div class="feed">';
+    foreach ($lista as $p) {
+        $capa = is_file(ig_arquivo_miniatura($p['id']))
+            ? '<img src="midia.php?id=' . e($p['id']) . '" alt="" loading="lazy">'
+            : '<span class="sem-capa">' . icone('instagram', 28) . '</span>';
+        $capa .= '<span class="post-tipo">' . e(FEED_FORMATOS[$p['formato']]) . '</span>'
+            . ($p['vendas48'] ? '<span class="post-vendas">' . $p['vendas48'] . ' venda' . ($p['vendas48'] > 1 ? 's' : '') . ' em 48 h</span>' : '');
+        $ultimo = $p['formato'] === 'reels' ? ['Tempo médio', $tempo($p)] : ['Visitas ao perfil', $n($p['visitas_perfil'])];
+        $num = [['Alcance', $n($p['alcance'])], ['Visualizações', $n($p['visualizacoes'])], ['Curtidas', $n($p['curtidas'])], ['Comentários', $n($p['comentarios'])],
+            ['Salvos', $n($p['salvos'])], ['Compartilhamentos', $n($p['compartilhamentos'])], ['Engajamento', $pct($p['engaj'])], $ultimo];
+        $leg = $legenda($p);
+        echo '<article class="post">' . $abre($p, $capa, 'post-capa') . '<div class="post-corpo">'
+            . '<p class="post-data">' . e(data_local($p['publicado_em'], 'd/m/Y H:i')) . '</p>'
+            . ($leg !== '' ? '<p class="post-legenda" title="' . e($leg) . '">' . e($leg) . '</p>' : '')
+            . '<dl class="post-num">';
+        foreach ($num as [$rot, $valor]) {
+            echo '<div><dt title="' . e($rot) . '">' . e($rot) . '</dt><dd>' . e($valor) . '</dd></div>';
+        }
+        echo '</dl></div></article>';
+    }
+    if (!$lista) {
+        echo '<p class="suave">Nenhum post deste formato entre os 50 mais recentes.</p>';
+    }
+    echo '</div></section>';
+}
+
+// Qual formato funciona melhor: media por post de cada formato, entre os 50 mais recentes
+function organico_formatos(array $posts, callable $n, callable $pct): void
+{
+    $f = [];
+    foreach ($posts as $p) {
+        $g = $f[$p['formato']] ?? ['posts' => 0, 'com' => 0, 'alcance' => 0, 'vis' => 0, 'salvos' => 0, 'comp' => 0, 'inter' => 0, 'vendas' => 0];
+        $g['posts']++;
+        $g['vendas'] += $p['vendas48'];
+        if ($p['alcance'] !== null) {
+            $g['com']++;
+            $g['alcance'] += (int)$p['alcance'];
+            $g['vis'] += (int)$p['visualizacoes'];
+            $g['salvos'] += (int)$p['salvos'];
+            $g['comp'] += (int)$p['compartilhamentos'];
+            $g['inter'] += (int)$p['interacoes'];
+        }
+        $f[$p['formato']] = $g;
+    }
+    uasort($f, fn($a, $b) => ($b['com'] ? $b['alcance'] / $b['com'] : 0) <=> ($a['com'] ? $a['alcance'] / $a['com'] : 0));
+    $media = fn(array $g, string $c) => $g['com'] ? $n($g[$c] / $g['com']) : '—';
+    echo '<section class="bloco">' . titulo('Qual formato funciona melhor', 'Média por post de cada formato, entre os 50 posts mais recentes (só os que já têm os números do Instagram). Do formato que mais alcança para o que menos.')
+        . '<div class="tabela"><table><tr><th>Formato</th><th>' . com_info('Posts', 'Quantos posts desse formato entre os 50 mais recentes.') . '</th>'
+        . '<th>' . com_info('Alcance médio', FEED_DICAS['Alcance'] . ' Média por post.') . '</th>'
+        . '<th>' . com_info('Visualizações médias', FEED_DICAS['Visualizações'] . ' Média por post.') . '</th>'
+        . '<th>' . com_info('Engajamento', 'Interações ÷ alcance, somando os posts do formato.') . '</th>'
+        . '<th>' . com_info('Salvos médios', FEED_DICAS['Salvos'] . ' Média por post.') . '</th>'
+        . '<th>' . com_info('Compartilhamentos médios', FEED_DICAS['Compartilhamentos'] . ' Média por post.') . '</th>'
+        . '<th>' . com_info('Vendas em 48 h', FEED_DICAS['Vendas em 48 h']) . '</th></tr>';
+    foreach ($f as $k => $g) {
+        echo '<tr><td><strong>' . e(FEED_FORMATOS[$k]) . '</strong></td><td>' . $g['posts'] . '</td><td>' . $media($g, 'alcance') . '</td><td>' . $media($g, 'vis') . '</td>'
+            . '<td>' . e($pct($g['alcance'] ? $g['inter'] / $g['alcance'] : null)) . '</td><td>' . $media($g, 'salvos') . '</td><td>' . $media($g, 'comp') . '</td>'
+            . '<td>' . ($g['vendas'] ? '<span class="selo ok">' . $g['vendas'] . '</span>' : '0') . '</td></tr>';
     }
     echo '</table></div></section>';
 }
