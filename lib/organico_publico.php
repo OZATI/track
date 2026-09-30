@@ -162,7 +162,21 @@ function organico_publico(string $periodo): void
         . organico_lista($paises, 'ig_pais', 6) . '</section>';
     $seg = $dados['publicos']['seguidores'] ?? [];
     $eng = $dados['publicos']['engajadas'] ?? [];
-    echo '<section class="rc c4"><div class="rc-cab"><span>Quem segue × quem interage</span>' . info('Compara a fatia de cada grupo entre os seguidores e entre as contas que interagiram neste mês. Mostra para quem o conteúdo está puxando, útil também para o público dos anúncios.') . '</div>'
-        . ($seg && $eng && !ig_publico_vazio($seg) && !ig_publico_vazio($eng) ? organico_comparar_publicos($seg, $eng) : '<p class="suave">Aparece quando o Instagram entregar também o público das contas engajadas.</p>')
-        . '</section></div></section>';
+    if ($seg && $eng && !ig_publico_vazio($seg) && !ig_publico_vazio($eng)) {
+        echo '<section class="rc c4"><div class="rc-cab"><span>Quem segue × quem interage</span>' . info('Compara a fatia de cada grupo entre os seguidores e entre as contas que interagiram. Mostra para quem o conteúdo está puxando, útil também para o público dos anúncios.') . '</div>'
+            . organico_comparar_publicos($seg, $eng) . '</section>';
+    } else {
+        // Sem as contas engajadas: os maiores grupos por idade e sexo (bom para o publico dos anuncios)
+        $grupos = [];
+        foreach ($p['age_gender'] ?? [] as $k => $n) {
+            [$faixa, $sx] = array_pad(explode('|', (string)$k), 2, '');
+            if (isset(IG_SEXOS[$sx]) && $sx !== 'U') {
+                $grupos[IG_SEXOS[$sx] . ' ' . $faixa] = $n;
+            }
+        }
+        arsort($grupos);
+        echo '<section class="rc c4"><div class="rc-cab"><span>Maiores grupos</span>' . info('Os grupos de idade e sexo com mais contas em ' . $quem . '. Um bom ponto de partida para o público dos anúncios. A comparação entre quem segue e quem interage aparece quando o Instagram entregar o público das contas engajadas.') . '</div>'
+            . organico_lista($grupos, fn($k) => $k, 6) . '</section>';
+    }
+    echo '</div></section>';
 }

@@ -52,8 +52,11 @@ function ig_publico_vencido(): bool
         return true;
     }
     $idade = time() - (int)strtotime($p['em'] . ' UTC');
-    $falta = array_filter($p['publicos'], 'ig_publico_vazio');
-    return $idade >= IG_PUBLICO_INTERVALO || ($falta && $idade >= IG_PUBLICO_REPETIR);
+    // Com erro: de novo na proxima busca. Resposta sem numero (o Instagram nao tem o publico
+    // desse periodo para a conta): a cada 6 horas, para nao gastar consulta a toa.
+    $comErro = array_filter($p['publicos'], fn($x) => isset($x['erro']));
+    $semNumero = array_filter($p['publicos'], 'ig_publico_vazio');
+    return $idade >= IG_PUBLICO_INTERVALO || ($comErro && $idade >= IG_PUBLICO_REPETIR) || ($semNumero && $idade >= 6 * 3600);
 }
 
 // Uma quebra de um publico: ['dados' => [grupo => total]] (do maior para o menor),
