@@ -144,9 +144,12 @@ function ig_sync_buscar(array $k): array
         // Capa do feed: a miniatura do video ou a propria imagem (no carrossel, a primeira)
         $imagens[$id] = (string)($p['thumbnail_url'] ?? '') ?: (string)($p['media_url'] ?? '');
     }
+    // Capas: no maximo 24 e 12 segundos por busca (o resto vem na proxima), para a atualizacao
+    // nunca passar do tempo maximo do servidor
     $tentadas = 0;
+    $prazo = microtime(true) + 12;
     foreach ($imagens as $id => $url) {
-        if ($url !== '' && $tentadas < IG_MINIATURAS_POR_BUSCA && !is_file(ig_arquivo_miniatura($id))) {
+        if ($url !== '' && $tentadas < IG_MINIATURAS_POR_BUSCA && microtime(true) < $prazo && !is_file(ig_arquivo_miniatura($id))) {
             $r = ig_baixar_miniatura($id, $url);
             // Guarda o motivo da ultima falha para a aba API Instagram mostrar
             definir_ajuste('ig_capas_erro', $r === true ? null : $r);

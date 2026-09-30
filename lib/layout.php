@@ -127,8 +127,8 @@ td.quebra{ white-space:normal; min-width:220px; }
 .feed-legenda{ margin:0 0 12px; font-size:12px; color:var(--suave); }
 .feed{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
 .post{ display:flex; flex-direction:column; border:1px solid var(--linha); border-radius:var(--r-md); overflow:hidden; background:var(--cartao); }
-.post-capa{ position:relative; display:block; aspect-ratio:4/5; background:var(--cartao-2); }
-.post-capa img{ display:block; width:100%; height:100%; object-fit:cover; }
+.post-capa{ position:relative; display:block; aspect-ratio:4/5; overflow:hidden; background:var(--cartao-2); }
+.post-capa img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
 .post-capa .sem-capa{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--apagado); }
 .post-tipo, .post-vendas{ position:absolute; left:8px; padding:2px 7px; border-radius:4px; font-size:11px; font-weight:600; }
 .post-tipo{ top:8px; background:rgba(17,24,39,.78); color:#fff; }

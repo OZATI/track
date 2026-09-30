@@ -27,6 +27,8 @@ if (!csrf_valido()) {
     exit;
 }
 session_write_close(); // a busca pode demorar: nao prende as outras abas do painel
+@set_time_limit(120);  // Kiwify, Meta e Instagram em sequencia podem passar de 30 s
+ignore_user_abort(true); // sair da pagina no meio nao interrompe a busca
 
 // Kiwify (vendas) e Meta (gasto, para o gestor de anuncios), cada uma com o seu intervalo
 if ($json) {
