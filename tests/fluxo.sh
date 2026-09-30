@@ -395,15 +395,22 @@ IGTOKEN="IGAATeste$ZEROS"
 r=$(ig "" "$IGTOKEN")
 confere "$(tem 'Sessão expirada' "$r")" "salvar token do Instagram sem o token do formulário é recusado"
 r=$(ig "$csrf" "0123456789abcdef0123456789abcdef")
-confere "$(tem 'A chave secreta do app (32 caracteres) não serve aqui' "$r")" "chave secreta do app no lugar do token é recusada"
+confere "$(tem 'Isso é a chave secreta do app (32 caracteres), não o token' "$r")" "chave secreta do app no lugar do token é reconhecida e recusada"
+r=$(ig "$csrf" "1713000000000000")
+confere "$(tem 'Isso é um número de ID (16 dígitos)' "$r")" "ID do app no lugar do token é reconhecido e recusado"
+r=$(ig "$csrf" "EAAB$ZEROS")
+confere "$(tem 'Esse é um token da Meta (começa com &quot;EAA&quot;)' "$r")" "token da Meta colado na opção do Instagram aponta a opção 1"
+r=$(ig "$csrf" "texto qualquer")
+confere "$(tem 'O texto colado tem 13 caracteres e começa com &quot;text&quot;' "$r")" "texto que não é token diz o tamanho e o começo"
 r=$(ig "$csrf" "IGAAFalso$ZEROS")
 confere "$(tem 'O Instagram recusou o token' "$r")" "token que o Instagram recusa não é salvo"
 confere "$(grep -q 'IGAA' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "nenhum token do Instagram recusado foi gravado"
 r=$(ig "$csrf" "IGAASemInsights$ZEROS")
 confere "$(tem 'Conta @engdesk conectada pelo token do Instagram: 1.234 seguidores e 2 posts. Atenção: sem a permissão' "$r")" "token sem insights é aceito, com aviso"
 confere "$(tem 'Sem insights</span>' "$r")" "aba API Instagram marca que faltam os insights"
-r=$(ig "$csrf" "$IGTOKEN")
-confere "$(tem 'Conta @engdesk conectada pelo token do Instagram: 1.234 seguidores e 2 posts. Os números aparecem' "$r")" "token do Instagram conferido e salvo"
+r=$(ig "$csrf" "{\"access_token\": \"$IGTOKEN\", \"user_id\": 17841400000000000}")
+confere "$(tem 'Conta @engdesk conectada pelo token do Instagram: 1.234 seguidores e 2 posts. Os números aparecem' "$r")" "token do Instagram colado com o JSON em volta é achado, conferido e salvo"
+confere "$(grep -q "'token' => '$IGTOKEN'" "$DADOS/config.php"; echo $?)" "só o token vai para a configuração, sem o JSON"
 confere "$(grep -q "$IGTOKEN" <<<"$r"; [ $? -ne 0 ]; echo $?)" "token do Instagram não volta para a tela"
 confere "$(tem 'Liberados</span>' "$r")" "insights liberados"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=testar" "$URL/instagram-api.php")

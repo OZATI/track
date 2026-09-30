@@ -79,10 +79,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             }
         }
     } elseif ($acao === 'salvar') {
-        // Copia da Meta as vezes vem com quebra de linha ou espaco no meio: tira tudo
-        $token = preg_replace('/\s+/', '', (string)($_POST['token'] ?? ''));
-        if (!ig_api_formato_valido($token)) {
-            $erros[] = 'Confira o token: é um texto longo de letras e números que começa com "IGAA". A chave secreta do app (32 caracteres) não serve aqui.';
+        // Acha o token no que foi colado (com espaco, aspas, "access_token=" ou JSON em volta)
+        $colado = (string)($_POST['token'] ?? '');
+        $token = ig_extrair_token($colado);
+        if ($token === null) {
+            $erros[] = ig_explicar_colado($colado);
+        } elseif (strpos($token, 'EAA') === 0) {
+            $erros[] = 'Esse é um token da Meta (começa com "EAA"), não do login do Instagram. Cole-o na aba API Meta e, aqui, use a opção 1: "Usar o token da API Meta".';
         } else {
             $r = ig_api_testar(ig_ctx(['token' => $token]));
             if (!$r['ok']) {

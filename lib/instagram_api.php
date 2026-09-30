@@ -57,6 +57,35 @@ function ig_api_formato_valido(string $token): bool
     return (bool)preg_match('/^[A-Za-z0-9_\-.|]{40,1000}$/', $token);
 }
 
+// Acha o token no que foi colado: tira espacos, quebras de linha e caracteres invisiveis e
+// aceita aspas, "access_token=" ou o JSON inteiro em volta. null = nada com cara de token.
+function ig_extrair_token(string $colado): ?string
+{
+    $t = preg_replace('/[\s\p{Cf}]+/u', '', $colado) ?? preg_replace('/\s+/', '', $colado);
+    if (preg_match('/(?:IGAA|IGQV|EAA)[A-Za-z0-9_\-]{30,1000}/', $t, $m)) {
+        return $m[0];
+    }
+    return preg_match('/^[A-Za-z0-9_\-]{100,1000}$/', $t) ? $t : null;
+}
+
+// Diz o que foi colado no lugar do token (sem repetir o texto: so o tamanho e o comeco)
+function ig_explicar_colado(string $colado): string
+{
+    $t = trim(preg_replace('/[\s\p{Cf}]+/u', '', $colado) ?? $colado);
+    $onde = ' O token sai do app da Meta → Instagram → Configuração da API com login do Instagram → 2. Gerar tokens de acesso → Gerar token.'
+        . ' Começa com "IGAA" e tem mais de 150 caracteres. Ou use a opção 1, com o token da API Meta.';
+    if ($t === '') {
+        return 'Cole o token.' . $onde;
+    }
+    if (preg_match('/^[a-f0-9]{32}$/i', $t)) {
+        return 'Isso é a chave secreta do app (32 caracteres), não o token. Ela não é usada aqui e não deve ser compartilhada.' . $onde;
+    }
+    if (preg_match('/^\d{5,25}$/', $t)) {
+        return 'Isso é um número de ID (' . strlen($t) . ' dígitos), do app ou da conta, não o token.' . $onde;
+    }
+    return 'O texto colado tem ' . mb_strlen($t) . ' caracteres e começa com "' . mb_substr($t, 0, 4) . '": não parece um token.' . $onde;
+}
+
 function ig_api_limite_minuto(): int
 {
     return max(1, (int)(getenv('TRACK_IG_LIMITE_MINUTO') ?: 30));
