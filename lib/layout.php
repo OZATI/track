@@ -191,7 +191,37 @@ td.quebra{ white-space:normal; min-width:220px; }
 .positivo{ color:var(--ok); } .negativo{ color:var(--erro); }
 .tabela.gestor a.ordena{ color:inherit; } .tabela.gestor a.ordena.atual{ color:var(--texto); font-weight:600; }
 .tabela.gestor a.abre{ color:var(--texto); } .tabela.gestor a.abre:hover strong{ color:var(--marca); text-decoration:underline; }
-.delta{ font-size:11px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); }
+.delta{ font-size:11px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); } .delta.novo{ color:var(--marca); }
+/* Gestor: comparar com (no alto) e o ranking (painel de bolsa) */
+.gestor-comparar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 12px; }
+.gestor-comparar label{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--suave); }
+.gestor-comparar select{ min-width:0; }
+.gestor-comparar b{ color:var(--texto); font-weight:600; margin:0 2px; }
+.ranking-bloco{ margin:0 0 16px; }
+.ranking-criterios{ margin:2px 0 6px; align-self:flex-start; }
+.ranking{ list-style:none; margin:0; padding:0; }
+.ranking li{ display:grid; grid-template-columns:36px 52px minmax(0,1fr) 116px 76px 110px; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid var(--linha); font-size:13px; font-variant-numeric:tabular-nums; }
+.ranking li:last-child{ border-bottom:0; }
+.ranking .rk-cab{ padding-top:2px; font-size:12px; color:var(--suave); }
+.ranking .rk-num{ text-align:right; }
+.ranking b.rk-num{ font-size:14px; font-weight:600; }
+.rk-pos{ font-weight:600; color:var(--suave); }
+.ranking li:nth-child(2) .rk-pos{ color:var(--texto); }
+.rk-nome{ display:flex; align-items:baseline; gap:6px; min-width:0; }
+.rk-nome a, .rk-nome strong{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rk-nome small{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rk-st{ flex:none; width:7px; height:7px; border-radius:50%; background:var(--linha-forte); align-self:center; }
+.rk-st.on{ background:var(--ok); }
+.rk-curva{ display:block; width:100%; height:28px; overflow:visible; }
+.rk-curva polyline{ fill:none; stroke:var(--apagado); stroke-width:1.5; stroke-linejoin:round; stroke-linecap:round; }
+.rk-curva.bom polyline{ stroke:var(--ok); } .rk-curva.ruim polyline{ stroke:var(--erro); }
+.rk-zero{ stroke:var(--linha-forte); stroke-width:1; stroke-dasharray:2 2; vector-effect:non-scaling-stroke; }
+@media (max-width:760px){
+  .ranking li{ grid-template-columns:30px minmax(0,1fr) auto; grid-template-areas:"pos nome val" "mov graf var"; row-gap:2px; }
+  .ranking .rk-cab{ display:none; }
+  .rk-pos{ grid-area:pos; } .rk-nome{ grid-area:nome; } .ranking b.rk-num{ grid-area:val; }
+  .rk-mov{ grid-area:mov; } .rk-graf{ grid-area:graf; } .ranking span.rk-num{ grid-area:var; }
+}
 .trilha{ margin:0 0 12px; }
 /* Botao so com icone (Atualizar): quadrado, gira enquanto busca */
 .botao-icone{ display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; background:var(--cartao); color:var(--suave); border:1px solid var(--linha-forte); border-radius:var(--r-sm); }

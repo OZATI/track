@@ -17,11 +17,9 @@ FALHAS=0
 
 confere() { if [ "$1" = "0" ]; then echo "  ok     $2"; else echo "  FALHA  $2"; FALHAS=$((FALHAS + 1)); fi; }
 # Texto vai por pipe, nao por <<<: no Git Bash do Windows, <<< com mais de 64 KB trava
-tem() { printf '%s
-' "$2" | grep -q -- "$1"; echo $?; }
+tem() { printf '%s\n' "$2" | grep -q -- "$1"; echo $?; }
 # Texto como aparece na tela (sem as tags e com espaco no lugar de &nbsp;)
-sem_tags() { printf '%s
-' "$1" | sed -e 's/<[^>]*>//g' -e 's/&nbsp;/ /g'; }
+sem_tags() { printf '%s\n' "$1" | sed -e 's/<[^>]*>//g' -e 's/&nbsp;/ /g'; }
 
 # No Git Bash do Windows, o PHP nativo precisa do caminho no formato do Windows
 export TRACK_DADOS="$(cygpath -w "$DADOS" 2>/dev/null || echo "$DADOS")"
@@ -67,15 +65,13 @@ sleep 1
 
 echo "Instalação"
 r=$(curl -s -c "$JAR" -b "$JAR" "$URL/instalar.php")
-csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s
-' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 confere "$(tem 'Instalar o painel' "$r")" "tela de instalação abre enquanto não há configuração"
 r=$(curl -s -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "usuario=Kenio" --data-urlencode "senha=senha-de-teste-123" \
     --data-urlencode "senha2=senha-de-teste-123" --data-urlencode $'origens=http://site.test\nhttps://site.test' \
     --data-urlencode "dias=30" --data-urlencode "menu_cms=../" "$URL/instalar.php")
 confere "$(tem 'Painel instalado' "$r")" "instalação grava a configuração"
-CHAVE=$(grep -o 'chave=[a-f0-9]*' < <(printf '%s
-' "$r") | head -1 | cut -d= -f2)
+CHAVE=$(grep -o 'chave=[a-f0-9]*' < <(printf '%s\n' "$r") | head -1 | cut -d= -f2)
 confere "$([ ${#CHAVE} -eq 48 ]; echo $?)" "chave do webhook gerada (48 caracteres)"
 confere "$([ -f "$DADOS/config.php" ]; echo $?)" "config.php fora do projeto (na pasta de dados)"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/instalar.php")
@@ -85,13 +81,11 @@ echo "Coleta de eventos"
 ANUNCIO='"utms":{"utm_source":"MetaAds","utm_medium":"conjunto 5|111111","utm_campaign":"TL 1|120120","utm_content":"cv 05|222222","utm_term":"Instagram_Reels"}'
 r=$(curl -s -c "$JAR" -b "$JAR" -H "Origin: http://site.test" -H "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 18_2 like Mac OS X) AppleWebKit/605.1.15 Instagram 350.0" \
     -H "X-Forwarded-For: 177.10.20.30" --data "{\"evento\":\"PageView\",\"url\":\"http://site.test/drivedeprojetos/?utm_source=MetaAds\",\"referrer\":\"https://l.instagram.com/?u=x\",$ANUNCIO}" "$URL/coletar.php")
-VID=$(grep -o '"vid":"[a-f0-9]*"' < <(printf '%s
-' "$r") | cut -d'"' -f4)
+VID=$(grep -o '"vid":"[a-f0-9]*"' < <(printf '%s\n' "$r") | cut -d'"' -f4)
 confere "$([ ${#VID} -eq 32 ]; echo $?)" "PageView aceito e visitante criado"
 confere "$(grep -q 'trk_vid' "$JAR"; echo $?)" "cookie trk_vid gravado pelo servidor"
 r=$(curl -s -c "$JAR" -b "$JAR" -H "Origin: http://site.test" --data "{\"evento\":\"CliqueCheckout\",\"detalhe\":\"<script>alert(1)</script>\",\"url\":\"http://site.test/drivedeprojetos/\",$ANUNCIO}" "$URL/coletar.php")
-VID2=$(grep -o '"vid":"[a-f0-9]*"' < <(printf '%s
-' "$r") | cut -d'"' -f4)
+VID2=$(grep -o '"vid":"[a-f0-9]*"' < <(printf '%s\n' "$r") | cut -d'"' -f4)
 confere "$([ "$VID" = "$VID2" ]; echo $?)" "mesmo visitante no clique (cookie)"
 curl -s -H "Origin: http://site.test" --data '{"evento":"WhatsApp","url":"http://site.test/bio/"}' "$URL/coletar.php" >/dev/null
 curl -s -H "Origin: http://site.test" --data '{"evento":"PageView","url":"http://site.test/drivedeprojetos/","referrer":"https://www.google.com/search?q=drive"}' "$URL/coletar.php" >/dev/null
@@ -122,16 +116,13 @@ echo "Painel"
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/index.php")
 confere "$(tem 'entrar.php' "$destino")" "painel exige login (vai para $destino)"
 r=$(curl -s -c "$JAR" -b "$JAR" "$URL/entrar.php")
-csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s
-' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 r=$(curl -s -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "usuario=kenio" --data-urlencode "senha=errada-123456" "$URL/entrar.php")
 confere "$(tem 'Usuário ou senha incorretos' "$r")" "senha errada não entra"
-csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s
-' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 r=$(curl -s -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "usuario=ninguem" --data-urlencode "senha=senha-de-teste-123" "$URL/entrar.php")
 confere "$(tem 'Usuário ou senha incorretos' "$r")" "usuário inexistente recebe a mesma mensagem"
-csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s
-' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$JAR" -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "usuario=kenio" --data-urlencode "senha=senha-de-teste-123" --data-urlencode "volta=//invasor.test/" "$URL/entrar.php")
 confere "$([ "${destino%/}" = "$URL" ]; echo $?)" "login certo; volta para outro site é ignorada (vai para $destino)"
 r=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo")
@@ -153,12 +144,10 @@ confere "$(tem '<span>Orgânico</span>' "$r")" "visita vinda do Google sem etiqu
 confere "$(tem '<span>Direto / sem origem</span>' "$r")" "visita sem etiqueta nem site de origem vira Direto"
 confere "$(tem '<span>Direto / sem origem</span><span class="info"' "$r")" "Direto / sem origem tem o (i) explicando"
 confere "$(tem 'id="form-sair"' "$r")" "Sair fica no topo, com a conta"
-confere "$(grep -q 'data-sair' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "Sair não é mais uma aba"
+confere "$(grep -q 'data-sair' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Sair não é mais uma aba"
 confere "$(tem 'orgânico · www.google.com' "$r")" "visita sem etiqueta vinda do Google aparece como orgânico · www.google.com"
 confere "$(tem 'direto (sem origem)' "$r")" "visita sem etiqueta e sem site de origem aparece como direto"
-confere "$(grep -q 'q=drive' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "parâmetros do site de origem não são guardados (LGPD)"
+confere "$(grep -q 'q=drive' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "parâmetros do site de origem não são guardados (LGPD)"
 confere "$(tem 'Tráfego por página' "$(sem_tags "$r")")" "tabela por página aparece"
 confere "$(tem 'Clicaram no WhatsApp' "$(sem_tags "$r")")" "coluna WhatsApp aparece quando o site já teve clique no WhatsApp"
 r2=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo&dominio=site.test&pagina=/drivedeprojetos/")
@@ -172,8 +161,7 @@ r3=$(curl -s -b "$JAR" "$URL/configuracoes.php")
 r3=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas")
 confere "$(tem '<option value="tudo" selected>' "$r3")" "abrir Configurações e voltar mantém o período"
 r3=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo&dominio=&pagina=")
-confere "$(grep -q '<option value="site.test" selected>' < <(printf '%s
-' "$r3"); [ $? -ne 0 ]; echo $?)" "Todos os sites limpa o site lembrado"
+confere "$(grep -q '<option value="site.test" selected>' < <(printf '%s\n' "$r3"); [ $? -ne 0 ]; echo $?)" "Todos os sites limpa o site lembrado"
 confere "$(tem 'class="lateral"' "$r")" "barra lateral CMS | UTM aparece quando há link do CMS"
 confere "$(tem 'href="../" title="CMS"' "$r")" "ícone CMS aponta para o link configurado"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
@@ -191,8 +179,7 @@ confere "$(tem 'data-dica="Chegou sem anúncio: link da bio' "$r")" "canal Orgâ
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo")
 confere "$(tem '&lt;script&gt;alert(1)&lt;/script&gt;' "$r")" "texto vindo da página é escapado (sem XSS)"
 confere "$(tem 'data-dica="Página aberta: conta cada vez' "$r")" "filtro de eventos com o (i) de cada tipo"
-confere "$(grep -q '<script>alert(1)' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "nenhum script injetado na tela"
+confere "$(grep -q '<script>alert(1)' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "nenhum script injetado na tela"
 confere "$(tem '177.10.20.0' "$r")" "IP guardado parcial (último número zerado)"
 confere "$(tem 'iPhone · Instagram (app)' "$r")" "aparelho e navegador reconhecidos"
 confere "$(tem 'TL 1 · cv 05 · Instagram Reels' "$r")" "evento mostra campanha, anúncio e posicionamento sem o ID"
@@ -202,15 +189,13 @@ confere "$(tem 'Compraram <b>1</b>' "$r")" "resumo mostra quantos compraram"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&evento=compraram")
 confere "$(tem 'Eventos de quem comprou <span class="suave">(1–2 de 2)' "$r")" "Compraram mostra só o caminho de quem comprou"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&evento=CliqueCheckout")
-confere "$(grep -q 'Visualização</strong>' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "filtro por tipo de evento mostra só os cliques no checkout"
+confere "$(grep -q 'Visualização</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "filtro por tipo de evento mostra só os cliques no checkout"
 confere "$(tem 'Clique no checkout</strong>' "$r")" "filtro por tipo de evento mantém o evento escolhido"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test")
 confere "$(tem '<option value="/drivedeprojetos/"' "$r")" "caixa de páginas lista as páginas do domínio escolhido"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test&pagina=/bio/")
 confere "$(tem 'WhatsApp' "$r")" "filtro por página mostra os eventos dela"
-confere "$(grep -q 'Clique no checkout</strong>' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "filtro por página esconde os eventos das outras"
+confere "$(grep -q 'Clique no checkout</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "filtro por página esconde os eventos das outras"
 curl -s -o /dev/null -b "$JAR" "$URL/index.php?periodo=tudo&dominio=&pagina="
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=visitantes&periodo=tudo&v=$VID")
 confere "$(tem 'Linha do tempo (2 eventos)' "$(sem_tags "$r")")" "detalhe do visitante com a linha do tempo"
@@ -219,21 +204,18 @@ confere "$(tem 'Bate' "$r")" "detalhe do visitante mostra a venda conferida"
 echo "Usuários e login do admin"
 r=$(curl -s -b "$JAR" "$URL/usuarios.php")
 confere "$(tem 'kenio <span class="suave">(você)' "$r")" "tela de usuários lista quem entra"
-csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s
-' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 r=$(curl -s -b "$JAR" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" "$URL/usuarios.php")
 confere "$(tem 'Sessão expirada' "$r")" "criar acesso sem o token é recusado"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" "$URL/usuarios.php")
 confere "$(tem 'Acesso criado para allan' "$r")" "kenio dá acesso ao allan"
 J3="$DADOS/j3"
 r=$(curl -s -c "$J3" -b "$J3" "$URL/entrar.php?volta=/admin/")
-c=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s
-' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+c=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$J3" -b "$J3" --data-urlencode "csrf=$c" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data "volta=%2Fadmin%2F" "$URL/entrar.php")
 confere "$(tem '/admin/$' "$destino")" "allan entra e volta para a página que pediu (/admin/)"
 r=$(curl -s -b "$J3" "$URL/usuarios.php")
-c=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s
-' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+c=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 r=$(curl -s -b "$J3" --data-urlencode "csrf=$c" --data-urlencode "acao=remover" --data-urlencode "usuario=allan" "$URL/usuarios.php")
 confere "$(tem 'não pode tirar o seu próprio acesso' "$r")" "ninguém tira o próprio acesso"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" --data-urlencode "usuario=allan" "$URL/usuarios.php")
@@ -267,8 +249,7 @@ confere "$(tem 'entrar.php' "$destino")" "tela da API exige login"
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
 confere "$(tem 'Colar a chave da API' "$r")" "tela da API abre com o formulário"
 confere "$(tem 'href="kiwify-api.php" class="atual"' "$r")" "aba API Kiwify aparece marcada"
-csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s
-' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 salvar() { curl -s -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=salvar" --data-urlencode "client_id=$2" \
     --data-urlencode "client_secret=$3" --data-urlencode "account_id=$4" "$URL/kiwify-api.php"; }
 r=$(salvar "" "$CID" SegredoLeitura0000000000000000 ContaCerta123)
@@ -284,8 +265,7 @@ confere "$(tem 'Confira o account_id' "$r")" "account_id errado é recusado"
 confere "$(grep -q 'client_secret' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "nenhuma chave recusada foi gravada"
 r=$(salvar "$csrf" "$CID" SegredoLeitura0000000000000000 ContaCerta123)
 confere "$(tem 'Chave conferida e salva. A API encontrou 4 venda' "$r")" "chave só de vendas é conferida e salva"
-confere "$(grep -q 'SegredoLeitura' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "client_secret não volta para a tela"
+confere "$(grep -q 'SegredoLeitura' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "client_secret não volta para a tela"
 confere "$(tem 'a1b2…0001' "$r")" "client_id aparece mascarado"
 confere "$(grep -q 'SegredoLeitura' "$DADOS/config.php"; echo $?)" "chave gravada na configuração, fora do projeto"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=testar" "$URL/kiwify-api.php")
@@ -310,8 +290,7 @@ confere "$(tem 'Só pela API' "$r")" "venda que só a API trouxe fica marcada"
 confere "$(tem 'Webhook + API' "$r")" "venda que chegou pelos dois caminhos fica marcada"
 confere "$(tem 'order bump</span>' "$r")" "order bump aparece marcado"
 confere "$(tem 'Vendas da Kiwify atualizadas em' "$r")" "barra mostra a última busca"
-confere "$(grep -q 'data-sync="1"' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "sem busca pendente, a tela não pede outra"
+confere "$(grep -q 'data-sync="1"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem busca pendente, a tela não pede outra"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
 confere "$(tem '<span class="selo ok">2</span></td><td>R$ 156,39' "$r")" "tráfego: 2 vendas do anúncio (bump fora da contagem) e faturamento com bump"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
@@ -321,8 +300,7 @@ r=$(curl -s -b "$JAR" -o /dev/null -w '%{redirect_url}' --data-urlencode "csrf=$
     --data-urlencode "volta=./?aba=vendas&periodo=tudo" "$URL/sincronizar.php")
 confere "$(tem '/?aba=vendas&periodo=tudo' "$r")" "botão Atualizar vendas volta para a mesma tela"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
-confere "$(grep -q 'Última busca na API falhou\|Muitas buscas' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "clique repetido no botão não vira erro (espera 1 minuto em silêncio)"
+confere "$(grep -q 'Última busca na API falhou\|Muitas buscas' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "clique repetido no botão não vira erro (espera 1 minuto em silêncio)"
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
 confere "$(tem 'chamada(s) no último minuto' "$r")" "aba API Kiwify mostra o uso da API"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
@@ -357,8 +335,7 @@ confere "$(tem 'Token conferido e salvo.*Atenção: este token também pode gere
 confere "$(tem 'Pode editar</span>' "$r")" "aba API Meta marca que o token pode editar"
 r=$(meta "$csrf" "$LEITURA" act_587364236934346)
 confere "$(tem 'Token conferido e salvo. Conta DRIVE DE PROJETOS: R$ 1.539,22 investidos nos últimos 7 dias' "$r")" "token só de leitura é conferido e salvo, com o gasto de 7 dias"
-confere "$(grep -q "$LEITURA" < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "token da Meta não volta para a tela"
+confere "$(grep -q "$LEITURA" < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "token da Meta não volta para a tela"
 confere "$(tem 'consulta(s) no último minuto' "$r")" "aba API Meta mostra o uso da API"
 
 echo "Gestor de anúncios"
@@ -368,8 +345,8 @@ curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "v
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
 confere "$(tem 'gasto da Meta atualizado em' "$r")" "botão Atualizar busca o gasto na Meta"
 confere "$(tem '<strong>TL 1</strong>' "$r")" "campanha aparece com o nome da Meta"
-linha=$(grep -o '<strong>TL 1</strong>.*</tr>' < <(printf '%s
-' "$r") | head -1 | sed 's#</tr>.*##')
+tab=${r#*'<div class="tabela gestor">'}
+linha=$(grep -o '<strong>TL 1</strong>.*</tr>' < <(printf '%s\n' "$tab") | head -1 | sed 's#</tr>.*##')
 confere "$(tem 'R$ 40,00<br><span class="suave">Diário' "$linha")" "orçamento diário da campanha"
 confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$linha")" "gasto, 2 vendas (bump fora) e faturamento líquido com bump"
 confere "$(tem 'positivo">R$ 78,92' "$linha")" "lucro desconta gasto e imposto de 12,15% (igual à UTMify)"
@@ -379,8 +356,7 @@ confere "$(tem 'negativo">R$ -11,22' "$r")" "campanha pausada com gasto e sem ve
 confere "$(tem '1 venda(s) fora de anúncio' "$r")" "venda orgânica conta como fora de anúncio"
 confere "$(tem 'data-dica="Vendas aprovadas sem o ID de uma campanha da Meta (a UTMify chama de &quot;não trackeadas&quot;): 1 orgânico' "$r")" "(i) do aviso diz o motivo de cada uma"
 confere "$(tem 'data-dica="Faturamento − gasto − imposto da Meta (12,15%).' "$r")" "coluna Lucro tem o (i) com a conta"
-confere "$(grep -q 'name="dominio"' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "no gestor o topo só tem o período"
+confere "$(grep -q 'name="dominio"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "no gestor o topo só tem o período"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos")
 confere "$(tem '<strong>conjunto 5</strong></a><br><span class="suave">TL 1</span>' "$r")" "conjunto mostra a campanha dele"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios")
@@ -389,29 +365,43 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=contas")
 confere "$(tem '<strong>DRIVE DE PROJETOS</strong>' "$r")" "nível conta com o nome da conta de anúncios"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&st=pausados")
 confere "$(tem '<strong>FREE</strong>' "$r")" "filtro de pausados mostra a FREE"
-confere "$(grep -q '<strong>TL 1</strong>' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "filtro de pausados esconde a TL 1"
+confere "$(grep -q '<strong>TL 1</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "filtro de pausados esconde a TL 1"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&q=free")
-confere "$(grep -q '<strong>TL 1</strong>' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "busca por nome filtra as campanhas"
+confere "$(grep -q '<strong>TL 1</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "busca por nome filtra as campanhas"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos&campanha=555555")
 confere "$(tem '<strong>conjunto free</strong>' "$r")" "abrir a campanha mostra só os conjuntos dela"
-confere "$(grep -q '<strong>conjunto 5</strong>' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "conjuntos de outra campanha ficam de fora"
+confere "$(grep -q '<strong>conjunto 5</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "conjuntos de outra campanha ficam de fora"
 confere "$(tem 'Todas as campanhas</a> <span class="suave">›</span> <a' "$r")" "caminho aberto: Todas as campanhas › FREE"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&campanha=120120&conjunto=111111")
 confere "$(tem '<strong>cv 05</strong>' "$r")" "abrir o conjunto mostra só os anúncios dele"
-confere "$(grep -q '<strong>cv free</strong>' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "anúncios de outro conjunto ficam de fora"
+confere "$(grep -q '<strong>cv free</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "anúncios de outro conjunto ficam de fora"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
-confere "$([ "$(grep -o '<strong>\(TL 1\|FREE\)</strong>' < <(printf '%s
-' "$r") | head -1)" = '<strong>TL 1</strong>' ]; echo $?)" "ordem padrão: maior gasto primeiro"
+tab=${r#*'<div class="tabela gestor">'}
+confere "$([ "$(grep -o '<strong>\(TL 1\|FREE\)</strong>' < <(printf '%s\n' "$tab") | head -1)" = '<strong>TL 1</strong>' ]; echo $?)" "ordem padrão: maior gasto primeiro"
 confere "$(tem '>Gasto ↓</a>' "$r")" "coluna ordenada marcada com a seta"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&ordem=gasto&dir=asc")
-confere "$([ "$(grep -o '<strong>\(TL 1\|FREE\)</strong>' < <(printf '%s
-' "$r") | head -1)" = '<strong>FREE</strong>' ]; echo $?)" "clicar no título inverte a ordem"
+tab=${r#*'<div class="tabela gestor">'}
+confere "$([ "$(grep -o '<strong>\(TL 1\|FREE\)</strong>' < <(printf '%s\n' "$tab") | head -1)" = '<strong>FREE</strong>' ]; echo $?)" "clicar no título inverte a ordem"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d")
 confere "$(tem 'As setas comparam com o período anterior' "$r")" "com 7 dias, o gestor compara com os 7 dias anteriores"
+confere "$(tem '<select name="comparar"><option value="anterior" selected>Período anterior</option>' "$r")" "no alto do gestor, escolher com o que comparar"
+confere "$(tem 'Comparar <span class="nw">com&nbsp;<span class="info"' "$r")" "Comparar com tem o (i) explicando as setas"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d&comparar=semana")
+confere "$(tem 'As setas comparam com os mesmos dias da semana passada' "$r")" "comparar com a semana passada"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d")
+confere "$(tem '<option value="semana" selected>' "$r")" "a comparação escolhida fica lembrada"
+curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d&comparar=anterior"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=hoje")
+confere "$(tem 'Sem comparação' "$(sem_tags "$r")")" "hoje não compara (o dia ainda não terminou)"
+# Ranking (painel de bolsa): da melhor para a pior, antes da tabela
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+rk=${r%%'<div class="tabela gestor">'*}
+confere "$(tem 'Ranking das campanhas' "$(sem_tags "$rk")")" "ranking das campanhas no alto do gestor"
+confere "$([ "$(grep -o '<ol class="ranking">.*' < <(printf '%s\n' "$rk") | grep -o '<strong>[^<]*</strong>' | head -1)" = '<strong>TL 1</strong>' ]; echo $?)" "ranking por lucro: TL 1 (lucro) na frente da FREE (prejuízo)"
+confere "$(tem 'rk-pos">1º' "$rk")" "ranking com a posição"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&rank=cpa")
+confere "$(tem 'class="atual">CPA</a>' "$r")" "critério do ranking escolhido (CPA)"
+curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&rank=lucro"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
 confere "$(tem '<span>Anúncio compartilhado</span>' "$r")" "etiqueta com {{placement}} vira anúncio compartilhado"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo&filtro=fora")
@@ -419,17 +409,15 @@ confere "$(tem 'Vendas fora de anúncio (1)' "$(sem_tags "$r")")" "link do aviso
 confere "$(tem 'Venda orgânica (WhatsApp): não veio de anúncio' "$r")" "cada venda fora de anúncio mostra o motivo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=gasto&cols[]=cpm&cols[]=impressoes")
 confere "$(tem '>CPM</a>' "$r")" "escolher colunas mostra a coluna pedida"
-confere "$(grep -q '>Lucro</a>' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "escolher colunas esconde as outras"
+tab=${r#*'<div class="tabela gestor">'}
+confere "$(grep -q '>Lucro</a>' < <(printf '%s\n' "$tab"); [ $? -ne 0 ]; echo $?)" "escolher colunas esconde as outras"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
 confere "$(tem '>CPM</a>' "$r")" "escolha de colunas fica salva"
 confere "$(tem '<td>R$ 50,00</td><td>R$ 12,50</td><td>4.000</td>' "$r")" "colunas na ordem escolhida (gasto, CPM, impressões), com CPM e impressões calculados"
 confere "$(tem 'Personalize as colunas' "$r")" "seletor de colunas como o da UTMify"
-confere "$(tem '<li draggable="true" data-coluna="gasto">.*<li draggable="true" data-coluna="cpm">.*<li draggable="true" data-coluna="impressoes">' "$(tr -d '\n' < <(printf '%s
-' "$r"))")" "lista da direita na ordem da tabela"
+confere "$(tem '<li draggable="true" data-coluna="gasto">.*<li draggable="true" data-coluna="cpm">.*<li draggable="true" data-coluna="impressoes">' "$(tr -d '\n' < <(printf '%s\n' "$r"))")" "lista da direita na ordem da tabela"
 confere "$(tem '<th data-col="cpm">' "$r")" "títulos com a coluna marcada para mudar a largura"
-confere "$(grep -q 'data-col="marca"\|data-col="st"' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "caixa de marcar e status com largura fixa (sem arrastar)"
+confere "$(grep -q 'data-col="marca"\|data-col="st"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "caixa de marcar e status com largura fixa (sem arrastar)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols=padrao")
 confere "$(tem '>Lucro</a>' "$r")" "voltar ao padrão traz as colunas de sempre"
 curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=orcamento&cols[]=gasto&cols[]=vendas&cols[]=fat&cols[]=lucro&cols[]=cpa&cols[]=roi"
@@ -462,20 +450,17 @@ confere "$(tem 'title="CAMPAIGN_PAUSED">Pausado</span>' "$r")" "conjunto da camp
 r=$(status "$csrf" 120120 ACTIVE)
 confere "$(tem 'A campanha &quot;TL 1&quot; foi ligada na Meta.' "$r")" "ligar de novo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos&campanha=120120")
-confere "$(grep -q 'title="CAMPAIGN_PAUSED"' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "conjunto volta com a campanha"
+confere "$(grep -q 'title="CAMPAIGN_PAUSED"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "conjunto volta com a campanha"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&campanhas[]=555555")
 confere "$(tem 'name="campanhas\[\]" value="555555" data-sel checked' "$r")" "campanha marcada continua marcada"
 confere "$(tem 'href="./?aba=gestor&amp;periodo=tudo&amp;nivel=conjuntos&amp;campanhas%5B0%5D=555555"' "$r")" "aba Conjuntos leva a seleção"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos&campanhas[]=555555")
 confere "$(tem '<strong>conjunto free</strong>' "$r")" "conjuntos só das campanhas marcadas"
-confere "$(grep -q '<strong>conjunto 5</strong>' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "conjunto de campanha não marcada fica de fora"
+confere "$(grep -q '<strong>conjunto 5</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "conjunto de campanha não marcada fica de fora"
 confere "$(tem 'Mostrando só 1 campanha(s) marcada(s): FREE' "$(sem_tags "$r")")" "tela diz qual seleção está filtrando"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&campanhas[]=120120")
 confere "$(tem '<strong>cv 05</strong>' "$r")" "anúncios só das campanhas marcadas"
-confere "$(grep -q '<strong>cv free</strong>' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "anúncio de campanha não marcada fica de fora"
+confere "$(grep -q '<strong>cv free</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "anúncio de campanha não marcada fica de fora"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&conjuntos[]=444444")
 confere "$(tem '<strong>cv free</strong>' "$r")" "anúncios só dos conjuntos marcados"
 meta "$csrf" "$LEITURA" 587364236934346 >/dev/null
@@ -546,8 +531,7 @@ confere "$(tem 'Sem insights</span>' "$r")" "aba API Instagram marca que faltam 
 r=$(ig "$csrf" "{\"access_token\": \"$IGTOKEN\", \"user_id\": 17841400000000000}")
 confere "$(tem 'Conta @engdesk conectada pelo token do Instagram: 1.234 seguidores e 2 posts. Os números aparecem' "$r")" "token do Instagram colado com o JSON em volta é achado, conferido e salvo"
 confere "$(grep -q "'token' => '$IGTOKEN'" "$DADOS/config.php"; echo $?)" "só o token vai para a configuração, sem o JSON"
-confere "$(grep -q "$IGTOKEN" < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "token do Instagram não volta para a tela"
+confere "$(grep -q "$IGTOKEN" < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "token do Instagram não volta para a tela"
 confere "$(tem 'Liberados</span>' "$r")" "insights liberados"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=testar" "$URL/instagram-api.php")
 confere "$(tem 'Conexão OK. @engdesk: 1.234 seguidores. Insights liberados.' "$r")" "testar a conexão com o Instagram"
@@ -566,8 +550,7 @@ confere "$(tem '700Alcance' "$t")" "alcance somado dos 7 dias"
 confere "$(tem '49Toques nos botões de contato' "$t")" "toques nos botões de contato (o Instagram não conta o link da bio)"
 confere "$(tem '2Posts no período' "$t")" "posts publicados no período"
 confere "$(tem 'Do perfil à venda' "$t")" "funil do perfil até a venda"
-confere "$([ "$(grep -o 'Toques nos botões de contato' < <(printf '%s
-' "$t") | wc -l)" -eq 1 ]; echo $?)" "funil vai do alcance direto aos visitantes (os toques nos botões ficam só nos números)"
+confere "$([ "$(grep -o 'Toques nos botões de contato' < <(printf '%s\n' "$t") | wc -l)" -eq 1 ]; echo $?)" "funil vai do alcance direto aos visitantes (os toques nos botões ficam só nos números)"
 confere "$(tem 'aria-label="Alcance por dia"' "$r")" "gráfico de alcance por dia"
 confere "$(tem 'href="https://www.instagram.com/reel/abc/" target="_blank" rel="noopener noreferrer"' "$r")" "post abre no Instagram em outra aba"
 confere "$(tem 'id="feed"' "$r")" "feed com os posts"
@@ -592,14 +575,12 @@ saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '
   foreach (["https://scontent.cdninstagram.com/v/a.jpg", "https://x.fbcdn.net/a.jpg", "http://scontent.cdninstagram.com/a.jpg", "https://cdninstagram.com.evil.test/a.jpg", "https://evil.test/a.jpg", "file:///etc/passwd"] as $u) { echo ig_url_midia_ok($u) ? "s" : "n"; }')
 confere "$([ "$saida" = "ssnnnn" ]; echo $?)" "capa só vem do CDN do Instagram e do Facebook, em HTTPS ($saida)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d&feed_formato=foto")
-confere "$(grep -q 'midia.php?id=17900000000000001' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "filtro de formato: só fotos, sem o reel"
+confere "$(grep -q 'midia.php?id=17900000000000001' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "filtro de formato: só fotos, sem o reel"
 confere "$(tem 'midia.php?id=17900000000000002' "$r")" "filtro de formato mostra a foto"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d&feed_ver=tabela&feed_ordem=alcance")
 t=$(sem_tags "$r")
 confere "$(tem 'Vendas em 48 h' "$t")" "feed em tabela, com as vendas em 48 h"
-confere "$([ "$(grep -o 'Reel do Drive de Projetos\|Post da planta' < <(printf '%s
-' "$t") | head -1)" = 'Reel do Drive de Projetos' ]; echo $?)" "ordenar por alcance: do maior para o menor"
+confere "$([ "$(grep -o 'Reel do Drive de Projetos\|Post da planta' < <(printf '%s\n' "$t") | head -1)" = 'Reel do Drive de Projetos' ]; echo $?)" "ordenar por alcance: do maior para o menor"
 r2=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d&feed_ver=tabela&feed_ordem=salvos")
 confere "$([ "$(grep -o 'Reel do Drive de Projetos\|Post da planta' < <(sem_tags "$r2") | head -1)" = 'Reel do Drive de Projetos' ]; echo $?)" "ordenar por salvos"
 confere "$(tem '<td>1.000</td><td>2.500</td><td>50</td><td>5</td><td>30</td><td>12</td>' "$r")" "números do reel (alcance, visualizações, curtidas, comentários, salvos, compartilhamentos)"
@@ -650,8 +631,7 @@ t=$(sem_tags "$r")
 confere "$(tem 'Perfil do Instagram · @engdesk' "$t")" "perfil buscado pelo token da API Meta"
 confere "$(tem '700Alcance' "$t")" "alcance buscado pelo token da API Meta"
 confere "$(tem 'Reel do Drive de Projetos' "$t")" "posts buscados pelo token da API Meta"
-confere "$(grep -q 'Última busca no Instagram falhou' < <(printf '%s
-' "$t"); [ $? -ne 0 ]; echo $?)" "busca pela Meta sem erro"
+confere "$(grep -q 'Última busca no Instagram falhou' < <(printf '%s\n' "$t"); [ $? -ne 0 ]; echo $?)" "busca pela Meta sem erro"
 curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/meta-api.php"
 r=$(curl -s -b "$JAR" "$URL/instagram-api.php")
 confere "$(tem 'O token da aba API Meta foi removido' "$r")" "sem o token da API Meta, a aba Instagram avisa"
@@ -681,29 +661,24 @@ confere "$(tem 'class="conta-nome" href="configuracoes.php"' "$r")" "o nome no t
 confere "$(tem '<link rel="manifest" href="manifest.php">' "$r")" "painel aponta o manifesto do app"
 r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
 t=$(sem_tags "$r")
-csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s
-' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 confere "$(tem 'data-instalar hidden>Instalar o app' "$r")" "Configurações tem o botão de instalar o app"
 confere "$(tem 'Notificações de venda' "$t")" "Configurações tem as notificações de venda e de relatório"
 confere "$(tem 'Venda aprovada! | Drive de Projetos 2.0' "$t")" "prévia da notificação de venda"
 confere "$(tem 'A tarefa agendada ainda não está rodando' "$t")" "avisa enquanto a tarefa agendada não roda"
-n=$(grep -o 'data-dica' < <(printf '%s
-' "$r") | wc -l)
+n=$(grep -o 'data-dica' < <(printf '%s\n' "$r") | wc -l)
 confere "$([ "$n" -ge 10 ]; echo $?)" "cada opção tem o (i) ($n)"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data 'acao=salvar&aprovadas=1&pendentes=1&valor=1&produto=1&canal=1&campanha=1&horas[]=12&horas[]=99&padrao=detalhado' \
     --data-urlencode "app_nome=Painel EngDesk" "$URL/configuracoes.php")
 confere "$(tem 'Configurações salvas' "$r")" "preferências de notificação salvas"
 confere "$(tem 'value="12" checked' "$r")" "horário das 12h marcado"
-confere "$(grep -q 'value="18" checked' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "horário desmarcado sai da lista"
+confere "$(grep -q 'value="18" checked' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "horário desmarcado sai da lista"
 confere "$(tem 'value="detalhado" checked' "$r")" "padrão Resumo detalhado escolhido"
 confere "$(tem 'value="criativo"' "$r")" "padrão Notificações criativas disponível"
 h=$(curl -s -D - -o "$DADOS/manifesto.json" "$URL/manifest.php")
 m=$(cat "$DADOS/manifesto.json")
 confere "$(tem 'application/manifest+json' "$h")" "manifesto do app com o tipo certo"
-confere "$(grep -q '"name": "Painel EngDesk"' < <(printf '%s
-' "$m") && grep -q '"display": "standalone"' < <(printf '%s
-' "$m"); echo $?)" "manifesto com o nome escolhido, em tela cheia"
+confere "$(grep -q '"name": "Painel EngDesk"' < <(printf '%s\n' "$m") && grep -q '"display": "standalone"' < <(printf '%s\n' "$m"); echo $?)" "manifesto com o nome escolhido, em tela cheia"
 h=$(curl -s -D - -o "$DADOS/sw.js" "$URL/sw.php")
 confere "$(tem 'application/javascript' "$h")" "service worker servido como JavaScript"
 confere "$(tem 'Cache-Control: no-cache' "$h")" "service worker sem cache (atualiza sozinho)"
@@ -715,8 +690,7 @@ confere "$([ "$code" = "401" ]; echo $?)" "notificações sem login são recusad
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X POST "$URL/notificacoes.php?acao=chave")
 confere "$([ "$code" = "403" ]; echo $?)" "notificações sem o token CSRF são recusadas ($code)"
 r=$(notif chave)
-CHAVE_PUSH=$(grep -o '"chave":"[A-Za-z0-9_-]*"' < <(printf '%s
-' "$r") | cut -d'"' -f4)
+CHAVE_PUSH=$(grep -o '"chave":"[A-Za-z0-9_-]*"' < <(printf '%s\n' "$r") | cut -d'"' -f4)
 confere "$([ ${#CHAVE_PUSH} -eq 87 ]; echo $?)" "chave pública do painel (VAPID) com 65 bytes"
 confere "$(grep -q 'BEGIN' "$DADOS/config.php"; echo $?)" "chave privada do VAPID guardada fora do site"
 # Aparelho de teste: par de chaves e segredo como o navegador criaria
@@ -724,10 +698,8 @@ confere "$(grep -q 'BEGIN' "$DADOS/config.php"; echo $?)" "chave privada do VAPI
 ap=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; require "lib/push.php"; [$pem, $pub] = push_novo_par();
   echo json_encode(["pem" => $pem, "p256dh" => b64u($pub), "auth" => b64u(random_bytes(16))]);')
 echo "$ap" > "$DADOS/aparelho.json"
-P256=$(grep -o '"p256dh":"[^"]*"' < <(printf '%s
-' "$ap") | cut -d'"' -f4)
-AUTH=$(grep -o '"auth":"[^"]*"' < <(printf '%s
-' "$ap") | cut -d'"' -f4)
+P256=$(grep -o '"p256dh":"[^"]*"' < <(printf '%s\n' "$ap") | cut -d'"' -f4)
+AUTH=$(grep -o '"auth":"[^"]*"' < <(printf '%s\n' "$ap") | cut -d'"' -f4)
 # Nome do aparelho so em ASCII: no Windows, o curl nao manda acento em UTF-8
 insc() { printf '{"endpoint":"%s","keys":{"p256dh":"%s","auth":"%s"},"aparelho":"%s"}' "$1" "$P256" "$AUTH" "$2"; }
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -H "X-CSRF: $csrf" --data "$(insc https://invasor.test/push Teste)" "$URL/notificacoes.php?acao=inscrever")
@@ -778,8 +750,7 @@ confere "$(tem 'Mandou bem!;Meio-dia com R$ 5,00 no vermelho. A tarde decide.;Pa
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/cron.php")
 confere "$([ "$code" = "404" ]; echo $?)" "tarefa agendada não abre pelo navegador ($code)"
 r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
-confere "$(grep -q 'A tarefa agendada ainda não está rodando' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "com a tarefa rodando, o aviso some"
+confere "$(grep -q 'A tarefa agendada ainda não está rodando' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "com a tarefa rodando, o aviso some"
 
 notif inscrever "$(insc "http://127.0.0.1:$PORTA_PUSH/push/410" 'iPhone - Safari (app)')" >/dev/null
 r=$(notif testar)
@@ -791,14 +762,11 @@ r=$(notif testar)
 confere "$(tem 'Nenhum aparelho seu' "$r")" "desligar apaga a inscrição do aparelho"
 # shellcheck disable=SC2086
 saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS tests/push-cripto.php)
-n=$(grep -c '^ok' < <(printf '%s
-' "$saida"))
-confere "$(grep -q FALHA < <(printf '%s
-' "$saida"); [ $? -ne 0 ] && [ "$n" -eq 7 ]; echo $?)" "cifra do push (RFC 8291) e assinatura do VAPID ($n/7)"
+n=$(grep -c '^ok' < <(printf '%s\n' "$saida"))
+confere "$(grep -q FALHA < <(printf '%s\n' "$saida"); [ $? -ne 0 ] && [ "$n" -eq 7 ]; echo $?)" "cifra do push (RFC 8291) e assinatura do VAPID ($n/7)"
 
 echo "Proteções"
-for i in 1 2 3 4 5 6; do r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" "$URL/entrar.php"); c=$(grep -o '[a-f0-9]\{32\}' < <(printf '%s
-' "$r") | head -1); r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" --data "csrf=$c&senha=errada" "$URL/entrar.php"); done
+for i in 1 2 3 4 5 6; do r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" "$URL/entrar.php"); c=$(grep -o '[a-f0-9]\{32\}' < <(printf '%s\n' "$r") | head -1); r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" --data "csrf=$c&senha=errada" "$URL/entrar.php"); done
 confere "$(tem 'Muitas tentativas' "$r")" "login bloqueia depois de 5 senhas erradas"
 
 echo "Classificação e webhook"
@@ -810,8 +778,7 @@ confere "$(tem 'Instagram · anúncio;Instagram (bio);Instagram · anúncio;Inst
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
 confere "$(tem 'Mostrar a URL do webhook' "$r")" "aba API Kiwify mostra a URL do webhook"
 confere "$(tem "kiwify.php?chave=$CHAVE" "$r")" "URL do webhook com a chave certa"
-confere "$(grep -q 'O webhook não está chegando' < <(printf '%s
-' "$r"); [ $? -ne 0 ]; echo $?)" "webhook chegando: sem aviso"
+confere "$(grep -q 'O webhook não está chegando' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "webhook chegando: sem aviso"
 # shellcheck disable=SC2086
 (cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; track_db()->exec("UPDATE vendas SET fonte = '"'"'api'"'"', recebida_em = datetime('"'"'now'"'"')");')
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
