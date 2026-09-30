@@ -144,12 +144,17 @@ function ig_sync_buscar(array $k): array
         // Capa do feed: a miniatura do video ou a propria imagem (no carrossel, a primeira)
         $imagens[$id] = (string)($p['thumbnail_url'] ?? '') ?: (string)($p['media_url'] ?? '');
     }
-    $baixadas = 0;
+    $tentadas = 0;
     foreach ($imagens as $id => $url) {
-        if ($url !== '' && $baixadas < IG_MINIATURAS_POR_BUSCA && !is_file(ig_arquivo_miniatura($id))) {
-            ig_baixar_miniatura($id, $url);
-            $baixadas++;
+        if ($url !== '' && $tentadas < IG_MINIATURAS_POR_BUSCA && !is_file(ig_arquivo_miniatura($id))) {
+            $r = ig_baixar_miniatura($id, $url);
+            // Guarda o motivo da ultima falha para a aba API Instagram mostrar
+            definir_ajuste('ig_capas_erro', $r === true ? null : $r);
+            $tentadas++;
         }
+    }
+    if (!$imagens) {
+        definir_ajuste('ig_capas_erro', 'o Instagram não mandou o endereço das imagens');
     }
 
     // 3. Numeros da conta por dia, depois os insights de cada post
@@ -340,10 +345,14 @@ function ig_url_midia_ok(string $url): bool
 
 // Baixa a capa do post, reduz para 480 px de largura e grava como JPEG (sem os metadados da
 // foto). Sem a biblioteca de imagem do PHP, guarda o JPEG original se for pequeno.
-function ig_baixar_miniatura(string $id, string $url): bool
+// Devolve true ou o motivo da falha (curto, para a tela).
+function ig_baixar_miniatura(string $id, string $url)
 {
-    if (!preg_match('/^\d{6,25}$/', $id) || !ig_url_midia_ok($url)) {
-        return false;
+    if (!preg_match('/^\d{6,25}$/', $id)) {
+        return 'post sem número';
+    }
+    if (!ig_url_midia_ok($url)) {
+        return 'imagem fora do CDN do Instagram (' . texto((string)parse_url($url, PHP_URL_HOST), 60) . ')';
     }
     $ch = curl_init($url);
     curl_setopt_array($ch, [
@@ -358,23 +367,24 @@ function ig_baixar_miniatura(string $id, string $url): bool
     ]);
     $bin = curl_exec($ch);
     $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $falha = curl_error($ch);
     curl_close($ch);
     if (!is_string($bin) || $status !== 200) {
-        return false;
+        return 'o CDN respondeu ' . ($status ?: 'sem conexão' . ($falha ? ': ' . texto($falha, 80) : ''));
     }
     $info = @getimagesizefromstring($bin);
     if (!$info || !in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP], true)) {
-        return false;
+        return 'o arquivo não é uma imagem JPEG, PNG ou WebP';
     }
     $arq = ig_arquivo_miniatura($id);
     if (!is_dir(dirname($arq)) && !@mkdir(dirname($arq), 0750, true)) {
-        return false;
+        return 'sem permissão para criar a pasta das capas';
     }
     $tmp = $arq . '.tmp';
     if (function_exists('imagecreatefromstring')) {
         $im = @imagecreatefromstring($bin);
         if (!$im) {
-            return false;
+            return 'o PHP não conseguiu abrir a imagem';
         }
         $w = imagesx($im);
         $h = imagesy($im);
@@ -390,7 +400,13 @@ function ig_baixar_miniatura(string $id, string $url): bool
     }
     if (!$ok || !@rename($tmp, $arq)) {
         @unlink($tmp);
-        return false;
+        return function_exists('imagecreatefromstring') ? 'não foi possível gravar a capa' : 'o PHP do servidor está sem a biblioteca de imagem (GD) e a imagem não é um JPEG pequeno';
     }
     return true;
+}
+
+// Quantas capas do feed ja estao guardadas
+function ig_capas_guardadas(): int
+{
+    return count(glob(dirname(ig_arquivo_miniatura('0')) . DIRECTORY_SEPARATOR . '*.jpg') ?: []);
 }

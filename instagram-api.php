@@ -171,6 +171,9 @@ abas_painel('instagram-api');
         <span class="suave">· o painel renova sozinho a cada 7 dias<?= !empty($salva['renovado_em']) ? ' (última: ' . e(data_local($salva['renovado_em'], 'd/m H:i')) . ')' : '' ?></span>
         <?= ($re = ajuste('ig_renovar_erro')) ? '<br><span class="erro">A última renovação falhou: ' . e($re) . '. Se o token vencer, gere outro.</span>' : '' ?></td></tr>
       <?php endif; ?>
+      <?php $posts = (int)track_db()->query('SELECT COUNT(*) FROM ig_media')->fetchColumn(); $erroCapa = ajuste('ig_capas_erro'); ?>
+      <tr><th>Capas do feed</th><td><?= ig_capas_guardadas() ?> de <?= $posts ?> guardadas<?= $erroCapa ? '<br><span class="erro">Última falha: ' . e($erroCapa) . '</span>' : '' ?>
+        <br><span class="suave">Até <?= IG_MINIATURAS_POR_BUSCA ?> por busca, das mais recentes para as mais antigas.</span></td></tr>
       <tr><th>Última busca</th><td><?= $estado['ok_em'] ? e(data_local($estado['ok_em'], 'd/m H:i')) : 'ainda não feita' ?>
         <?= $estado['erro'] ? '<br><span class="erro">' . e($estado['erro']) . '</span>' : '' ?>
         <?= $estado['adiada'] ? '<br><span class="suave">' . e($estado['adiada']) . '</span>' : '' ?></td></tr>
@@ -189,7 +192,7 @@ abas_painel('instagram-api');
 
   <section class="cartao">
     <h2><?= $salva ? 'Trocar a conexão' : 'Conectar o perfil do Instagram' ?></h2>
-    <p class="suave">Serve para a aba <strong>Orgânico</strong> mostrar seguidores, alcance, visualizações, <strong>toques no link da bio</strong> e os posts e reels que mais engajam, ao lado das visitas e vendas que vieram do perfil. O painel só lê.</p>
+    <p class="suave">Serve para a aba <strong>Orgânico</strong> mostrar seguidores, alcance, visualizações, o <strong>feed</strong> com os números de cada post e o caminho do perfil até a venda, ao lado das visitas e vendas que vieram do Instagram. O painel só lê.</p>
 
     <h3>Opção 1 (recomendada): usar o token da API Meta</h3>
     <p class="suave">Um token só para anúncios e Instagram, que não vence.</p>
