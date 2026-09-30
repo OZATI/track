@@ -352,8 +352,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         . implode('', array_map(fn($val, $rot) => '<option value="' . e((string)$val) . '"' . ((string)$val === $atual ? ' selected' : '') . '>' . e($rot) . '</option>', array_keys($lista), $lista));
     echo '<section class="bloco resumo-cab"><div class="resumo-topo"><h2>' . com_info('Resumo', 'Os números do período escolhido no topo. As vendas vêm da Kiwify (webhook e API), o gasto e o funil da Meta, e as visitas do próprio painel.') . '</h2>'
         . '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '><span data-sync-texto>' . e(ucfirst($quando)) . '</span>'
-        . '<form method="post" action="sincronizar.php"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
-        . '<input type="hidden" name="volta" value="' . e('./?' . http_build_query(array_filter(['aba' => 'geral', 'periodo' => $periodo, 'produto' => $fProduto, 'canal' => $fCanal]))) . '"><button type="submit">Atualizar</button></form></div></div>'
+        . botao_atualizar('./?' . http_build_query(array_filter(['aba' => 'geral', 'periodo' => $periodo, 'produto' => $fProduto, 'canal' => $fCanal]))) . '</div></div>'
         . '<form class="resumo-filtros" method="get" action="./" data-auto><input type="hidden" name="aba" value="geral"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
         . '<label>Produto<select name="produto">' . $opcoes(array_combine(array_keys($produtos), array_keys($produtos)), $fProduto, 'Qualquer') . '</select></label>'
         . '<label>Canal da venda<select name="canal">' . $opcoes($canaisNome, $fCanal, 'Qualquer') . '</select></label>'

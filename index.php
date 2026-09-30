@@ -16,19 +16,25 @@ $db = track_db();
 // ---------------------------------------------------------------- filtros
 $abasValidas = ['geral', 'trafego', 'gestor', 'organico', 'resumo', 'vendas', 'visitantes', 'eventos'];
 $aba = in_array($_GET['aba'] ?? '', $abasValidas, true) ? $_GET['aba'] : 'geral';
+// Site, pagina e periodo ficam lembrados na sessao: trocar de aba, abrir Configuracoes ou uma
+// API e voltar nao zera o filtro. Parametro presente no endereco (mesmo vazio) vale e e guardado.
+sessao_iniciar();
+$lembrado = is_array($_SESSION['track_filtro'] ?? null) ? $_SESSION['track_filtro'] : [];
+$escolhido = fn(string $k): string => array_key_exists($k, $_GET) ? (is_string($_GET[$k]) ? $_GET[$k] : '') : (string)($lembrado[$k] ?? '');
 $periodosValidos = ['hoje', 'ontem', '7d', '30d', 'tudo'];
-$periodo = in_array($_GET['periodo'] ?? '', $periodosValidos, true) ? $_GET['periodo'] : '7d';
+$periodo = in_array($escolhido('periodo'), $periodosValidos, true) ? $escolhido('periodo') : '7d';
 
 $dominios = $db->query('SELECT DISTINCT dominio FROM eventos ORDER BY dominio')->fetchAll(PDO::FETCH_COLUMN);
-$dominio = in_array($_GET['dominio'] ?? '', $dominios, true) ? $_GET['dominio'] : '';
+$dominio = in_array($escolhido('dominio'), $dominios, true) ? $escolhido('dominio') : '';
 $paginas = [];
 if ($dominio !== '') {
     $st = $db->prepare('SELECT DISTINCT pagina FROM eventos WHERE dominio = ? ORDER BY pagina');
     $st->execute([$dominio]);
     $paginas = $st->fetchAll(PDO::FETCH_COLUMN);
 }
-$pagina = in_array($_GET['pagina'] ?? '', $paginas, true) ? $_GET['pagina'] : '';
+$pagina = in_array($escolhido('pagina'), $paginas, true) ? $escolhido('pagina') : '';
 $filtro = ['dominio' => $dominio, 'pagina' => $pagina, 'periodo' => $periodo];
+$_SESSION['track_filtro'] = $filtro;
 [$de, $ate] = periodo_utc($periodo);
 
 // Colunas de WhatsApp so para site/pagina que ja teve clique no WhatsApp (em qualquer
@@ -113,8 +119,7 @@ function barra_vendas(array $parLink, string $aba): void
     $volta = './?' . http_build_query(['aba' => $aba] + $parLink);
     echo '<div class="barra-vendas" id="sync"' . (kiwify_sync_vencida() ? ' data-sync="1"' : '') . '>'
         . '<span class="suave" data-sync-texto>' . e($texto) . '</span>'
-        . '<form method="post" action="sincronizar.php"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
-        . '<input type="hidden" name="volta" value="' . e($volta) . '"><button type="submit" class="discreto neutro">Atualizar vendas</button></form>'
+        . botao_atualizar($volta, 'Atualizar vendas: busca agora na API da Kiwify (no máximo uma vez por minuto)')
         . '</div>';
     if ($s['adiada']) {
         echo '<p class="suave">Busca adiada: ' . e($s['adiada']) . '</p>';

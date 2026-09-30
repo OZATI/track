@@ -155,6 +155,15 @@
     atualizar();
   }
 
+  // Atualizar (so o icone): gira enquanto a busca roda
+  var atualizar = document.querySelectorAll('.form-atualizar');
+  for (var fa = 0; fa < atualizar.length; fa++) {
+    atualizar[fa].addEventListener('submit', function (e) {
+      var b = e.target.querySelector('.botao-icone');
+      if (b) { b.classList.add('girando'); b.setAttribute('aria-busy', 'true'); }
+    });
+  }
+
   // Formularios marcados com data-auto (filtros do Resumo) enviam ao mudar
   var autos = document.querySelectorAll('form[data-auto]');
   for (var a = 0; a < autos.length; a++) {

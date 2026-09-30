@@ -430,8 +430,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     }
     $quando = $meta['ok_em'] ? 'gasto da Meta atualizado em ' . data_local($meta['ok_em'], 'd/m H:i') : ($temMeta ? 'primeira busca na Meta ainda não feita' : '');
     echo '<span data-sync-texto>' . e($quando) . '</span>';
-    echo '<form method="post" action="sincronizar.php"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
-        . '<input type="hidden" name="volta" value="' . e($link([])) . '"><button type="submit">Atualizar</button></form></div>';
+    echo botao_atualizar($link([]), 'Atualizar agora: busca o gasto na Meta e as vendas na Kiwify') . '</div>';
     if (!$temMeta) {
         echo '<p class="aviso-meta">Sem a conta de anúncios conectada, o gestor mostra só as vendas por campanha. Para ver gasto, lucro, CPA e ROI, conecte na aba <a href="meta-api.php">API Meta</a>.</p>';
     } elseif ($meta['adiada']) {
@@ -531,8 +530,8 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         echo '</form>';
     }
     $volta = $link([]);
-    echo '<div class="tabela gestor"><table data-larguras="' . e($nivel) . '"><tr>' . ($campoSel ? '<th class="marca" data-col="marca"><input type="checkbox" data-sel-todos aria-label="Marcar todos"></th>' : '')
-        . '<th class="st" data-col="st">Status ' . info($pode ? 'Situação na Meta agora. A chave liga ou pausa na Meta, com confirmação; cada mudança fica registrada no histórico abaixo.' : 'Situação na Meta agora: ativo, pausado ou com problema (ex.: reprovado). Para ligar e pausar por aqui, o token da API Meta precisa de ads_management.') . '</th>' . $cab('nome', $singular);
+    echo '<div class="tabela gestor"><table data-larguras="' . e($nivel) . '"><tr>' . ($campoSel ? '<th class="marca"><input type="checkbox" data-sel-todos aria-label="Marcar todos"></th>' : '')
+        . '<th class="st">Status ' . info($pode ? 'Situação na Meta agora. A chave liga ou pausa na Meta, com confirmação; cada mudança fica registrada no histórico abaixo.' : 'Situação na Meta agora: ativo, pausado ou com problema (ex.: reprovado). Para ligar e pausar por aqui, o token da API Meta precisa de ads_management.') . '</th>' . $cab('nome', $singular);
     foreach ($colunas as $k) {
         echo $cab($k, $todas[$k][0], $todas[$k][1]);
     }

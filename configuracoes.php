@@ -19,7 +19,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         push_salvar_prefs($usuario, [
             'aprovadas' => ($_POST['aprovadas'] ?? '') === '1', 'pendentes' => ($_POST['pendentes'] ?? '') === '1',
             'valor' => ($_POST['valor'] ?? '') === '1', 'produto' => ($_POST['produto'] ?? '') === '1',
-            'campanha' => ($_POST['campanha'] ?? '') === '1', 'canal' => ($_POST['canal'] ?? '') === '1',
+            'campanha' => ($_POST['campanha'] ?? '') === '1', 'canal' => ($_POST['canal'] ?? '') === '1', 'nome' => ($_POST['nome'] ?? '') === '1',
             'relatorio_horas' => (array)($_POST['horas'] ?? []), 'relatorio_padrao' => (string)($_POST['padrao'] ?? ''),
         ]);
         $nome = texto($_POST['app_nome'] ?? '', 30);
@@ -39,7 +39,7 @@ $cronVivo = $cronUltimo && strtotime($cronUltimo . ' UTC') >= time() - 20 * 60;
 $exemplo = ['pedido' => 'exemplo', 'produto' => 'Drive de Projetos 2.0', 'valor' => 6700, 'pagamento' => 'pix',
     'utm_source' => 'MetaAds', 'utm_medium' => 'conjunto|111', 'utm_term' => 'Instagram_Reels', 'utm_campaign' => 'TL 1|120120'];
 $previaVenda = push_msg_venda($exemplo, 'aprovada', ['aprovadas' => true] + $p);
-$previaRelatorio = relatorio_msg(['fat' => 71062, 'vendas' => 9, 'gasto' => 29815, 'imposto' => 3623, 'lucro' => 37624, 'roi' => 2.13], $p['relatorio_padrao'], 23);
+$previaRelatorio = push_com_nome(relatorio_msg(['fat' => 71062, 'vendas' => 9, 'gasto' => 29815, 'imposto' => 3623, 'lucro' => 37624, 'roi' => 2.13], $p['relatorio_padrao'], 23), $p);
 $nomeApp = track_config()['app_nome'] ?? 'Painel de vendas';
 
 // Uma opcao Mostrar/Esconder ou Habilitado/Desabilitado, com o (i)
@@ -95,6 +95,7 @@ abas_painel('configuracoes');
       <?= $opcao('produto', 'Nome do produto', 'Mostra o produto vendido no título.', $p['produto'], 'Mostrar', 'Esconder') ?>
       <?= $opcao('canal', 'Canal da venda', 'Mostra de onde a venda veio (Instagram · anúncio, orgânico, direto...). Só o nosso painel tem.', $p['canal'], 'Mostrar', 'Esconder') ?>
       <?= $opcao('campanha', 'Campanha (utm_campaign)', 'Mostra o nome da campanha da Meta que trouxe a venda.', $p['campanha'], 'Mostrar', 'Esconder') ?>
+      <?= $opcao('nome', 'Nome do painel', 'Começa o título pelo nome do app (campo Nome do app, em Notificações de relatório). Útil para quem acompanha mais de um painel no mesmo celular.', $p['nome'], 'Mostrar', 'Esconder') ?>
       <h3>Prévia</h3>
       <?= $previa($previaVenda) ?>
     </section>
@@ -115,6 +116,7 @@ abas_painel('configuracoes');
       <div class="cfg-padroes">
         <label><input type="radio" name="padrao" value="lucro"<?= $p['relatorio_padrao'] === 'lucro' ? ' checked' : '' ?>> <b>Status de lucro</b> <span class="suave">quanto lucrou até a hora</span></label>
         <label><input type="radio" name="padrao" value="detalhado"<?= $p['relatorio_padrao'] === 'detalhado' ? ' checked' : '' ?>> <b>Resumo detalhado</b> <span class="suave">faturamento, gasto, lucro, ROI e vendas</span></label>
+        <label><input type="radio" name="padrao" value="criativo"<?= $p['relatorio_padrao'] === 'criativo' ? ' checked' : '' ?>> <b>Notificações criativas</b> <span class="suave">uma frase para cada horário, com o lucro e as vendas</span></label>
       </div>
       <h3>Prévia (23h)</h3>
       <?= $previa($previaRelatorio) ?>

@@ -15,9 +15,10 @@ require_once __DIR__ . '/layout.php'; // canal()
 
 const PUSH_PREFS_PADRAO = [
     'aprovadas' => true, 'pendentes' => false,
-    'valor' => true, 'produto' => true, 'campanha' => false, 'canal' => true,
+    'valor' => true, 'produto' => true, 'campanha' => false, 'canal' => true, 'nome' => false,
     'relatorio_horas' => [12, 18, 23], 'relatorio_padrao' => 'lucro',
 ];
+const PUSH_PADROES = ['lucro', 'detalhado', 'criativo'];
 const PUSH_HORAS = [8, 12, 18, 23];
 
 function b64u(string $bin): string
@@ -161,11 +162,11 @@ function push_prefs(string $usuario): array
 function push_salvar_prefs(string $usuario, array $p): void
 {
     $limpo = [];
-    foreach (['aprovadas', 'pendentes', 'valor', 'produto', 'campanha', 'canal'] as $k) {
+    foreach (['aprovadas', 'pendentes', 'valor', 'produto', 'campanha', 'canal', 'nome'] as $k) {
         $limpo[$k] = !empty($p[$k]);
     }
     $limpo['relatorio_horas'] = array_values(array_intersect(PUSH_HORAS, array_map('intval', (array)($p['relatorio_horas'] ?? []))));
-    $limpo['relatorio_padrao'] = ($p['relatorio_padrao'] ?? '') === 'detalhado' ? 'detalhado' : 'lucro';
+    $limpo['relatorio_padrao'] = in_array($p['relatorio_padrao'] ?? '', PUSH_PADROES, true) ? $p['relatorio_padrao'] : 'lucro';
     definir_ajuste('notif:' . $usuario, json_encode($limpo));
 }
 
@@ -200,6 +201,15 @@ function push_para_usuarios(callable $montar): int
     return $enviadas;
 }
 
+// "Nome do painel" ligado: o titulo comeca pelo nome do app (ajuda quem tem mais de um painel)
+function push_com_nome(?array $msg, array $p): ?array
+{
+    if ($msg !== null && !empty($p['nome'])) {
+        $msg['titulo'] = (track_config()['app_nome'] ?? 'Painel de vendas') . ' - ' . $msg['titulo'];
+    }
+    return $msg;
+}
+
 // Texto da notificacao de uma venda, pelas preferencias
 function push_msg_venda(array $v, string $tipo, array $p): ?array
 {
@@ -220,7 +230,7 @@ function push_msg_venda(array $v, string $tipo, array $p): ?array
     if ($p['campanha'] && $v['utm_campaign']) {
         $corpo[] = trim(explode('|', (string)$v['utm_campaign'])[0]);
     }
-    return ['titulo' => $titulo, 'corpo' => implode(' · ', $corpo), 'url' => './?aba=vendas', 'tag' => 'venda-' . $v['pedido'] . '-' . $tipo];
+    return push_com_nome(['titulo' => $titulo, 'corpo' => implode(' · ', $corpo), 'url' => './?aba=vendas', 'tag' => 'venda-' . $v['pedido'] . '-' . $tipo], $p);
 }
 
 // Avisa de uma venda nova ou que mudou (webhook ou busca na API). Uma vez por situacao e so
@@ -273,11 +283,21 @@ function relatorio_totais(string $dia): array
         'roi' => $gasto + $imposto ? $fat / ($gasto + $imposto) : null];
 }
 
-// Texto do relatorio de um horario, no estilo escolhido ("lucro" ou "detalhado")
+// Texto do relatorio de um horario, no estilo escolhido: "lucro" (curto), "detalhado" (todos
+// os numeros) ou "criativo" (frase de cada horario, com o lucro e as vendas)
 function relatorio_msg(array $t, string $padrao, int $hora): array
 {
     $lucrou = $t['lucro'] >= 0;
-    if ($padrao === 'detalhado') {
+    $valor = reais(abs($t['lucro']));
+    $vendas = $t['vendas'] . ' venda' . ($t['vendas'] === 1 ? '' : 's');
+    if ($padrao === 'criativo') {
+        [$titulo, $corpo] = match ($hora) {
+            8 => ['Bom dia!', $lucrou ? 'Ontem rendeu ' . $valor . ' de lucro com ' . $vendas . '. Bora repetir?' : 'Ontem ficou ' . $valor . ' no vermelho. Hoje é dia de virar o jogo.'],
+            12 => ['Hora do almoço', $lucrou ? 'Meio-dia e o caixa já tem ' . $valor . ' de lucro (' . $vendas . ').' : 'Meio-dia com ' . $valor . ' no vermelho. A tarde decide.'],
+            18 => ['Fim de tarde', $lucrou ? $valor . ' de lucro até agora, com ' . $vendas . '. A noite costuma vender bem.' : $valor . ' no vermelho até agora. Ainda dá tempo de virar.'],
+            default => [$lucrou ? 'Mandou bem!' : 'Fechamento do dia', $lucrou ? 'O dia está fechando com ' . $valor . ' de lucro e ' . $vendas . '.' : 'O dia está fechando com ' . $valor . ' no vermelho. Amanhã a gente ajusta.'],
+        };
+    } elseif ($padrao === 'detalhado') {
         $titulo = $hora === 8 ? 'Resumo de ontem' : ($hora === 23 ? 'Resumo do dia' : 'Parcial das ' . $hora . 'h');
         $corpo = 'Faturamento ' . reais($t['fat']) . ' · Gasto ' . reais($t['gasto']) . ' · Lucro ' . reais($t['lucro'])
             . ($t['roi'] !== null ? ' · ROI ' . number_format($t['roi'], 2, ',', '.') : '') . ' · ' . $t['vendas'] . ' venda' . ($t['vendas'] === 1 ? '' : 's');
@@ -311,5 +331,5 @@ function relatorio_enviar_se_hora(?int $horaForcada = null): int
         ->execute(['relatorio:' . (clone $agora)->modify('-7 days')->format('Y-m-d')]);
     $dia = $hora === 8 ? (clone $agora)->modify('-1 day')->format('Y-m-d') : $agora->format('Y-m-d');
     $t = relatorio_totais($dia);
-    return push_para_usuarios(fn($p) => in_array($hora, $p['relatorio_horas'], true) ? relatorio_msg($t, $p['relatorio_padrao'], $hora) : null);
+    return push_para_usuarios(fn($p) => in_array($hora, $p['relatorio_horas'], true) ? push_com_nome(relatorio_msg($t, $p['relatorio_padrao'], $hora), $p) : null);
 }

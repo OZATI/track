@@ -143,6 +143,16 @@ confere "$(tem 'Tráfego por página' "$(sem_tags "$r")")" "tabela por página a
 confere "$(tem 'Clicaram no WhatsApp' "$(sem_tags "$r")")" "coluna WhatsApp aparece quando o site já teve clique no WhatsApp"
 r2=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo&dominio=site.test&pagina=/drivedeprojetos/")
 confere "$(grep -q 'Clicaram no WhatsApp' <<<"$(sem_tags "$r2")"; [ $? -ne 0 ]; echo $?)" "página que só vende pelo checkout não mostra coluna de WhatsApp"
+# Trocar de aba (link sem filtro) mantém site, página e período; "Todos os sites" limpa
+r3=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos")
+confere "$(tem '<option value="site.test" selected>' "$r3")" "trocar de aba mantém o site escolhido"
+confere "$(tem '<option value="/drivedeprojetos/" selected>' "$r3")" "trocar de aba mantém a página escolhida"
+confere "$(tem '<option value="tudo" selected>' "$r3")" "trocar de aba mantém o período escolhido"
+r3=$(curl -s -b "$JAR" "$URL/configuracoes.php")
+r3=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas")
+confere "$(tem '<option value="tudo" selected>' "$r3")" "abrir Configurações e voltar mantém o período"
+r3=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo&dominio=&pagina=")
+confere "$(grep -q '<option value="site.test" selected>' <<<"$r3"; [ $? -ne 0 ]; echo $?)" "Todos os sites limpa o site lembrado"
 confere "$(tem 'class="lateral"' "$r")" "barra lateral CMS | UTM aparece quando há link do CMS"
 confere "$(tem 'href="../" title="CMS"' "$r")" "ícone CMS aponta para o link configurado"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
@@ -177,6 +187,7 @@ confere "$(tem '<option value="/drivedeprojetos/"' "$r")" "caixa de páginas lis
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test&pagina=/bio/")
 confere "$(tem 'WhatsApp' "$r")" "filtro por página mostra os eventos dela"
 confere "$(grep -q 'Clique no checkout</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "filtro por página esconde os eventos das outras"
+curl -s -o /dev/null -b "$JAR" "$URL/index.php?periodo=tudo&dominio=&pagina="
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=visitantes&periodo=tudo&v=$VID")
 confere "$(tem 'Linha do tempo (2 eventos)' "$(sem_tags "$r")")" "detalhe do visitante com a linha do tempo"
 confere "$(tem 'Bate' "$r")" "detalhe do visitante mostra a venda conferida"
@@ -375,6 +386,7 @@ confere "$(tem '<td>R$ 50,00</td><td>R$ 12,50</td><td>4.000</td>' "$r")" "coluna
 confere "$(tem 'Personalize as colunas' "$r")" "seletor de colunas como o da UTMify"
 confere "$(tem '<li draggable="true" data-coluna="gasto">.*<li draggable="true" data-coluna="cpm">.*<li draggable="true" data-coluna="impressoes">' "$(tr -d '\n' <<<"$r")")" "lista da direita na ordem da tabela"
 confere "$(tem '<th data-col="cpm">' "$r")" "títulos com a coluna marcada para mudar a largura"
+confere "$(grep -q 'data-col="marca"\|data-col="st"' <<<"$r"; [ $? -ne 0 ]; echo $?)" "caixa de marcar e status com largura fixa (sem arrastar)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols=padrao")
 confere "$(tem '>Lucro</a>' "$r")" "voltar ao padrão traz as colunas de sempre"
 curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=orcamento&cols[]=gasto&cols[]=vendas&cols[]=fat&cols[]=lucro&cols[]=cpa&cols[]=roi"
@@ -631,6 +643,7 @@ confere "$(tem 'Configurações salvas' "$r")" "preferências de notificação s
 confere "$(tem 'value="12" checked' "$r")" "horário das 12h marcado"
 confere "$(grep -q 'value="18" checked' <<<"$r"; [ $? -ne 0 ]; echo $?)" "horário desmarcado sai da lista"
 confere "$(tem 'value="detalhado" checked' "$r")" "padrão Resumo detalhado escolhido"
+confere "$(tem 'value="criativo"' "$r")" "padrão Notificações criativas disponível"
 h=$(curl -s -D - -o "$DADOS/manifesto.json" "$URL/manifest.php")
 m=$(cat "$DADOS/manifesto.json")
 confere "$(tem 'application/manifest+json' "$h")" "manifesto do app com o tipo certo"
@@ -696,6 +709,13 @@ confere "$(tem 'relatorio: 0' "$saida")" "relatório das 12h sai uma vez por dia
 saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS cron.php --hora=18)
 confere "$(tem 'relatorio: 0' "$saida")" "horário não escolhido não manda relatório"
 confere "$(tem '"titulo":"Parcial das 12h","corpo":"Faturamento R$ ' "$(cat "$DADOS/push.log")")" "relatório detalhado chega decifrado"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; require "lib/push.php";
+  $t = ["fat" => 20000, "vendas" => 3, "gasto" => 6000, "imposto" => 729, "lucro" => 13271, "roi" => 2.97];
+  $v = ["pedido" => "x", "produto" => "Drive", "valor" => 6700, "pagamento" => "pix", "utm_source" => null, "utm_medium" => null, "utm_term" => null, "utm_campaign" => null];
+  echo relatorio_msg($t, "criativo", 23)["titulo"], ";", relatorio_msg(["lucro" => -500] + $t, "criativo", 12)["corpo"], ";",
+    push_msg_venda($v, "aprovada", ["nome" => true] + PUSH_PREFS_PADRAO)["titulo"];')
+confere "$(tem 'Mandou bem!;Meio-dia com R$ 5,00 no vermelho. A tarde decide.;Painel EngDesk - Venda aprovada! | Drive' "$saida")" "padrão criativo e nome do painel no título ($saida)"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/cron.php")
 confere "$([ "$code" = "404" ]; echo $?)" "tarefa agendada não abre pelo navegador ($code)"
 r=$(curl -s -b "$JAR" "$URL/configuracoes.php")

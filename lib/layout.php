@@ -173,7 +173,10 @@ td.quebra{ white-space:normal; min-width:220px; }
 .colunas-pe a{ margin-right:auto; font-size:13px; }
 @media (max-width:640px){ .colunas-painel{ grid-template-columns:1fr; max-height:80vh; } }
 .tabela.gestor td, .tabela.gestor th{ text-align:right; } .tabela.gestor .nome, .tabela.gestor .st{ text-align:left; }
-.tabela.gestor .marca, .tabela.gestor .st{ width:1%; white-space:nowrap; } .tabela.gestor .marca{ text-align:center; padding-left:12px; padding-right:4px; }
+/* Caixa de marcar e chave de status: colunas estreitas e fixas (sem arrastar a largura) */
+.tabela.gestor .marca{ width:22px; min-width:22px; max-width:22px; padding-left:12px; padding-right:2px; text-align:center; }
+.tabela.gestor .marca input{ margin:0; vertical-align:middle; }
+.tabela.gestor .st{ width:1%; white-space:nowrap; padding-left:8px; }
 /* Largura das colunas: a linha aparece na borda do titulo ao passar o mouse; arrastar muda */
 .tabela.gestor th{ position:relative; }
 .redim{ position:absolute; top:0; right:-4px; width:9px; height:100%; cursor:col-resize; z-index:2; touch-action:none; }
@@ -188,6 +191,12 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor a.abre{ color:var(--texto); } .tabela.gestor a.abre:hover strong{ color:var(--marca); text-decoration:underline; }
 .delta{ font-size:11px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); }
 .trilha{ margin:0 0 12px; }
+/* Botao so com icone (Atualizar): quadrado, gira enquanto busca */
+.botao-icone{ display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; background:var(--cartao); color:var(--suave); border:1px solid var(--linha-forte); border-radius:var(--r-sm); }
+.botao-icone:hover{ background:var(--hover); color:var(--marca); border-color:var(--marca); }
+.botao-icone.girando svg{ animation:girar .8s linear infinite; }
+@keyframes girar{ to{ transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce){ .botao-icone.girando svg{ animation:none; } }
 /* Link do nome no topo: Configuracoes */
 a.conta-nome{ display:inline-flex; align-items:center; gap:6px; color:var(--texto); text-decoration:none; padding:4px 8px; border-radius:var(--r-sm); }
 a.conta-nome:hover{ background:var(--hover); text-decoration:none; }
@@ -526,6 +535,14 @@ function conta_topo(): string
     return '<div class="conta"><a class="conta-nome" href="configuracoes.php" title="Configurações: instalar o app e notificações">' . icone('config', 15) . '<span>' . e((string)usuario_atual()) . '</span><span class="conta-cfg">Configurações</span></a>'
         . '<form method="post" action="sair.php" id="form-sair"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
         . '<button type="submit" class="discreto neutro" title="Encerrar a sessão neste navegador">' . icone('sair', 14) . ' Sair</button></form></div>';
+}
+
+// Botao de atualizar (so o icone, com a dica): busca na hora e volta para $volta
+function botao_atualizar(string $volta, string $dica = 'Atualizar agora: busca as vendas na Kiwify, o gasto na Meta e o Instagram'): string
+{
+    return '<form method="post" action="sincronizar.php" class="form-atualizar"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
+        . '<input type="hidden" name="volta" value="' . e($volta) . '"><button type="submit" class="botao-icone" title="' . e($dica) . '" aria-label="Atualizar">'
+        . icone('atualizar', 16) . '</button></form>';
 }
 
 // Topo das telas sem filtro (Usuarios, API Kiwify)
