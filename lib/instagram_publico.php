@@ -3,21 +3,27 @@
 // algum conteudo (contas alcancadas) e de quem interagiu (contas engajadas).
 //
 // O Instagram entrega so o total de cada grupo (nunca quem e quem) e so para perfis com 100
-// seguidores ou mais. Muda devagar: busca uma vez por dia (15 consultas) e guarda em
-// ajustes ('ig_publico'). Alcancadas e engajadas: o mes corrente (timeframe=this_month).
+// seguidores ou mais. Muda devagar: busca uma vez por dia e guarda em ajustes ('ig_publico').
+// Alcancadas e engajadas pedem um periodo (timeframe): o painel tenta o mes corrente e, se
+// vier vazio, os outros que o Instagram aceita. Veio vazio ou com erro: tenta de novo na
+// proxima busca (depois de 10 minutos).
 
 const IG_PUBLICOS = [
     'seguidores' => ['follower_demographics', 'Seguidores', 'quem segue o perfil hoje'],
-    'alcancadas' => ['reached_audience_demographics', 'Contas alcançadas', 'quem viu algum conteúdo do perfil neste mês'],
-    'engajadas' => ['engaged_audience_demographics', 'Contas engajadas', 'quem curtiu, comentou, salvou, compartilhou ou respondeu neste mês'],
+    'alcancadas' => ['reached_audience_demographics', 'Contas alcançadas', 'quem viu algum conteúdo do perfil'],
+    'engajadas' => ['engaged_audience_demographics', 'Contas engajadas', 'quem curtiu, comentou, salvou, compartilhou ou respondeu'],
 ];
 const IG_PUBLICO_QUEBRAS = ['gender', 'age', 'age,gender', 'city', 'country'];
+const IG_PUBLICO_PERIODOS = ['this_month' => 'neste mês', 'last_30_days' => 'nos últimos 30 dias', 'this_week' => 'nesta semana'];
 const IG_PUBLICO_INTERVALO = 86400;
+const IG_PUBLICO_REPETIR = 600; // vazio: de novo na proxima busca (automatica, de hora em hora, ou o botao)
 const IG_IDADES = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
 const IG_SEXOS = ['F' => 'Mulheres', 'M' => 'Homens', 'U' => 'Não informado'];
-const IG_PAISES = ['BR' => 'Brasil', 'PT' => 'Portugal', 'US' => 'Estados Unidos', 'AO' => 'Angola', 'MZ' => 'Moçambique', 'AR' => 'Argentina',
-    'PY' => 'Paraguai', 'UY' => 'Uruguai', 'CL' => 'Chile', 'CO' => 'Colômbia', 'PE' => 'Peru', 'BO' => 'Bolívia', 'MX' => 'México',
-    'ES' => 'Espanha', 'IT' => 'Itália', 'FR' => 'França', 'DE' => 'Alemanha', 'GB' => 'Reino Unido', 'JP' => 'Japão', 'CA' => 'Canadá'];
+const IG_PAISES = ['BR' => 'Brasil', 'PT' => 'Portugal', 'US' => 'Estados Unidos', 'AO' => 'Angola', 'MZ' => 'Moçambique', 'CV' => 'Cabo Verde',
+    'AR' => 'Argentina', 'PY' => 'Paraguai', 'UY' => 'Uruguai', 'CL' => 'Chile', 'CO' => 'Colômbia', 'PE' => 'Peru', 'BO' => 'Bolívia',
+    'VE' => 'Venezuela', 'EC' => 'Equador', 'MX' => 'México', 'CA' => 'Canadá', 'ES' => 'Espanha', 'IT' => 'Itália', 'FR' => 'França',
+    'DE' => 'Alemanha', 'GB' => 'Reino Unido', 'IE' => 'Irlanda', 'NL' => 'Países Baixos', 'BE' => 'Bélgica', 'CH' => 'Suíça',
+    'PL' => 'Polônia', 'CN' => 'China', 'JP' => 'Japão', 'IN' => 'Índia', 'AE' => 'Emirados Árabes', 'AU' => 'Austrália'];
 
 function ig_publico(): ?array
 {
@@ -25,18 +31,38 @@ function ig_publico(): ?array
     return is_array($p) && isset($p['publicos']) ? $p : null;
 }
 
+// Publico sem nenhum numero (erro ou resposta vazia)
+function ig_publico_vazio(array $p): bool
+{
+    if (isset($p['erro'])) {
+        return true;
+    }
+    foreach (IG_PUBLICO_QUEBRAS as $q) {
+        if (!empty($p[str_replace(',', '_', $q)])) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function ig_publico_vencido(): bool
 {
     $p = ig_publico();
-    return !$p || time() - (int)strtotime($p['em'] . ' UTC') >= IG_PUBLICO_INTERVALO;
+    if (!$p) {
+        return true;
+    }
+    $idade = time() - (int)strtotime($p['em'] . ' UTC');
+    $falta = array_filter($p['publicos'], 'ig_publico_vazio');
+    return $idade >= IG_PUBLICO_INTERVALO || ($falta && $idade >= IG_PUBLICO_REPETIR);
 }
 
-// Uma quebra de um publico: [grupo => total], do maior para o menor
-function ig_publico_buscar(array $ctx, string $metrica, string $quebra, bool $mes): array
+// Uma quebra de um publico: ['dados' => [grupo => total]] (do maior para o menor),
+// ['erro' => ...] ou ['adiada' => true]. $periodo: timeframe (so alcancadas e engajadas).
+function ig_publico_buscar(array $ctx, string $metrica, string $quebra, ?string $periodo): array
 {
     $q = ['metric' => $metrica, 'period' => 'lifetime', 'metric_type' => 'total_value', 'breakdown' => $quebra];
-    if ($mes) {
-        $q['timeframe'] = 'this_month';
+    if ($periodo !== null) {
+        $q['timeframe'] = $periodo;
     }
     [$st, $c] = ig_api_get($ctx, $ctx['conta'] . '/insights', $q);
     if ($st === IG_ADIADA) {
@@ -53,7 +79,8 @@ function ig_publico_buscar(array $ctx, string $metrica, string $quebra, bool $me
         }
     }
     arsort($grupos);
-    return ['dados' => array_slice($grupos, 0, 60, true)];
+    // Resposta sem numero: guarda o comeco dela (so a estrutura das metricas) para o diagnostico
+    return ['dados' => array_slice($grupos, 0, 60, true)] + ($grupos ? [] : ['resposta' => texto((string)json_encode($c, JSON_UNESCAPED_UNICODE), 300)]);
 }
 
 // Busca os tres publicos. false = parou no limite de consultas (tenta na proxima busca).
@@ -61,18 +88,32 @@ function ig_sync_publico(array $ctx): bool
 {
     $publicos = [];
     foreach (IG_PUBLICOS as $id => [$metrica]) {
+        $periodos = $id === 'seguidores' ? [null] : array_keys(IG_PUBLICO_PERIODOS);
         $p = [];
-        foreach (IG_PUBLICO_QUEBRAS as $quebra) {
-            $r = ig_publico_buscar($ctx, $metrica, $quebra, $id !== 'seguidores');
-            if (!empty($r['adiada'])) {
-                return false;
+        foreach ($periodos as $periodo) {
+            $p = $periodo !== null ? ['periodo' => $periodo] : [];
+            foreach (IG_PUBLICO_QUEBRAS as $quebra) {
+                $r = ig_publico_buscar($ctx, $metrica, $quebra, $periodo);
+                if (!empty($r['adiada'])) {
+                    return false;
+                }
+                if (isset($r['erro'])) {
+                    $p['erro'] = $r['erro'];
+                    break;
+                }
+                $p[str_replace(',', '_', $quebra)] = $r['dados'];
+                if (isset($r['resposta'])) {
+                    $p['resposta'] = $r['resposta'];
+                }
+                // Sem sexo nem idade neste periodo: nao adianta pedir cidade e pais, tenta o proximo
+                if ($quebra === 'age' && !$p['gender'] && !$p['age']) {
+                    break;
+                }
             }
-            if (isset($r['erro'])) {
-                // Sem a quebra, o resto do publico tambem nao vem (conta pequena, permissao)
-                $p = ['erro' => $r['erro']];
+            if (!ig_publico_vazio($p)) {
+                unset($p['resposta']);
                 break;
             }
-            $p[str_replace(',', '_', $quebra)] = $r['dados'];
         }
         $publicos[$id] = $p;
     }

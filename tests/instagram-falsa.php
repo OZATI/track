@@ -78,6 +78,11 @@ if ($rota === '/ig/v23.0/me/insights') {
         if (!isset($publicos[$m][$b])) {
             $erro(400, 100, '(#100) Invalid breakdown');
         }
+        // Alcancadas: o mes corrente vem vazio (como no perfil real); os ultimos 30 dias, com numero
+        if ($m === 'reached_audience_demographics' && $q['timeframe'] === 'this_month') {
+            echo json_encode(['data' => [['name' => $m, 'period' => 'lifetime', 'total_value' => ['breakdowns' => [['dimension_keys' => explode(',', $b), 'results' => []]]]]]]);
+            exit;
+        }
         $res = [];
         foreach ($publicos[$m][$b] as $k => $v) {
             $res[] = ['dimension_values' => explode('|', $k), 'value' => $v];

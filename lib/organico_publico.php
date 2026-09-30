@@ -91,7 +91,7 @@ function organico_comparar_publicos(array $seg, array $eng): string
         }
     }
     $html = '<ul class="publico-comp"><li class="pc-cab"><span></span><span>' . com_info('Seguem', 'A fatia do grupo entre os seguidores.') . '</span>'
-        . '<span>' . com_info('Interagem', 'A fatia do grupo entre as contas engajadas neste mês.') . '</span>'
+        . '<span>' . com_info('Interagem', 'A fatia do grupo entre as contas engajadas (no período que o Instagram entregou).') . '</span>'
         . '<span>' . com_info('Diferença', 'Em pontos percentuais. Positivo: o grupo interage mais do que o peso dele nos seguidores; é para quem o conteúdo está puxando.') . '</span></li>';
     foreach ($linhas as [$rot, $a, $b]) {
         $dif = $a !== null && $b !== null ? $b - $a : null;
@@ -104,7 +104,7 @@ function organico_comparar_publicos(array $seg, array $eng): string
 
 function organico_publico(string $periodo): void
 {
-    $explica = 'Sexo, idade, cidades e países de quem segue o perfil, de quem viu algum conteúdo e de quem interagiu. O Instagram entrega só o total de cada grupo (nunca quem é quem), só para perfis com 100 seguidores ou mais, e o painel atualiza uma vez por dia. Contas alcançadas e engajadas: o mês corrente.';
+    $explica = 'Sexo, idade, cidades e países de quem segue o perfil, de quem viu algum conteúdo e de quem interagiu. O Instagram entrega só o total de cada grupo (nunca quem é quem), só para perfis com 100 seguidores ou mais, e o painel atualiza uma vez por dia. Contas alcançadas e engajadas: o período que o Instagram entregar (este mês, os últimos 30 dias ou esta semana), escrito logo abaixo.';
     $dados = ig_publico();
     $escolha = is_string($_GET['publico'] ?? null) && isset(IG_PUBLICOS[$_GET['publico']]) ? $_GET['publico'] : 'seguidores';
     $abas = '';
@@ -119,9 +119,13 @@ function organico_publico(string $periodo): void
     }
     $p = $dados['publicos'][$escolha] ?? [];
     [, $rotulo, $quem] = IG_PUBLICOS[$escolha];
-    if (!$p || isset($p['erro'])) {
-        echo '<p class="suave">O Instagram não entregou ' . e(mb_strtolower($rotulo)) . (($p['erro'] ?? '') !== '' ? ': ' . e($p['erro']) : '')
-            . '. Ele só mostra o público de perfis com 100 seguidores ou mais' . ($escolha !== 'seguidores' ? ', e de quem teve alcance ou interação neste mês' : '') . '.</p></section>';
+    if (isset($p['periodo'])) {
+        $quem .= ' ' . (IG_PUBLICO_PERIODOS[$p['periodo']] ?? '');
+    }
+    if (!$p || ig_publico_vazio($p)) {
+        echo '<p class="suave">O Instagram não entregou o público de ' . e(mb_strtolower($rotulo)) . (($p['erro'] ?? '') !== '' ? ': ' . e($p['erro']) : ' (respondeu sem números)')
+            . '. Ele só mostra o público de perfis com 100 seguidores ou mais' . ($escolha !== 'seguidores' ? ' e pede um período com contas suficientes; o painel tenta este mês, os últimos 30 dias e esta semana, e tenta de novo na próxima busca' : '') . '.</p>'
+            . (isset($p['resposta']) ? '<details class="suave"><summary>Detalhe técnico</summary><code>' . e($p['resposta']) . '</code></details>' : '') . '</section>';
         return;
     }
     $sexo = $p['gender'] ?? [];
@@ -132,7 +136,7 @@ function organico_publico(string $periodo): void
     $faixaTop = $idade ? array_key_first($idade) : null;
     $cidadeTop = $cidades ? array_key_first($cidades) : null;
 
-    echo '<p class="suave">' . e(ucfirst($quem)) . ' · atualizado ' . e(resumo_ha($dados['em'])) . '</p>'
+    echo '<p class="suave">' . e(ucfirst($quem)) . ' · ' . e(resumo_ha($dados['em'])) . '</p>'
         . '<div class="rgrade">'
         . resumo_cartao(organico_pct_txt(organico_pct($sexo['F'] ?? 0, $totalSexo)), 'Mulheres', 'Fatia de mulheres em ' . $quem . '.', '', number_format($sexo['F'] ?? 0, 0, ',', '.') . ' contas')
         . resumo_cartao(organico_pct_txt(organico_pct($sexo['M'] ?? 0, $totalSexo)), 'Homens', 'Fatia de homens em ' . $quem . '.', '', number_format($sexo['M'] ?? 0, 0, ',', '.') . ' contas')
@@ -159,6 +163,6 @@ function organico_publico(string $periodo): void
     $seg = $dados['publicos']['seguidores'] ?? [];
     $eng = $dados['publicos']['engajadas'] ?? [];
     echo '<section class="rc c4"><div class="rc-cab"><span>Quem segue × quem interage</span>' . info('Compara a fatia de cada grupo entre os seguidores e entre as contas que interagiram neste mês. Mostra para quem o conteúdo está puxando, útil também para o público dos anúncios.') . '</div>'
-        . ($seg && $eng && !isset($seg['erro']) && !isset($eng['erro']) ? organico_comparar_publicos($seg, $eng) : '<p class="suave">Precisa dos seguidores e das contas engajadas deste mês.</p>')
+        . ($seg && $eng && !ig_publico_vazio($seg) && !ig_publico_vazio($eng) ? organico_comparar_publicos($seg, $eng) : '<p class="suave">Aparece quando o Instagram entregar também o público das contas engajadas.</p>')
         . '</section></div></section>';
 }

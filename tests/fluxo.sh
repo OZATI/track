@@ -591,6 +591,8 @@ confere "$(tem 'Curitiba' "$(sem_tags "$r")")" "contas engajadas com as cidades 
 # shellcheck disable=SC2086
 n=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; $p = json_decode((string)ajuste("ig_publico"), true); echo count($p["publicos"] ?? []), ":", isset($p["publicos"]["alcancadas"]["erro"]) ? "erro" : "ok";')
 confere "$([ "$n" = "3:ok" ]; echo $?)" "os três públicos guardados, alcançadas e engajadas com o mês (timeframe) ($n)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d&publico=alcancadas")
+confere "$(tem 'Quem viu algum conteúdo do perfil nos últimos 30 dias' "$(sem_tags "$r")")" "mês vazio: alcançadas vêm dos últimos 30 dias, escrito na tela"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d&feed_formato=foto")
 confere "$(grep -q 'midia.php?id=17900000000000001' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "filtro de formato: só fotos, sem o reel"
 confere "$(tem 'midia.php?id=17900000000000002' "$r")" "filtro de formato mostra a foto"
