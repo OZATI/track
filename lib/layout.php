@@ -290,8 +290,9 @@ function canal(?string $source, ?string $medium = null, ?string $term = null, ?s
         if (strpos($m . $t, '{{') !== false) {
             return ['compartilhado', 'Anúncio compartilhado', 'link', 'link do anúncio aberto fora da entrega paga'];
         }
-        // Anuncio pago, mas a etiqueta nao disse onde apareceu (Facebook ou Instagram)
-        return ['meta', 'Anúncio sem posicionamento', 'meta', 'a etiqueta não disse se foi Facebook ou Instagram'];
+        // Anuncio pago, mas a etiqueta nao disse onde apareceu (Facebook ou Instagram): utm_term
+        // vazio ou outro valor (ex.: "an", Audience Network). O detalhe mostra o que chegou.
+        return ['meta', 'Anúncio sem posicionamento', 'meta', $t === '' ? 'utm_term vazio' : 'utm_term "' . texto((string)$term, 40) . '"'];
     }
     if (in_array($s, ['googleads', 'google-ads', 'adwords'], true) || ($s === 'google' && $pago)) {
         return ['google', 'Google · anúncio', 'google', ''];
@@ -320,9 +321,17 @@ function canal(?string $source, ?string $medium = null, ?string $term = null, ?s
 // Ordem dos canais nas tabelas agrupadas
 const CANAIS_ORDEM = ['instagram', 'facebook', 'meta', 'compartilhado', 'google', 'organico', 'outros', 'direto'];
 
+// Canais que o nome nao explica: o (i) ao lado diz o que sao
+const CANAIS_DICA = [
+    'meta' => 'Veio de anúncio da Meta (a etiqueta traz a campanha), mas o utm_term, que diz onde o anúncio apareceu, chegou vazio ou com um valor que não é Facebook nem Instagram (ex.: "an", da Audience Network). Por isso não entra em Facebook nem em Instagram. Campanha, conjunto e anúncio continuam valendo no Gestor de anúncios. Para diminuir: o link do anúncio precisa ter utm_term={{placement}}.',
+    'compartilhado' => 'Link de anúncio aberto fora da entrega paga (post compartilhado, link copiado, prévia do anúncio): as etiquetas chegaram com {{...}} escrito, sem o que a Meta preencheria. Não dá para ligar a uma campanha.',
+    'direto' => 'Chegou sem etiqueta e sem site de origem: link digitado ou salvo, app que esconde de onde veio, link direto do checkout ou troca de aparelho entre o clique e a compra.',
+];
+
 function selo_canal(array $c, bool $comDetalhe = true): string
 {
     return '<span class="canal canal-' . e($c[0]) . '"' . ($c[3] !== '' ? ' title="' . e($c[3]) . '"' : '') . '>' . icone($c[2]) . '<span>' . e($c[1]) . '</span>'
+        . (isset(CANAIS_DICA[$c[0]]) ? info(CANAIS_DICA[$c[0]]) : '')
         . ($comDetalhe && $c[3] !== '' ? '<span class="suave">· ' . e($c[3]) . '</span>' : '') . '</span>';
 }
 
