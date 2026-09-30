@@ -209,10 +209,12 @@ abas_painel('instagram-api');
 
     <h3>Opção 2: token do login do Instagram</h3>
     <ol class="suave passos">
-      <li><strong>developers.facebook.com</strong> → seu app → Casos de uso → <strong>Gerenciar mensagens e conteúdo no Instagram</strong> → <strong>Configuração da API com login do Instagram</strong>.</li>
-      <li>Em <strong>Permissões e recursos</strong>, adicione <strong>instagram_business_manage_insights</strong> (sem ela não vêm alcance nem visualizações).</li>
-      <li><strong>Gerar tokens de acesso</strong> → Adicionar conta → entre com o Instagram da marca → <strong>Gerar token</strong> → copie. Ele começa com <strong>IGAA</strong>.</li>
-      <li>Cole aqui, direto, sem passar por WhatsApp ou e-mail. A <strong>chave secreta do app</strong> não é usada: não cole nem compartilhe.</li>
+      <li><strong>developers.facebook.com</strong> → seu app → <strong>Funções do app → Funções → Adicionar pessoas → Testador do Instagram</strong> → digite o @ da marca.</li>
+      <li>No Instagram da marca, aceite o convite: pelo computador, <strong>instagram.com/accounts/manage_access</strong> → <strong>Convites de testador</strong> → Aceitar.</li>
+      <li>No app → Casos de uso → <strong>Gerenciar mensagens e conteúdo no Instagram</strong> → <strong>Permissões e recursos</strong>: adicione <strong>instagram_business_manage_insights</strong> (sem ela não vêm alcance nem visualizações).</li>
+      <li><strong>Configuração da API com login do Instagram → 2. Gerar tokens de acesso → Adicionar conta</strong> → entre com o Instagram da marca e permita.</li>
+      <li>Clique em <strong>Gerar token</strong> ao lado da conta e copie. Ele começa com <strong>IGAA</strong>. Nome, ID e chave secreta do app, que aparecem no topo da mesma tela, não são o token.</li>
+      <li>Cole aqui, direto, sem passar por WhatsApp ou e-mail.</li>
     </ol>
     <form method="post" action="instagram-api.php" autocomplete="off">
       <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
