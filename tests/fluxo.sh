@@ -140,6 +140,11 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
 confere "$(tem 'Tráfego por origem' "$r")" "aba Tráfego abre"
 confere "$(tem 'MetaAds / conjunto 5|111111 / TL 1|120120</span></span></td><td>1</td>' "$r")" "tabela de tráfego mostra a origem do anúncio com 1 visitante"
 confere "$(tem 'Tráfego por canal' "$r")" "tráfego agrupado por canal"
+confere "$(tem '<article class="cc" style="--cor:#C13584">' "$r")" "tráfego por canal em cartões, com a cor do canal"
+confere "$(tem 'Visitantes por canal' "$(sem_tags "$r")")" "rosca dos visitantes por canal"
+confere "$(tem '<details class="ver-tabela"><summary>Ver em tabela</summary>' "$r")" "planilha do tráfego por canal continua em Ver em tabela"
+n=$(printf '%s\n' "$r" | grep -o 'class="cc-passo"' | wc -l)
+confere "$([ "$n" -ge 3 ]; echo $?)" "cada canal com o caminho até a venda ($n passos)"
 confere "$(tem 'canal-instagram' "$r")" "anúncio com posicionamento Instagram_Reels vira canal Instagram"
 confere "$(tem '<span>Orgânico</span>' "$r")" "visita vinda do Google sem etiqueta vira canal Orgânico (folha)"
 confere "$(tem '<span>Direto / sem origem</span>' "$r")" "visita sem etiqueta nem site de origem vira Direto"

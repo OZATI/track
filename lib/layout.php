@@ -176,9 +176,9 @@ td.quebra{ white-space:normal; min-width:220px; }
 @media (max-width:640px){ .colunas-painel{ grid-template-columns:1fr; max-height:80vh; } }
 .tabela.gestor td, .tabela.gestor th{ text-align:right; } .tabela.gestor .nome, .tabela.gestor .st{ text-align:left; }
 /* Caixa de marcar e chave de status: colunas estreitas e fixas (sem arrastar a largura) */
-.tabela.gestor .marca{ width:22px; min-width:22px; max-width:22px; padding-left:12px; padding-right:2px; text-align:center; }
+.tabela.gestor .marca{ width:48px; min-width:48px; max-width:48px; padding-left:16px; padding-right:12px; text-align:center; }
 .tabela.gestor .marca input{ margin:0; vertical-align:middle; }
-.tabela.gestor .st{ width:1%; white-space:nowrap; padding-left:8px; }
+.tabela.gestor .st{ width:1%; white-space:nowrap; padding-left:12px; padding-right:16px; }
 /* Largura das colunas: a linha aparece na borda do titulo ao passar o mouse; arrastar muda */
 .tabela.gestor th{ position:relative; }
 .redim{ position:absolute; top:0; right:-4px; width:9px; height:100%; cursor:col-resize; z-index:2; touch-action:none; }
@@ -289,6 +289,22 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .rosca-num{ font:600 7px var(--f-texto); fill:var(--texto); text-anchor:middle; }
 .rosca-leg{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px 14px; margin:0; padding:0; list-style:none; font-size:13px; }
 .rosca-leg i{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
+/* Trafego por canal: um cartao por canal (cor do canal no topo) */
+.cc-grade{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; align-content:start; }
+.cc{ display:flex; flex-direction:column; gap:10px; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-top:3px solid var(--cor); border-radius:var(--r-md); }
+.cc-cab{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px 8px; font-weight:600; }
+.cc-num b{ font-size:24px; font-weight:600; line-height:1.15; font-variant-numeric:tabular-nums; }
+.cc-num span{ display:block; color:var(--suave); font-size:12px; }
+.cc-passos{ display:flex; flex-direction:column; gap:7px; }
+.cc-passo{ display:grid; grid-template-columns:82px 24px minmax(0,1fr) 44px; align-items:center; gap:8px; font-size:12px; color:var(--suave); }
+.cc-passo b{ color:var(--texto); text-align:right; font-variant-numeric:tabular-nums; }
+.cc-passo i{ display:block; height:6px; background:var(--cartao-2); border-radius:3px; overflow:hidden; }
+.cc-passo em{ display:block; height:100%; background:var(--cor); border-radius:3px; }
+.cc-passo small{ text-align:right; font-size:12px; font-variant-numeric:tabular-nums; }
+.cc-pe{ display:flex; justify-content:space-between; gap:8px; margin-top:auto; padding-top:10px; border-top:1px solid var(--linha); font-size:12px; color:var(--suave); }
+.cc-pe b{ display:block; color:var(--texto); font-size:15px; font-weight:600; }
+.cc-pe > span:last-child{ text-align:right; }
+.ver-tabela{ margin:0 0 20px; } .ver-tabela > summary{ display:inline-block; cursor:pointer; color:var(--marca); font-weight:500; margin:0 0 10px; }
 .lista-aneis{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:10px; }
 .lista-aneis li{ display:grid; grid-template-columns:minmax(0,1fr) auto 24px 52px; align-items:center; gap:10px; font-size:13px; }
 .lista-aneis .rot{ min-width:0; overflow:hidden; text-overflow:ellipsis; }

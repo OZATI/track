@@ -9,6 +9,7 @@ require_once __DIR__ . '/lib/vendas.php';
 require_once __DIR__ . '/lib/gestor.php';
 require_once __DIR__ . '/lib/resumo.php';
 require_once __DIR__ . '/lib/organico.php';
+require_once __DIR__ . '/lib/trafego.php';
 
 exigir_login();
 $db = track_db();
@@ -324,7 +325,12 @@ if ($aba === 'trafego') {
 
     $alvo = $dominio === '' ? 'todos os sites' : $dominio . ($pagina === '' ? ' (todas as páginas)' : $pagina);
     echo titulo('Tráfego por canal · ' . $alvo, 'Visitantes agrupados pelo canal da primeira visita no período: anúncio no Instagram ou no Facebook, orgânico, direto...');
-    $tabelaTrafego('Canal', $porCanal, fn($k, $l) => selo_canal($l['canal'], false));
+    echo trafego_painel_canais($porCanal, $temWhats);
+    if ($porCanal) {
+        echo '<details class="ver-tabela"><summary>Ver em tabela</summary>';
+        $tabelaTrafego('Canal', $porCanal, fn($k, $l) => selo_canal($l['canal'], false));
+        echo '</details>';
+    }
     echo titulo('Tráfego por origem · ' . $alvo, 'As mesmas visitas pela etiqueta completa (source / medium / campaign) da primeira visita.');
     $tabelaTrafego('Origem (source / medium / campaign)', $linhas, fn($k, $l) => com_icone_canal($l['canal'], $k));
     if ($semVisitante) {
