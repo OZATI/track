@@ -165,6 +165,15 @@ function ig_sync_buscar(array $k): array
     $pendente = false;
     $dias = 0;
     $semInsights = ajuste('ig_insights_erro') && time() - (int)(ajuste('ig_insights_erro_em') ?? 0) < 86400;
+    // Publico (sexo, idade, cidades e paises), uma vez por dia e antes dos numeros por dia e
+    // dos posts: sao poucas consultas, e aquelas etapas costumam gastar o limite do minuto
+    if (!$semInsights && ig_publico_vencido()) {
+        $ok = ig_sync_publico($ctx);
+        definir_ajuste('ig_publico_tentativa', agora_utc() . ($ok ? ' ok' : ' adiada'));
+        if (!$ok) {
+            return ['ok' => true, 'inicio' => $inicio, 'dias' => 0, 'posts' => $posts, 'pendente' => true];
+        }
+    }
     if (!$semInsights) {
         [$dias, $pendente, $erro] = ig_sync_dias($ctx, $hoje, $seguidores);
         if ($erro !== null) {
@@ -174,11 +183,6 @@ function ig_sync_buscar(array $k): array
         } elseif ($dias) {
             definir_ajuste('ig_insights_erro', null);
         }
-    }
-    // Publico (sexo, idade, cidades e paises), uma vez por dia, antes dos posts: sao poucas
-    // consultas, e os insights dos posts costumam gastar o limite do minuto
-    if (!$semInsights && !$pendente && ig_publico_vencido()) {
-        $pendente = !ig_sync_publico($ctx);
     }
     if (!$semInsights && !$pendente) {
         $pendente = ig_sync_posts($ctx);
