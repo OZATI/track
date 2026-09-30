@@ -438,8 +438,8 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         }
     }
     if ($modos) {
-        echo '<label>' . com_info('Comparar com', 'As setas ▲▼ da tabela e o movimento do ranking comparam cada campanha com este período. Período anterior: os dias logo antes, do mesmo tamanho. Semana ou mês passado: os mesmos dias, uma semana ou um mês antes. Verde = melhorou, vermelho = piorou (em custo, cair é bom), cinza = gasto (nem bom nem ruim). "novo" = não rodou no período comparado; "de 0" = antes era zero. Passe o mouse na seta para ver o valor de antes.')
-            . '<select name="comparar">';
+        echo '<label><span>' . com_info('Comparar com','As setas ▲▼ da tabela e o movimento do ranking comparam cada campanha com este período. Período anterior: os dias logo antes, do mesmo tamanho. Semana ou mês passado: os mesmos dias, uma semana ou um mês antes. Verde = melhorou, vermelho = piorou (em custo, cair é bom), cinza = gasto (nem bom nem ruim). "novo" = não rodou no período comparado; "de 0" = antes era zero. Passe o mouse na seta para ver o valor de antes.')
+            . '</span><select name="comparar">';
         foreach ($modos as $m) {
             echo '<option value="' . e($m) . '"' . ($m === $modoComp ? ' selected' : '') . '>' . e(GESTOR_COMPARAR[$m][0]) . '</option>';
         }
