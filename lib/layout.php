@@ -292,6 +292,7 @@ function icone(string $nome, int $tam = 16): string
 {
     $p = [
         'trafego' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+        'guia' => '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/><path d="M9 7h6M9 11h4"/>',
         'conferencia' => '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
         'vendas' => '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
         'visitantes' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -513,6 +514,10 @@ function abas_painel(string $aba, array $filtro = []): void
         echo '<a href="./?' . e($q) . '" class="' . ($aba === $id ? 'atual' : '') . '">' . icone($ico) . e($rotulo) . '</a>';
     }
     echo '<span class="abas-espaco"></span>';
+    // Guia do admin (ex.: admin.engdesk.pro/guia): so quando o site que hospeda o painel tem um
+    if (is_file(__DIR__ . '/../../guia/index.php')) {
+        echo '<a href="../guia/">' . icone('guia') . 'Guia</a>';
+    }
     echo '<a href="kiwify-api.php" class="' . ($aba === 'kiwify-api' ? 'atual' : '') . '">' . icone('chave') . 'API Kiwify</a>';
     echo '<a href="meta-api.php" class="' . ($aba === 'meta-api' ? 'atual' : '') . '">' . icone('meta') . 'API Meta</a>';
     echo '<a href="instagram-api.php" class="' . ($aba === 'instagram-api' ? 'atual' : '') . '">' . icone('instagram') . 'API Instagram</a>';
