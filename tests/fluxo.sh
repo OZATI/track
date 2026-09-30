@@ -44,10 +44,22 @@ export TRACK_IG_MIDIA_HOST="127.0.0.1:$PORTA_IG"
 # shellcheck disable=SC2086
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_IG" "$RAIZ/tests/instagram-falsa.php" >"$DADOS/instagram-falsa.log" 2>&1 &
 IG_FALSA=$!
+# O PHP portatil do Windows precisa do openssl.cnf para criar as chaves das notificacoes
+if [ -z "${OPENSSL_CONF:-}" ]; then
+  CNF="$(dirname "$(command -v "$PHP")")/extras/ssl/openssl.cnf"
+  if [ -f "$CNF" ]; then export OPENSSL_CONF="$(cygpath -w "$CNF" 2>/dev/null || echo "$CNF")"; fi
+fi
+# Servico de push falso (tests/push-falso.php): as notificacoes nunca saem para o Google ou a Apple
+PORTA_PUSH=$((PORTA + 4))
+export TRACK_PUSH_HOST="127.0.0.1:$PORTA_PUSH"
+export PUSH_FALSO_DIR="$TRACK_DADOS"
+# shellcheck disable=SC2086
+"$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_PUSH" "$RAIZ/tests/push-falso.php" >"$DADOS/push-falso.log" 2>&1 &
+PUSH_FALSO=$!
 # shellcheck disable=SC2086
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA" -t "$RAIZ" >"$DADOS/servidor.log" 2>&1 &
 SERVIDOR=$!
-trap 'kill $SERVIDOR $API_FALSA $META_FALSA $IG_FALSA 2>/dev/null; rm -rf "$DADOS"' EXIT
+trap 'kill $SERVIDOR $API_FALSA $META_FALSA $IG_FALSA $PUSH_FALSO 2>/dev/null; rm -rf "$DADOS"' EXIT
 sleep 1
 
 echo "Instalação"
@@ -597,6 +609,110 @@ r=$(salvar "$csrf" "$CID" SegredoLeitura0000000000000000 ContaLimite123)
 confere "$(tem 'A Kiwify pediu uma pausa' "$r")" "429 da Kiwify vira pausa, sem salvar nada"
 r=$(salvar "$csrf" "$CID" SegredoLeitura0000000000000000 ContaCerta123)
 confere "$(tem 'volta a buscar sozinho às' "$r")" "durante a pausa o painel não chama a Kiwify"
+
+echo "Configurações, app e notificações"
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/configuracoes.php")
+confere "$(tem 'entrar.php' "$destino")" "Configurações exige login"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
+confere "$(tem 'class="conta-nome" href="configuracoes.php"' "$r")" "o nome no topo leva a Configurações"
+confere "$(tem '<link rel="manifest" href="manifest.php">' "$r")" "painel aponta o manifesto do app"
+r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
+t=$(sem_tags "$r")
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' <<<"$r" | head -1 | grep -o '[a-f0-9]\{32\}')
+confere "$(tem 'data-instalar hidden>Instalar o app' "$r")" "Configurações tem o botão de instalar o app"
+confere "$(tem 'Notificações de venda' "$t")" "Configurações tem as notificações de venda e de relatório"
+confere "$(tem 'Venda aprovada! | Drive de Projetos 2.0' "$t")" "prévia da notificação de venda"
+confere "$(tem 'A tarefa agendada ainda não está rodando' "$t")" "avisa enquanto a tarefa agendada não roda"
+n=$(grep -o 'data-dica' <<<"$r" | wc -l)
+confere "$([ "$n" -ge 10 ]; echo $?)" "cada opção tem o (i) ($n)"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data 'acao=salvar&aprovadas=1&pendentes=1&valor=1&produto=1&canal=1&campanha=1&horas[]=12&horas[]=99&padrao=detalhado' \
+    --data-urlencode "app_nome=Painel EngDesk" "$URL/configuracoes.php")
+confere "$(tem 'Configurações salvas' "$r")" "preferências de notificação salvas"
+confere "$(tem 'value="12" checked' "$r")" "horário das 12h marcado"
+confere "$(grep -q 'value="18" checked' <<<"$r"; [ $? -ne 0 ]; echo $?)" "horário desmarcado sai da lista"
+confere "$(tem 'value="detalhado" checked' "$r")" "padrão Resumo detalhado escolhido"
+h=$(curl -s -D - -o "$DADOS/manifesto.json" "$URL/manifest.php")
+m=$(cat "$DADOS/manifesto.json")
+confere "$(tem 'application/manifest+json' "$h")" "manifesto do app com o tipo certo"
+confere "$(grep -q '"name": "Painel EngDesk"' <<<"$m" && grep -q '"display": "standalone"' <<<"$m"; echo $?)" "manifesto com o nome escolhido, em tela cheia"
+h=$(curl -s -D - -o "$DADOS/sw.js" "$URL/sw.php")
+confere "$(tem 'application/javascript' "$h")" "service worker servido como JavaScript"
+confere "$(tem 'Cache-Control: no-cache' "$h")" "service worker sem cache (atualiza sozinho)"
+confere "$(tem 'showNotification' "$(cat "$DADOS/sw.js")")" "service worker mostra a notificação"
+
+notif() { local corpo="${2:-}"; [ -n "$corpo" ] || corpo='{}'; curl -s -b "$JAR" -H "X-CSRF: $csrf" -H 'Content-Type: application/json' --data "$corpo" "$URL/notificacoes.php?acao=$1"; }
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/notificacoes.php?acao=chave")
+confere "$([ "$code" = "401" ]; echo $?)" "notificações sem login são recusadas ($code)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -X POST "$URL/notificacoes.php?acao=chave")
+confere "$([ "$code" = "403" ]; echo $?)" "notificações sem o token CSRF são recusadas ($code)"
+r=$(notif chave)
+CHAVE_PUSH=$(grep -o '"chave":"[A-Za-z0-9_-]*"' <<<"$r" | cut -d'"' -f4)
+confere "$([ ${#CHAVE_PUSH} -eq 87 ]; echo $?)" "chave pública do painel (VAPID) com 65 bytes"
+confere "$(grep -q 'BEGIN' "$DADOS/config.php"; echo $?)" "chave privada do VAPID guardada fora do site"
+# Aparelho de teste: par de chaves e segredo como o navegador criaria
+# shellcheck disable=SC2086
+ap=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; require "lib/push.php"; [$pem, $pub] = push_novo_par();
+  echo json_encode(["pem" => $pem, "p256dh" => b64u($pub), "auth" => b64u(random_bytes(16))]);')
+echo "$ap" > "$DADOS/aparelho.json"
+P256=$(grep -o '"p256dh":"[^"]*"' <<<"$ap" | cut -d'"' -f4)
+AUTH=$(grep -o '"auth":"[^"]*"' <<<"$ap" | cut -d'"' -f4)
+# Nome do aparelho so em ASCII: no Windows, o curl nao manda acento em UTF-8
+insc() { printf '{"endpoint":"%s","keys":{"p256dh":"%s","auth":"%s"},"aparelho":"%s"}' "$1" "$P256" "$AUTH" "$2"; }
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" -H "X-CSRF: $csrf" --data "$(insc https://invasor.test/push Teste)" "$URL/notificacoes.php?acao=inscrever")
+confere "$([ "$code" = "400" ]; echo $?)" "endereço de push de fora dos navegadores é recusado ($code)"
+r=$(notif inscrever "$(insc "http://127.0.0.1:$PORTA_PUSH/push/aparelho-1" 'Android - Chrome')")
+confere "$(tem '"ok":true' "$r")" "aparelho inscrito nas notificações"
+r=$(notif testar)
+confere "$(tem '"enviadas":1' "$r")" "notificação de teste enviada"
+L=$(cat "$DADOS/push.log" 2>/dev/null)
+confere "$(tem '"caminho":"/push/aparelho-1","vapid":true,"cifra":"aes128gcm"' "$L")" "envio com a assinatura VAPID e a cifra aes128gcm"
+confere "$(tem '"titulo":"Notificações ligadas"' "$L")" "o aparelho decifra a notificação de teste"
+
+: > "$DADOS/push.log"
+PIX='{"order_id":"pedido-push","order_status":"waiting_payment","webhook_event_type":"pix_created","payment_method":"pix","Product":{"product_name":"Drive de Projetos 2.0"},"Commissions":{"charge_amount":6700},"TrackingParameters":{"utm_source":"MetaAds","utm_medium":"conjunto 5|111111","utm_campaign":"TL 1|120120","utm_term":"Instagram_Reels"}}'
+PAGO=${PIX/waiting_payment/paid}
+PAGO=${PAGO/pix_created/order_approved}
+for corpo in "$PIX" "$PIX" "$PAGO" "$PAGO"; do curl -s -o /dev/null --data "$corpo" "$URL/kiwify.php?chave=$CHAVE"; done
+L=$(cat "$DADOS/push.log")
+confere "$(tem '"titulo":"Pix gerado | Drive de Projetos 2.0","corpo":"R$ 67,00 · Instagram · anúncio · TL 1"' "$L")" "Pix gerado avisa com valor, canal e campanha"
+confere "$(tem '"titulo":"Venda aprovada! | Drive de Projetos 2.0"' "$L")" "venda aprovada avisa na hora do webhook"
+confere "$([ "$(wc -l < "$DADOS/push.log")" -eq 2 ]; echo $?)" "reenvio do webhook não repete o aviso ($(wc -l < "$DADOS/push.log") avisos em 4 webhooks)"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; require "lib/push.php"; $db = track_db();
+  $db->prepare("UPDATE vendas SET notificado = NULL, pedido_pai = ? WHERE pedido = ?")->execute(["pedido-1", "pedido-push"]);
+  echo push_avisar_venda("pedido-push"), ";";
+  $db->prepare("UPDATE vendas SET notificado = NULL, pedido_pai = NULL, recebida_em = ? WHERE pedido = ?")->execute([gmdate("Y-m-d H:i:s", time() - 86400), "pedido-push"]);
+  echo push_avisar_venda("pedido-push"), ";", push_avisar_venda("pedido-push", true);')
+confere "$(tem '0;0;1' "$saida")" "order bump não avisa; venda antiga pela API não avisa; pelo webhook avisa ($saida)"
+
+: > "$DADOS/push.log"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS cron.php --hora=12)
+confere "$(tem 'relatorio: 1' "$saida")" "tarefa agendada manda o relatório das 12h ($saida)"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS cron.php --hora=12)
+confere "$(tem 'relatorio: 0' "$saida")" "relatório das 12h sai uma vez por dia"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS cron.php --hora=18)
+confere "$(tem 'relatorio: 0' "$saida")" "horário não escolhido não manda relatório"
+confere "$(tem '"titulo":"Parcial das 12h","corpo":"Faturamento R$ ' "$(cat "$DADOS/push.log")")" "relatório detalhado chega decifrado"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/cron.php")
+confere "$([ "$code" = "404" ]; echo $?)" "tarefa agendada não abre pelo navegador ($code)"
+r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
+confere "$(grep -q 'A tarefa agendada ainda não está rodando' <<<"$r"; [ $? -ne 0 ]; echo $?)" "com a tarefa rodando, o aviso some"
+
+notif inscrever "$(insc "http://127.0.0.1:$PORTA_PUSH/push/410" 'iPhone - Safari (app)')" >/dev/null
+r=$(notif testar)
+confere "$(tem '"enviadas":1,"aparelhos":2' "$r")" "teste vai para os 2 aparelhos; um foi cancelado pelo navegador"
+r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
+confere "$(tem '1 aparelho(s) seu(s)' "$(sem_tags "$r")")" "inscrição cancelada pelo navegador (410) é apagada"
+notif cancelar "{\"endpoint\":\"http://127.0.0.1:$PORTA_PUSH/push/aparelho-1\"}" >/dev/null
+r=$(notif testar)
+confere "$(tem 'Nenhum aparelho seu' "$r")" "desligar apaga a inscrição do aparelho"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS tests/push-cripto.php)
+n=$(grep -c '^ok' <<<"$saida")
+confere "$(grep -q FALHA <<<"$saida"; [ $? -ne 0 ] && [ "$n" -eq 7 ]; echo $?)" "cifra do push (RFC 8291) e assinatura do VAPID ($n/7)"
 
 echo "Proteções"
 for i in 1 2 3 4 5 6; do r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" "$URL/entrar.php"); c=$(grep -o '[a-f0-9]\{32\}' <<<"$r" | head -1); r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" --data "csrf=$c&senha=errada" "$URL/entrar.php"); done

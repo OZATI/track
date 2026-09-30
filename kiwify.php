@@ -87,4 +87,11 @@ $db->prepare('INSERT INTO vendas (pedido, evento, status, produto, valor, pagame
     ->execute([$pedido, $evento, $status, $produto, $valor, $pagamento, $agora, $agora, $visitante, $sck, $campo('src'),
         $campo('utm_source'), $campo('utm_medium'), $campo('utm_campaign'), $campo('utm_content'), $campo('utm_term'), $referencia, $liquido]);
 
+// Aviso no celular dos usuarios inscritos (lib/push.php): uma vez por situacao, so venda recente
+require_once __DIR__ . '/lib/push.php';
+try {
+    push_avisar_venda($pedido, true);
+} catch (Throwable $e) {
+    // Aviso que falhou nao pode derrubar o webhook: a venda ja foi gravada
+}
 responder_json(200, ['ok' => true]);

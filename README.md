@@ -35,6 +35,14 @@ track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 
 **Gestor de anúncios** (aba própria, no desenho do gestor da UTMify): contas, campanhas, conjuntos e anúncios da Meta com status, orçamento, gasto, vendas, faturamento líquido, lucro, CPA, ROI, custo por início de checkout e Pix pendentes. O gasto vem da Meta (aba **API Meta**, token só de leitura `ads_read`); as vendas se ligam ao anúncio pelo ID que a etiqueta carrega depois do `|`. Contas iguais às da UTMify: lucro desconta o gasto e o imposto de 12,15% que a Meta cobra sobre ele; ROI = (faturamento − imposto) ÷ gasto. Clicar na campanha abre os conjuntos dela, e o conjunto abre os anúncios; clicar no título da coluna ordena; em Ontem, 7 e 30 dias, setas comparam com o período anterior do mesmo tamanho. Ligar, pausar e mudar orçamento continuam no Gerenciador de Anúncios da Meta: o painel só lê.
 
+**Configurações** (o nome de quem entrou, no canto de cima): **instalar o painel como app** no celular ou no computador (tela cheia, ícone próprio; no iPhone, por Compartilhar → Adicionar à Tela de Início) e as **notificações**. Venda aprovada e Pix/boleto gerado chegam na hora em que a venda entra (webhook ou busca na API), uma vez por situação, sem order bump; cada usuário escolhe mostrar ou esconder valor, produto, canal e campanha. Relatórios às 08h (resultado de ontem), 12h, 18h e 23h, no padrão **Status de lucro** ou **Resumo detalhado**. As notificações usam o Web Push dos navegadores (RFC 8291 e VAPID, sem serviço de terceiros): a chave privada fica na configuração, fora da pasta pública, e o painel só envia para os serviços de push do Google, Apple, Mozilla e Microsoft. Os relatórios e as buscas com o painel fechado dependem da **tarefa agendada** da hospedagem, a cada 5 minutos:
+
+```bash
+php /caminho/do/painel/cron.php
+```
+
+No hPanel: Avançado → Cron Jobs → Personalizado, `*/5 * * * *`. O `cron.php` só roda pela linha de comando (pelo navegador responde 404).
+
 **Visitante** é um navegador num aparelho, identificado pelo cookie `trk_vid`, que **o servidor** grava. Quando o painel é do mesmo site das páginas (`track.engdesk.pro` para `engdesk.pro`), o cookie vale para o domínio inteiro e o Safari não o apaga. Para um site diferente (ex.: `ortopaz.com.br` mandando para `track.engdesk.pro`), o `t.js` guarda o identificador no navegador, e o Safari pode apagar em 7 dias. Por isso o ideal é um painel por domínio: `track.<domínio>`.
 
 **Conferência:** para cada venda aprovada, o painel pega o último `CliqueCheckout` daquele visitante (com as etiquetas do **link** que foi para a Kiwify) e compara com as etiquetas que a Kiwify gravou no pedido:
@@ -133,16 +141,17 @@ Tudo é apagado depois de `dias_retencao` (padrão 90). Cite o painel e o cookie
 - Chave da API da Kiwify: só entra depois de conferida na Kiwify, e só se for de leitura (recusa chave com permissão de reembolsar, financeiro, afiliados, webhooks ou parcelado). Fica na configuração, fora da pasta pública; o `client_secret` nunca volta para a tela.
 - Toda saída escapada (sem XSS), SQL só com parâmetros, CSP restrita, `noindex`, pastas `lib/`, `tests/`, `scripts/` e arquivos `.md/.sqlite` bloqueados no `.htaccess`.
 - Instalação só abre enquanto não há configuração e por 1 hora depois do deploy.
+- Notificações: inscrição só com login e o token no cabeçalho `X-CSRF`, endereço só dos serviços de push dos navegadores (HTTPS), mensagem cifrada ponta a ponta para o aparelho; inscrição cancelada pelo navegador (404/410) é apagada. A notificação não leva nome nem e-mail do comprador.
 
 ## Testes
 
 ```bash
 bash tests/fluxo.sh
 # PHP fora do PATH (Windows, PHP portátil):
-PHP=/caminho/php.exe PHP_FLAGS="-d extension_dir=ext -d extension=pdo_sqlite -d extension=mbstring" bash tests/fluxo.sh
+PHP=/caminho/php.exe PHP_FLAGS="-d extension_dir=ext -d extension=pdo_sqlite -d extension=mbstring -d extension=curl -d extension=openssl" bash tests/fluxo.sh
 ```
 
-Sobe um servidor local com dados temporários e confere instalação, coleta, webhook, LGPD, login, tabela de tráfego, barra lateral, conferência, filtros por site e página, XSS, limite de login e a tela da API da Kiwify (contra uma API falsa, `tests/kiwify-falsa.php`). Não toca em nenhum site real nem na Kiwify. Precisa das extensões `pdo_sqlite`, `mbstring` e `curl`.
+Sobe um servidor local com dados temporários e confere instalação, coleta, webhook, LGPD, login, tabela de tráfego, barra lateral, conferência, filtros por site e página, XSS, limite de login, a tela da API da Kiwify (contra uma API falsa, `tests/kiwify-falsa.php`), as da Meta e do Instagram (`tests/meta-falsa.php`, `tests/instagram-falsa.php`) e as notificações, contra um serviço de push falso que decifra cada mensagem (`tests/push-falso.php`). Não toca em nenhum site real, na Kiwify, na Meta nem nos serviços de push. Precisa das extensões `pdo_sqlite`, `mbstring`, `curl` e `openssl` (no PHP portátil do Windows, o teste acha o `extras/ssl/openssl.cnf` sozinho).
 
 ## Contribuir
 

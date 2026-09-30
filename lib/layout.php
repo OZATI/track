@@ -13,6 +13,11 @@ function pagina_inicio(string $titulo): void
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($titulo) ?> · Rastreio</title>
+<link rel="manifest" href="manifest.php">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="<?= e((string)((track_config() ?? [])['app_nome'] ?? 'Painel')) ?>">
+<link rel="apple-touch-icon" href="<?= is_file(__DIR__ . '/../../apple-touch-icon.png') ? '../apple-touch-icon.png' : 'app-192.png' ?>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -183,6 +188,32 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor a.abre{ color:var(--texto); } .tabela.gestor a.abre:hover strong{ color:var(--marca); text-decoration:underline; }
 .delta{ font-size:11px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); }
 .trilha{ margin:0 0 12px; }
+/* Link do nome no topo: Configuracoes */
+a.conta-nome{ display:inline-flex; align-items:center; gap:6px; color:var(--texto); text-decoration:none; padding:4px 8px; border-radius:var(--r-sm); }
+a.conta-nome:hover{ background:var(--hover); text-decoration:none; }
+a.conta-nome .conta-cfg{ color:var(--suave); font-size:12px; }
+@media (max-width:640px){ a.conta-nome .conta-cfg{ display:none; } }
+/* Configuracoes */
+.cfg-titulo{ font-size:20px; margin:0 0 14px; }
+.cfg-grade{ display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:16px; margin:0 0 16px; align-items:start; }
+.cfg-grade .cartao{ max-width:none; margin:0; }
+.cfg-grade h3{ font-size:14px; margin:18px 0 8px; }
+.cfg-campo{ display:flex; flex-direction:column; gap:4px; margin:0 0 12px; font-size:13px; }
+.cfg-campo select, .cfg-campo input{ max-width:340px; }
+.cfg-horas{ display:flex; flex-direction:column; gap:10px; margin:0 0 14px; }
+.cfg-chave{ display:flex; align-items:center; justify-content:space-between; gap:12px; max-width:340px; cursor:pointer; }
+.cfg-chave input{ position:absolute; opacity:0; width:1px; height:1px; }
+.cfg-chave i{ position:relative; flex:none; width:36px; height:20px; border-radius:10px; background:var(--linha-forte); transition:background .15s; }
+.cfg-chave i::after{ content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:left .15s; }
+.cfg-chave input:checked + i{ background:var(--marca); } .cfg-chave input:checked + i::after{ left:18px; }
+.cfg-chave input:focus-visible + i{ outline:2px solid var(--marca); outline-offset:2px; }
+.cfg-padroes{ display:flex; flex-direction:column; gap:8px; max-width:420px; margin:0 0 6px; }
+.cfg-padroes label{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:10px 12px; border:1px solid var(--linha); border-radius:var(--r-sm); cursor:pointer; }
+.cfg-padroes label:has(input:checked){ border-color:var(--marca); background:#EEF4FF; }
+.cfg-previa{ display:flex; gap:10px; align-items:flex-start; max-width:380px; padding:10px 12px; border-radius:12px; background:#111827; color:#fff; }
+.cfg-previa-icone{ flex:none; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:var(--marca); color:#fff; }
+.cfg-previa b{ display:block; font-size:13px; } .cfg-previa span{ font-size:12px; color:#D1D5DB; }
+.cfg-aparelhos{ margin-top:10px; }
 /* Gestor: chave liga/pausa e caixas de marcar */
 .chave-form{ display:inline-block; margin:0 6px 0 0; vertical-align:middle; }
 .chave{ position:relative; width:34px; height:20px; padding:0; border-radius:10px; border:0; background:var(--linha-forte); cursor:pointer; }
@@ -336,6 +367,7 @@ function icone(string $nome, int $tam = 16): string
     $p = [
         'trafego' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
         'guia' => '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/><path d="M9 7h6M9 11h4"/>',
+        'config' => '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
         'conferencia' => '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
         'vendas' => '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
         'visitantes' => '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -490,7 +522,8 @@ function com_icone_canal(array $c, string $texto): string
 // Conta de quem esta no painel e o Sair, no canto direito do topo (como no CMS)
 function conta_topo(): string
 {
-    return '<div class="conta"><span class="conta-nome">' . e((string)usuario_atual()) . '</span>'
+    // O nome leva a Configuracoes (instalar o app e as notificacoes)
+    return '<div class="conta"><a class="conta-nome" href="configuracoes.php" title="Configurações: instalar o app e notificações">' . icone('config', 15) . '<span>' . e((string)usuario_atual()) . '</span><span class="conta-cfg">Configurações</span></a>'
         . '<form method="post" action="sair.php" id="form-sair"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
         . '<button type="submit" class="discreto neutro" title="Encerrar a sessão neste navegador">' . icone('sair', 14) . ' Sair</button></form></div>';
 }

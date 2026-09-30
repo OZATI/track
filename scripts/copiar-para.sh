@@ -10,7 +10,7 @@ ORIGEM="$(cd "$(dirname "$0")/.." && pwd)"
 DESTINO="${1:?Uso: bash scripts/copiar-para.sh <pasta de destino>}"
 # Todas as paginas .php da raiz (tela nova entra sozinha na copia) e os demais arquivos
 mapfile -t PAGINAS < <(cd "$ORIGEM" && ls -1 *.php)
-ARQUIVOS=("${PAGINAS[@]}" t.js painel.js .htaccess robots.txt LICENSE)
+ARQUIVOS=("${PAGINAS[@]}" t.js painel.js app-192.png app-512.png .htaccess robots.txt LICENSE)
 
 # O VERSAO diz qual commit esta na copia: com alteracao sem commit ele mentiria
 if [ -n "$(git -C "$ORIGEM" status --porcelain -- "${ARQUIVOS[@]}" lib)" ]; then
@@ -25,7 +25,7 @@ if [ -e "$DESTINO" ] && [ -n "$(ls -A "$DESTINO")" ]; then
     exit 1
   fi
   rm -rf "$DESTINO/lib"
-  rm -f "$DESTINO"/*.php "$DESTINO/t.js" "$DESTINO/painel.js" "$DESTINO/.htaccess" "$DESTINO/robots.txt" "$DESTINO/LICENSE"
+  rm -f "$DESTINO"/*.php "$DESTINO/t.js" "$DESTINO/painel.js" "$DESTINO"/app-*.png "$DESTINO/.htaccess" "$DESTINO/robots.txt" "$DESTINO/LICENSE"
 fi
 
 mkdir -p "$DESTINO"

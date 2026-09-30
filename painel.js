@@ -51,6 +51,110 @@
   document.addEventListener('focusout', esconder);
   window.addEventListener('scroll', esconder, true);
 
+  // App: o service worker deixa instalar o painel e mostra as notificacoes (sw.php)
+  var sw = null;
+  if ('serviceWorker' in navigator) {
+    sw = navigator.serviceWorker.register('sw.php', { scope: './' }).catch(function () { return null; });
+  }
+  var instalavel = null;
+  var instalado = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  var app = document.querySelector('[data-app]');
+  function mostrarApp() {
+    if (!app) { return; }
+    var estado = app.querySelector('[data-app-estado]');
+    var botao = app.querySelector('[data-instalar]');
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    botao.hidden = !instalavel || instalado;
+    app.querySelector('[data-ios]').hidden = !ios || instalado;
+    app.querySelector('[data-outro]').hidden = ios || instalado || !!instalavel;
+    estado.textContent = instalado ? 'O painel já está instalado como app neste aparelho.'
+      : (instalavel ? 'Pode instalar o painel como app neste aparelho.' : 'Veja abaixo como instalar neste aparelho.');
+  }
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); instalavel = e; mostrarApp(); });
+  window.addEventListener('appinstalled', function () { instalado = true; instalavel = null; mostrarApp(); });
+  if (app) {
+    app.querySelector('[data-instalar]').addEventListener('click', function () {
+      if (!instalavel) { return; }
+      instalavel.prompt();
+      instalavel.userChoice.then(function () { instalavel = null; mostrarApp(); });
+    });
+    mostrarApp();
+  }
+
+  // Notificacoes neste aparelho (Configuracoes): ligar, testar e desligar
+  var push = document.querySelector('[data-push]');
+  function chamar(acao, corpo) {
+    return fetch('notificacoes.php?acao=' + acao, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'X-CSRF': token ? token.value : '', 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo || {})
+    }).then(function (r) { return r.json(); });
+  }
+  function chaveBytes(b64) {
+    var s = (b64 + '===='.slice(b64.length % 4 || 4)).replace(/-/g, '+').replace(/_/g, '/');
+    var bin = atob(s), out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) { out[i] = bin.charCodeAt(i); }
+    return out;
+  }
+  function nomeAparelho() {
+    var ua = navigator.userAgent;
+    var so = /iPhone|iPad/.test(ua) ? 'iPhone' : (/Android/.test(ua) ? 'Android' : (/Mac/.test(ua) ? 'Mac' : (/Windows/.test(ua) ? 'Windows' : 'Computador')));
+    var nav = /Edg\//.test(ua) ? 'Edge' : (/Chrome\//.test(ua) ? 'Chrome' : (/Firefox\//.test(ua) ? 'Firefox' : (/Safari\//.test(ua) ? 'Safari' : 'navegador')));
+    return so + ' · ' + nav + (instalado ? ' (app)' : '');
+  }
+  if (push && sw) {
+    var estadoP = push.querySelector('[data-push-estado]');
+    var ligar = push.querySelector('[data-push-ligar]');
+    var testar = push.querySelector('[data-push-testar]');
+    var desligar = push.querySelector('[data-push-desligar]');
+    var avisar = function (t) { estadoP.textContent = t; };
+    var atualizar = function () {
+      sw.then(function (reg) {
+        if (!reg || !('PushManager' in window) || !('Notification' in window)) {
+          avisar(/iPhone|iPad/.test(navigator.userAgent) && !instalado
+            ? 'No iPhone, as notificações funcionam com o painel instalado na Tela de Início (veja em Aplicativo).'
+            : 'Este navegador não recebe notificações. Use o Chrome, o Edge, o Firefox ou o Safari atualizado.');
+          return;
+        }
+        reg.pushManager.getSubscription().then(function (sub) {
+          var negado = Notification.permission === 'denied';
+          ligar.hidden = !!sub || negado;
+          testar.hidden = desligar.hidden = !sub;
+          avisar(sub ? 'Ligadas neste aparelho.' : (negado ? 'As notificações estão bloqueadas neste navegador. Libere nas configurações do site (cadeado na barra de endereço) e recarregue.' : 'Desligadas neste aparelho.'));
+        });
+      });
+    };
+    ligar.addEventListener('click', function () {
+      avisar('Ligando…');
+      Notification.requestPermission().then(function (perm) {
+        if (perm !== 'granted') { atualizar(); return null; }
+        // ready: o service worker ja ativo (na primeira visita ele ainda esta instalando)
+        return Promise.all([navigator.serviceWorker.ready, chamar('chave')]).then(function (r) {
+          if (!r[1].ok) { throw new Error(r[1].erro || 'Não foi possível ligar.'); }
+          return r[0].pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chaveBytes(r[1].chave) });
+        }).then(function (sub) {
+          var j = sub.toJSON();
+          j.aparelho = nomeAparelho();
+          return chamar('inscrever', j);
+        }).then(function (r) {
+          if (r && !r.ok) { throw new Error(r.erro); }
+          atualizar();
+        });
+      }).catch(function (e) { avisar(e && e.message ? e.message : 'Não foi possível ligar as notificações.'); });
+    });
+    testar.addEventListener('click', function () {
+      avisar('Enviando…');
+      chamar('testar').then(function (r) { avisar(r.ok ? 'Enviado. A notificação deve chegar em instantes.' : (r.erro || 'Falhou.')); });
+    });
+    desligar.addEventListener('click', function () {
+      sw.then(function (reg) { return reg.pushManager.getSubscription(); }).then(function (sub) {
+        if (!sub) { return null; }
+        return chamar('cancelar', { endpoint: sub.endpoint }).then(function () { return sub.unsubscribe(); });
+      }).then(atualizar);
+    });
+    atualizar();
+  }
+
   // Formularios marcados com data-auto (filtros do Resumo) enviam ao mudar
   var autos = document.querySelectorAll('form[data-auto]');
   for (var a = 0; a < autos.length; a++) {

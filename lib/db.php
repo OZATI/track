@@ -149,6 +149,25 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 6;
             SQL);
     }
+    if ($versao < 7) {
+        // Notificacoes: cada aparelho inscrito (servico de push do navegador e as chaves dele)
+        // e, na venda, a ultima situacao ja avisada (para nao avisar duas vezes)
+        track_migrar_para($pdo, 7, <<<'SQL'
+            CREATE TABLE IF NOT EXISTS push_inscricoes (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario   TEXT NOT NULL,
+                endpoint  TEXT NOT NULL UNIQUE,
+                p256dh    TEXT NOT NULL,
+                auth      TEXT NOT NULL,
+                aparelho  TEXT,
+                criado_em TEXT NOT NULL,
+                ultimo_ok TEXT,
+                falhas    INTEGER NOT NULL DEFAULT 0
+            );
+            ALTER TABLE vendas ADD COLUMN notificado TEXT;
+            PRAGMA user_version = 7;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

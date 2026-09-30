@@ -10,6 +10,7 @@
 // resposta e sao descartados aqui; so pedido, produto, valor, status e etiquetas ficam.
 
 require_once __DIR__ . '/kiwify_api.php';
+require_once __DIR__ . '/push.php';
 
 const KIWIFY_SYNC_INTERVALO = 600;  // segundos entre buscas automaticas
 const KIWIFY_SYNC_PAGINAS = 30;     // teto por busca (100 vendas por pagina)
@@ -142,6 +143,13 @@ function kiwify_sync_buscar(array $k, bool $completa): array
                 $novas++;
             } elseif ($r === 'atualizada') {
                 $atualizadas++;
+            }
+            if ($r !== 'igual') {
+                try {
+                    push_avisar_venda(texto($venda['id'] ?? '', 100));
+                } catch (Throwable $e) {
+                    // aviso que falhou nao para a busca
+                }
             }
             $lidas++;
         }
