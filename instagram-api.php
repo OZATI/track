@@ -176,7 +176,10 @@ abas_painel('instagram-api');
         <br><span class="suave">Até <?= IG_MINIATURAS_POR_BUSCA ?> por busca, das mais recentes para as mais antigas.</span></td></tr>
       <tr><th>Última busca</th><td><?= $estado['ok_em'] ? e(data_local($estado['ok_em'], 'd/m H:i')) : 'ainda não feita' ?>
         <?= $estado['erro'] ? '<br><span class="erro">' . e($estado['erro']) . '</span>' : '' ?>
-        <?= $estado['adiada'] ? '<br><span class="suave">' . e($estado['adiada']) . '</span>' : '' ?></td></tr>
+        <?= $estado['adiada'] ? '<br><span class="suave">' . e($estado['adiada']) . '</span>' : '' ?>
+        <?php $tentativa = (int)(ajuste('ig_sync_tentativa') ?? 0); $rodando = (int)(ajuste('ig_sync_rodando') ?? 0); $pubTent = ajuste('ig_publico_tentativa'); ?>
+        <?= $tentativa ? '<br><span class="suave">Última tentativa: ' . e(data_local(gmdate('Y-m-d H:i:s', $tentativa), 'd/m H:i:s')) . ($rodando ? ' · busca em andamento desde ' . e(data_local(gmdate('Y-m-d H:i:s', $rodando), 'H:i:s')) : '') . '</span>' : '' ?>
+        <?= $pubTent ? '<br><span class="suave">Público: última busca ' . e(data_local(substr($pubTent, 0, 19), 'd/m H:i')) . (str_ends_with($pubTent, 'adiada') ? ' (adiada pelo limite de consultas)' : '') . '</span>' : '' ?></td></tr>
       <?php $pausa = ig_api_pausa_ate(); ?>
       <tr><th>Uso da API</th><td><?= ig_api_uso(60) ?> consulta(s) no último minuto · <?= ig_api_uso(3600) ?> na última hora
         <br><span class="suave">Limite interno: <?= ig_api_limite_minuto() ?> por minuto.</span>
