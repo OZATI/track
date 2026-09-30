@@ -219,6 +219,49 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .barras .trilho i{ display:block; height:100%; background:var(--marca); border-radius:2px; }
 .barras .val{ text-align:right; white-space:nowrap; }
 .barras .val span{ color:var(--suave); margin-left:8px; }
+/* Resumo como o da UTMify: grade de 12 colunas, cartoes, rosca e aneis */
+.resumo-cab{ margin-bottom:12px; }
+.resumo-topo{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px 16px; }
+.resumo-topo h2{ margin:0; font-size:17px; }
+.resumo-topo .barra-vendas{ margin:0; }
+.resumo-filtros{ display:flex; flex-wrap:wrap; gap:10px 14px; margin-top:12px; }
+.resumo-filtros label{ display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--suave); min-width:200px; }
+.resumo-aviso{ margin:10px 0 0; font-size:13px; }
+.rgrade{ display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; margin:0 0 12px; }
+.rgrade > *{ min-width:0; margin:0 !important; }
+.rgrade .c2{ grid-column:span 2; } .rgrade .c3{ grid-column:span 3; } .rgrade .c4{ grid-column:span 4; } .rgrade .c8{ grid-column:span 8; } .rgrade .r2{ grid-row:span 2; }
+.rc{ display:flex; flex-direction:column; gap:6px; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); }
+.rc-cab{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; color:var(--suave); font-size:13px; font-weight:500; }
+.rc > b{ font-size:24px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rc > small{ color:var(--suave); font-size:12px; }
+.rc-link{ margin-top:auto; font-size:13px; }
+.rosca-caixa{ display:flex; flex-direction:column; align-items:center; gap:14px; flex:1; justify-content:center; }
+.rosca{ width:min(200px,70%); height:auto; }
+.rosca-fundo{ fill:none; stroke:var(--cartao-2); stroke-width:6; }
+.rosca-rot{ font:4px var(--f-texto); fill:var(--suave); text-anchor:middle; }
+.rosca-num{ font:600 7px var(--f-texto); fill:var(--texto); text-anchor:middle; }
+.rosca-leg{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px 14px; margin:0; padding:0; list-style:none; font-size:13px; }
+.rosca-leg i{ display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
+.lista-aneis{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.lista-aneis li{ display:grid; grid-template-columns:minmax(0,1fr) auto 24px 52px; align-items:center; gap:10px; font-size:13px; }
+.lista-aneis .rot{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.lista-aneis .n{ color:var(--suave); font-variant-numeric:tabular-nums; }
+.lista-aneis .pct{ text-align:right; font-weight:600; font-variant-numeric:tabular-nums; }
+.anel{ width:24px; height:24px; }
+.anel-fundo{ fill:none; stroke:var(--cartao-2); stroke-width:5; }
+.anel-valor{ fill:none; stroke:var(--marca); stroke-width:5; }
+@media (max-width:1100px){
+  .rgrade{ grid-template-columns:repeat(6,minmax(0,1fr)); }
+  .rgrade .c2{ grid-column:span 2; } .rgrade .c3, .rgrade .c4{ grid-column:span 3; } .rgrade .c8{ grid-column:span 6; } .rgrade .r2{ grid-row:auto; }
+  .rgrade > section.c4, .rgrade > section.c8{ grid-column:span 6; }
+}
+@media (max-width:640px){
+  .rgrade{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .rgrade > *{ grid-column:1 / -1 !important; }
+  .rgrade > .rc.c2, .rgrade > .rc.c3{ grid-column:span 1 !important; }
+  .rc > b{ font-size:19px; }
+  .resumo-filtros label{ min-width:0; flex:1 1 140px; }
+}
 /* Funil em fluxo (resumo_funil) */
 .fluxo-cab, .fluxo-pct, .fluxo-pe{ display:grid; grid-template-columns:repeat(var(--n),minmax(0,1fr)); text-align:center; }
 .fluxo-cab span{ padding:0 6px 10px; font-size:13px; font-weight:600; color:var(--suave); }

@@ -51,6 +51,18 @@
   document.addEventListener('focusout', esconder);
   window.addEventListener('scroll', esconder, true);
 
+  // Formularios marcados com data-auto (filtros do Resumo) enviam ao mudar
+  var autos = document.querySelectorAll('form[data-auto]');
+  for (var a = 0; a < autos.length; a++) {
+    autos[a].addEventListener('change', function () { this.submit(); });
+  }
+
+  // (i) dentro de link ou aba: o clique mostra a explicacao em vez de navegar
+  document.addEventListener('click', function (e) {
+    var i = e.target.closest && e.target.closest('.info');
+    if (i && i.closest('a')) { e.preventDefault(); e.stopPropagation(); mostrar(i); }
+  }, true);
+
   // Gestor: ligar ou pausar na Meta sempre pergunta antes
   document.addEventListener('submit', function (e) {
     var f = e.target;

@@ -168,6 +168,17 @@ function nome_evento(string $n): string
     return ['PageView' => 'Visualização', 'CliqueCheckout' => 'Clique no checkout', 'WhatsApp' => 'Clique no WhatsApp', 'Botao' => 'Clique em botão'][$n] ?? $n;
 }
 
+// O (i) de cada tipo de evento: o que e e quando acontece
+function dica_evento(string $n): string
+{
+    return [
+        'PageView' => 'Página aberta: conta cada vez que alguém abre uma página com o t.js do painel.',
+        'CliqueCheckout' => 'Clique no botão de compra (classe js-checkout). O link vai para a Kiwify com as etiquetas e o sck, que liga a venda ao visitante.',
+        'WhatsApp' => 'Clique no botão ou link do WhatsApp.',
+        'Botao' => 'Clique em botão marcado com data-botao que não leva ao checkout (ex.: ver planos, perguntas, rolar até a oferta).',
+    ][$n] ?? 'Evento enviado pela página com o nome ' . $n . '.';
+}
+
 // Nome da campanha ou do anuncio sem o ID da Meta ("TL 1|120245..." vira "TL 1")
 function nome_curto(?string $v): ?string
 {
@@ -245,7 +256,7 @@ if ($aba === 'visitantes' && is_string($vid) && preg_match('/^[a-f0-9]{32}$/', $
 
     $vendas = consulta($db, 'SELECT * FROM vendas WHERE visitante = ? ORDER BY recebida_em', [$vid]);
     if ($vendas) {
-        echo '<h2>Vendas</h2><div class="tabela"><table><tr><th>Quando</th><th>Produto</th><th>Valor</th><th>Situação</th><th>Kiwify gravou</th><th>Conferência</th></tr>';
+        echo titulo('Vendas', 'Vendas ligadas a este aparelho pelo sck do checkout.') . '<div class="tabela"><table><tr><th>' . com_info('Quando', 'Quando a venda chegou ao painel (horário de Brasília).') . '</th><th>' . com_info('Produto', 'Produto comprado.') . '</th><th>' . com_info('Valor', 'Valor cobrado do comprador (antes das taxas da Kiwify).') . '</th><th>' . com_info('Situação', 'Situação do pagamento na Kiwify.') . '</th><th>' . com_info('Kiwify gravou', 'A campanha que a Kiwify gravou no pedido.') . '</th><th>' . com_info('Conferência', 'Se a campanha da Kiwify bate com a do clique no botão de compra.') . '</th></tr>';
         foreach ($vendas as $v) {
             [$sit, $cls] = situacao($v);
             [$conf, $ccls, $explica] = conferir($db, $v);
@@ -257,7 +268,7 @@ if ($aba === 'visitantes' && is_string($vid) && preg_match('/^[a-f0-9]{32}$/', $
     }
 
     $eventos = consulta($db, 'SELECT * FROM eventos WHERE visitante = ? ORDER BY em', [$vid]);
-    echo '<h2>Linha do tempo (' . count($eventos) . ' eventos)</h2><div class="tabela"><table><tr><th>Quando</th><th>Evento</th><th>Domínio / página</th><th>Etiquetas</th><th>Veio de</th><th>Aparelho</th></tr>';
+    echo titulo('Linha do tempo (' . count($eventos) . ' eventos)', 'Tudo o que este aparelho fez nas páginas, na ordem.') . '<div class="tabela"><table><tr><th>' . com_info('Quando', 'Quando aconteceu (horário de Brasília).') . '</th><th>' . com_info('Evento', 'O que a pessoa fez: abriu a página, clicou num botão, no checkout ou no WhatsApp.') . '</th><th>' . com_info('Domínio / página', 'Onde aconteceu.') . '</th><th>' . com_info('Etiquetas', 'As UTMs que a página tinha no endereço naquele momento.') . '</th><th>' . com_info('Veio de', 'O site de onde a pessoa veio (referrer), sem os parâmetros.') . '</th><th>' . com_info('Aparelho', 'Sistema e navegador do aparelho (ex.: iPhone · Instagram).') . '</th></tr>';
     foreach ($eventos as $ev) {
         echo '<tr><td>' . e(data_local($ev['em'])) . '</td><td><strong>' . e($ev['nome']) . '</strong>' . ($ev['detalhe'] ? ' <span class="suave">' . e($ev['detalhe']) . '</span>' : '') . '</td>'
             . '<td>' . e($ev['dominio'] . $ev['pagina']) . '</td><td>' . e(origem($ev['utm_source'], $ev['utm_medium'], $ev['utm_campaign'])) . '</td>'
@@ -325,7 +336,7 @@ if ($aba === 'trafego') {
 
     $tabelaTrafego = function (string $cabecalho, array $grupo, callable $primeiraCelula) use ($temWhats, $taxa): void {
         echo '<div class="tabela"><table><tr><th>' . e($cabecalho) . '</th><th>Visitantes ' . info('Aparelhos diferentes.') . '</th><th>Visualizações ' . info('Páginas abertas.') . '</th>'
-            . '<th>Clicaram no checkout ' . info('Visitantes que clicaram no botão de compra.') . '</th>' . ($temWhats ? '<th>Clicaram no WhatsApp</th>' : '')
+            . '<th>Clicaram no checkout ' . info('Visitantes que clicaram no botão de compra.') . '</th>' . ($temWhats ? '<th>' . com_info('Clicaram no WhatsApp', 'Visitantes que clicaram no WhatsApp.') . '</th>' : '')
             . '<th>Vendas aprovadas ' . info('Vendas aprovadas desses visitantes (sem contar order bump).') . '</th><th>Faturamento ' . info('Valor cobrado das vendas aprovadas, com order bump.') . '</th>'
             . '<th>Conversão ' . info('Vendas aprovadas ÷ visitantes.') . '</th></tr>';
         $t = ['vis' => 0, 'pv' => 0, 'ck' => 0, 'wa' => 0, 'vendas' => 0, 'fat' => 0];
@@ -359,7 +370,7 @@ if ($aba === 'trafego') {
                                            COUNT(DISTINCT CASE WHEN e.nome = 'CliqueCheckout' THEN e.visitante END) AS ck,
                                            COUNT(DISTINCT CASE WHEN e.nome = 'WhatsApp' THEN e.visitante END) AS wa
                                     FROM eventos e WHERE $condEv GROUP BY e.dominio, e.pagina ORDER BY vis DESC", $parEv);
-        echo titulo('Tráfego por página', 'Visitantes e cliques no botão de compra em cada página com o painel.') . '<div class="tabela"><table><tr><th>Página</th><th>Visitantes</th><th>Visualizações</th><th>Clicaram no checkout</th>' . ($temWhats ? '<th>Clicaram no WhatsApp</th>' : '') . '<th>Taxa de clique no checkout</th></tr>';
+        echo titulo('Tráfego por página', 'Visitantes e cliques no botão de compra em cada página com o painel.') . '<div class="tabela"><table><tr><th>' . com_info('Página', 'Página com o t.js do painel.') . '</th><th>' . com_info('Visitantes', 'Aparelhos diferentes que abriram a página.') . '</th><th>' . com_info('Visualizações', 'Vezes que a página foi aberta.') . '</th><th>' . com_info('Clicaram no checkout', 'Visitantes que clicaram no botão de compra.') . '</th>' . ($temWhats ? '<th>' . com_info('Clicaram no WhatsApp', 'Visitantes que clicaram no WhatsApp.') . '</th>' : '') . '<th>' . com_info('Taxa de clique no checkout', 'Clicaram no checkout ÷ visitantes.') . '</th></tr>';
         foreach ($porPagina as $p) {
             echo '<tr><td>' . e($p['dominio'] . $p['pagina']) . '</td><td>' . (int)$p['vis'] . '</td><td>' . (int)$p['pv'] . '</td><td>' . (int)$p['ck'] . '</td><td>'
                 . ($temWhats ? (int)$p['wa'] . '</td><td>' : '') . e($taxa((int)$p['ck'], (int)$p['vis'])) . '</td></tr>';
@@ -415,7 +426,7 @@ if ($aba === 'resumo') {
         . numero($contagem['Bate'] . ' (' . $pct($contagem['Bate']) . ')', 'Vendas em que os dados batem', 'Vendas em que a campanha do clique na página é a mesma que a Kiwify gravou: origem confirmada.')
         . '</div>';
 
-    echo titulo('Conferência das vendas aprovadas', 'Para cada venda aprovada, compara a campanha que o painel viu no clique do botão de compra com a que a Kiwify gravou.') . '<div class="tabela"><table><tr><th>Resultado</th><th>Vendas</th><th>O que significa</th></tr>';
+    echo titulo('Conferência das vendas aprovadas', 'Para cada venda aprovada, compara a campanha que o painel viu no clique do botão de compra com a que a Kiwify gravou.') . '<div class="tabela"><table><tr><th>' . com_info('Resultado', 'O que deu a comparação entre o clique e a venda.') . '</th><th>' . com_info('Vendas', 'Vendas aprovadas com esse resultado.') . '</th><th>' . com_info('O que significa', 'O que cada resultado quer dizer e o que fazer.') . '</th></tr>';
     $sentido = [
         'Bate' => 'Origem confirmada: a campanha que o painel viu no clique do botão de compra é a mesma que a Kiwify gravou na venda (e que a UTMify usa).',
         'Diferente' => 'O painel viu uma campanha no clique e a Kiwify gravou outra. Abra a venda para ver as duas: a UTMify pode estar atribuindo errado.',
@@ -438,7 +449,7 @@ if ($aba === 'resumo') {
             'Só pela API' => 'O webhook não entregou; a busca pela API trouxe. Se aparecer muito, confira o webhook na Kiwify (Apps → Webhooks).',
             'Só webhook' => 'Chegou pelo webhook e a API ainda não buscou (ou a venda é mais antiga que a busca).',
         ];
-        echo titulo('Como as vendas aprovadas chegaram ao painel', 'Webhook da Kiwify, busca pela API ou os dois. Muita venda só pela API indica webhook com problema.') . '<div class="tabela"><table><tr><th>Caminho</th><th>Vendas</th><th>O que significa</th></tr>';
+        echo titulo('Como as vendas aprovadas chegaram ao painel', 'Webhook da Kiwify, busca pela API ou os dois. Muita venda só pela API indica webhook com problema.') . '<div class="tabela"><table><tr><th>' . com_info('Caminho', 'Webhook da Kiwify, busca pela API ou os dois.') . '</th><th>' . com_info('Vendas', 'Vendas aprovadas que chegaram por esse caminho.') . '</th><th>' . com_info('O que significa', 'O que cada caminho quer dizer.') . '</th></tr>';
         foreach ($chegou as $rotulo => $n) {
             echo '<tr><td>' . e($rotulo) . '</td><td>' . $n . ' (' . e($pct($n)) . ')</td><td class="quebra suave">' . e($sentidoChegada[$rotulo]) . '</td></tr>';
         }
@@ -494,10 +505,10 @@ if ($aba === 'vendas') {
     }
     echo ($soFora
             ? titulo('Vendas fora de anúncio (' . count($vendas) . ')', 'Vendas aprovadas sem o ID de uma campanha da Meta na etiqueta. A UTMify chama de "não trackeadas". Orgânica é normal ficar fora; as outras mostram o que ajustar.')
-            : '<h2>Vendas (' . count($vendas) . ' pedidos)</h2>')
-        . '<div class="tabela"><table><tr><th>Quando</th><th>Pedido</th><th>Produto</th><th>Valor</th><th>Situação</th><th>Chegou por ' . info('Canal pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto...') . '</th>'
-        . '<th>Etiquetas na Kiwify</th><th>Visitante ' . info('Quem o painel reconheceu na página antes da compra (pelo sck). Clique para ver o caminho.') . '</th>'
-        . ($soFora ? '<th>Por quê</th>' : '<th>Conferência ' . info('Compara a campanha do clique na página com a que a Kiwify gravou. Bate = origem confirmada.') . '</th>')
+            : titulo('Vendas (' . count($vendas) . ' pedidos)', 'Todos os pedidos do período, pagos ou não, com o canal, as etiquetas e como chegaram.'))
+        . '<div class="tabela"><table><tr><th>' . com_info('Quando', 'Quando a venda chegou ao painel (horário de Brasília).') . '</th><th>' . com_info('Pedido', 'Código do pedido na Kiwify.') . '</th><th>' . com_info('Produto', 'Produto comprado. Order bump aparece como pedido próprio.') . '</th><th>' . com_info('Valor', 'Valor cobrado do comprador (antes das taxas da Kiwify).') . '</th><th>' . com_info('Situação', 'Situação do pagamento na Kiwify: aprovada, aguardando, recusada, reembolsada.') . '</th><th>Chegou por ' . info('Canal pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto...') . '</th>'
+        . '<th>' . com_info('Etiquetas na Kiwify', 'As UTMs que a Kiwify gravou no pedido (source / medium / campaign / content / term).') . '</th><th>Visitante ' . info('Quem o painel reconheceu na página antes da compra (pelo sck). Clique para ver o caminho.') . '</th>'
+        . ($soFora ? '<th>' . com_info('Por quê', 'Motivo de a venda não estar ligada a uma campanha.') . '</th>' : '<th>Conferência ' . info('Compara a campanha do clique na página com a que a Kiwify gravou. Bate = origem confirmada.') . '</th>')
         . '<th>Recebida via ' . info('Como a venda chegou ao painel: webhook da Kiwify, busca pela API ou os dois.') . '</th></tr>';
     foreach ($vendas as $v) {
         [$sit, $cls] = situacao($v);
@@ -530,7 +541,7 @@ if ($aba === 'visitantes') {
     $lista = consulta($db, "SELECT e.visitante, MIN(e.em) AS primeiro, MAX(e.em) AS ultimo, COUNT(*) AS total,
                                    SUM(e.nome = 'CliqueCheckout') AS cliques, SUM(e.nome = 'WhatsApp') AS whats
                             FROM eventos e WHERE $condEv GROUP BY e.visitante ORDER BY ultimo DESC LIMIT 300", $parEv);
-    echo '<h2>Visitantes (' . count($lista) . ')</h2><div class="tabela"><table><tr><th>Última atividade</th><th>Visitante</th><th>Aparelho</th><th>IP</th><th>Chegou por</th><th>Eventos</th><th>Checkout</th>' . ($temWhats ? '<th>WhatsApp</th>' : '') . '<th>Venda</th></tr>';
+    echo titulo('Visitantes (' . count($lista) . ')', 'Cada aparelho que abriu as páginas no período. Clique no visitante para ver o caminho dele.') . '<div class="tabela"><table><tr><th>' . com_info('Última atividade', 'O último evento deste aparelho no período.') . '</th><th>' . com_info('Visitante', 'Identificador anônimo do aparelho (cookie trk_vid).') . '</th><th>' . com_info('Aparelho', 'Sistema e navegador do aparelho (ex.: iPhone · Instagram).') . '</th><th>' . com_info('IP', 'IP parcial (sem o último número), só para diferenciar aparelhos.') . '</th><th>' . com_info('Chegou por', 'Canal e origem da primeira visita no período.') . '</th><th>' . com_info('Eventos', 'Quantos eventos este aparelho teve.') . '</th><th>' . com_info('Checkout', 'Se clicou no botão de compra.') . '</th>' . ($temWhats ? '<th>' . com_info('WhatsApp', 'Se clicou no WhatsApp.') . '</th>' : '') . '<th>' . com_info('Venda', 'Se tem venda ligada a ele (pelo sck do checkout).') . '</th></tr>';
     foreach ($lista as $l) {
         $st = $db->prepare('SELECT * FROM visitantes WHERE id = ?');
         $st->execute([$l['visitante']]);
@@ -586,17 +597,17 @@ if ($aba === 'eventos') {
                             WHERE $cond ORDER BY e.em DESC, e.id DESC LIMIT $porPagina OFFSET " . (($pg - 1) * $porPagina), $par);
 
     $linkEventos = fn(array $extra) => './?' . http_build_query(['aba' => 'eventos'] + $parLink + $extra);
-    echo '<div class="filtro-eventos"><a href="' . e($linkEventos([])) . '" class="' . ($evento === '' && !$soCompradores ? 'atual' : '') . '">Todos <b>' . array_sum($tipos) . '</b></a>';
+    echo '<div class="filtro-eventos"><a href="' . e($linkEventos([])) . '" class="' . ($evento === '' && !$soCompradores ? 'atual' : '') . '">Todos <b>' . array_sum($tipos) . '</b>' . info('Todos os eventos do período: visitas, cliques em botões, no checkout e no WhatsApp.') . '</a>';
     foreach ($tipos as $nome => $n) {
-        echo '<a href="' . e($linkEventos(['evento' => $nome])) . '" class="' . ($evento === $nome ? 'atual' : '') . '">' . e(nome_evento($nome)) . ' <b>' . $n . '</b></a>';
+        echo '<a href="' . e($linkEventos(['evento' => $nome])) . '" class="' . ($evento === $nome ? 'atual' : '') . '">' . e(nome_evento($nome)) . ' <b>' . $n . '</b>' . info(dica_evento($nome)) . '</a>';
     }
-    echo '<a href="' . e($linkEventos(['evento' => 'compraram'])) . '" class="compra' . ($soCompradores ? ' atual' : '') . '" title="Pessoas deste período com venda aprovada. Clique para ver o caminho delas até a compra.">Compraram <b>' . count($compradores) . '</b></a>';
+    echo '<a href="' . e($linkEventos(['evento' => 'compraram'])) . '" class="compra' . ($soCompradores ? ' atual' : '') . '">Compraram <b>' . count($compradores) . '</b>' . info('Pessoas deste período com venda aprovada ligada a elas (pelo sck do checkout). Clique para ver o caminho delas até a compra.') . '</a>';
     echo '</div>';
 
     $de1 = $total ? ($pg - 1) * $porPagina + 1 : 0;
     $titulo = $soCompradores ? 'Eventos de quem comprou' : ($evento !== '' ? nome_evento($evento) : 'Eventos');
-    echo '<h2>' . e($titulo) . ' <span class="suave">(' . $de1 . '–' . (($pg - 1) * $porPagina + count($lista)) . ' de ' . $total . ')</span></h2>';
-    echo '<div class="tabela"><table><tr><th>Quando</th><th>Evento</th><th>Página</th><th>Canal</th><th>Campanha · anúncio · posicionamento</th><th>Veio de</th><th>Aparelho</th><th>Visitante</th></tr>';
+    echo '<h2>' . e($titulo) . ' <span class="suave">(' . $de1 . '–' . (($pg - 1) * $porPagina + count($lista)) . ' de ' . $total . ')</span> ' . info('Cada coisa que alguém fez nas páginas com o painel, da mais nova para a mais antiga, 200 por página.') . '</h2>';
+    echo '<div class="tabela"><table><tr><th>' . com_info('Quando', 'Quando aconteceu (horário de Brasília).') . '</th><th>' . com_info('Evento', 'O que a pessoa fez: abriu a página, clicou num botão, no checkout ou no WhatsApp.') . '</th><th>' . com_info('Página', 'Página onde aconteceu.') . '</th><th>' . com_info('Canal', 'Canal pela etiqueta do endereço ou pelo site de origem.') . '</th><th>' . com_info('Campanha · anúncio · posicionamento', 'Da etiqueta do anúncio, quando a visita veio de anúncio.') . '</th><th>' . com_info('Veio de', 'O site de onde a pessoa veio (referrer), sem os parâmetros.') . '</th><th>' . com_info('Aparelho', 'Sistema e navegador do aparelho (ex.: iPhone · Instagram).') . '</th><th>' . com_info('Visitante', 'Identificador anônimo do aparelho. Clique para ver o caminho dele.') . '</th></tr>';
     foreach ($lista as $ev) {
         $anuncio = implode(' · ', array_filter([nome_curto($ev['utm_campaign']), nome_curto($ev['utm_content']), $ev['utm_term'] ? str_replace('_', ' ', $ev['utm_term']) : null]));
         $aparelho = implode(' · ', array_filter([$ev['dispositivo'], ($ev['sistema'] ?? '') !== 'Outro' ? $ev['sistema'] : null, $ev['ip']]));

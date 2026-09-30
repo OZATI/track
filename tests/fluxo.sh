@@ -128,9 +128,9 @@ confere "$(tem 'orgânico · www.google.com' "$r")" "visita sem etiqueta vinda d
 confere "$(tem 'direto (sem origem)' "$r")" "visita sem etiqueta e sem site de origem aparece como direto"
 confere "$(grep -q 'q=drive' <<<"$r"; [ $? -ne 0 ]; echo $?)" "parâmetros do site de origem não são guardados (LGPD)"
 confere "$(tem 'Tráfego por página' "$(sem_tags "$r")")" "tabela por página aparece"
-confere "$(tem 'Clicaram no WhatsApp' "$r")" "coluna WhatsApp aparece quando o site já teve clique no WhatsApp"
+confere "$(tem 'Clicaram no WhatsApp' "$(sem_tags "$r")")" "coluna WhatsApp aparece quando o site já teve clique no WhatsApp"
 r2=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo&dominio=site.test&pagina=/drivedeprojetos/")
-confere "$(grep -q 'WhatsApp' <<<"$r2"; [ $? -ne 0 ]; echo $?)" "página que só vende pelo checkout não mostra coluna de WhatsApp"
+confere "$(grep -q 'Clicaram no WhatsApp' <<<"$(sem_tags "$r2")"; [ $? -ne 0 ]; echo $?)" "página que só vende pelo checkout não mostra coluna de WhatsApp"
 confere "$(tem 'class="lateral"' "$r")" "barra lateral CMS | UTM aparece quando há link do CMS"
 confere "$(tem 'href="../" title="CMS"' "$r")" "ícone CMS aponta para o link configurado"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
@@ -147,6 +147,7 @@ confere "$(tem '<span>Orgânico</span><span class="info"[^>]*>i</span><span clas
 confere "$(tem 'data-dica="Chegou sem anúncio: link da bio' "$r")" "canal Orgânico tem o (i) dizendo de onde vem e em que condição"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo")
 confere "$(tem '&lt;script&gt;alert(1)&lt;/script&gt;' "$r")" "texto vindo da página é escapado (sem XSS)"
+confere "$(tem 'data-dica="Página aberta: conta cada vez' "$r")" "filtro de eventos com o (i) de cada tipo"
 confere "$(grep -q '<script>alert(1)' <<<"$r"; [ $? -ne 0 ]; echo $?)" "nenhum script injetado na tela"
 confere "$(tem '177.10.20.0' "$r")" "IP guardado parcial (último número zerado)"
 confere "$(tem 'iPhone · Instagram (app)' "$r")" "aparelho e navegador reconhecidos"
@@ -165,7 +166,7 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test
 confere "$(tem 'WhatsApp' "$r")" "filtro por página mostra os eventos dela"
 confere "$(grep -q 'Clique no checkout</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "filtro por página esconde os eventos das outras"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=visitantes&periodo=tudo&v=$VID")
-confere "$(tem 'Linha do tempo (2 eventos)' "$r")" "detalhe do visitante com a linha do tempo"
+confere "$(tem 'Linha do tempo (2 eventos)' "$(sem_tags "$r")")" "detalhe do visitante com a linha do tempo"
 confere "$(tem 'Bate' "$r")" "detalhe do visitante mostra a venda conferida"
 
 echo "Usuários e login do admin"
@@ -251,7 +252,7 @@ r=$(curl -s -b "$JAR" -X POST -H "X-CSRF: $csrf" "$URL/sincronizar.php")
 confere "$(tem '"buscou":false' "$r")" "nova busca automática espera 10 minutos"
 confere "$(grep -rq 'cliente-api@exemplo.com\|Nome Da API\|99999999999' "$DADOS"/track.sqlite*; [ $? -ne 0 ]; echo $?)" "dados do comprador vindos da API não são gravados (LGPD)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
-confere "$(tem 'Vendas (5 pedidos)' "$r")" "vendas da API somam com as do webhook, sem duplicar"
+confere "$(tem 'Vendas (5 pedidos)' "$(sem_tags "$r")")" "vendas da API somam com as do webhook, sem duplicar"
 confere "$(tem 'RefDois2' "$r")" "pedido aparece pela referência curta da Kiwify"
 confere "$(tem 'Só pela API' "$r")" "venda que só a API trouxe fica marcada"
 confere "$(tem 'Webhook + API' "$r")" "venda que chegou pelos dois caminhos fica marcada"
@@ -271,7 +272,7 @@ confere "$(grep -q 'Última busca na API falhou\|Muitas buscas' <<<"$r"; [ $? -n
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
 confere "$(tem 'chamada(s) no último minuto' "$r")" "aba API Kiwify mostra o uso da API"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
-confere "$(tem 'Vendas (5 pedidos)' "$r")" "busca completa de novo não duplica"
+confere "$(tem 'Vendas (5 pedidos)' "$(sem_tags "$r")")" "busca completa de novo não duplica"
 curl -s --data '{"order_id":"api-2","order_ref":"RefDois2","order_status":"paid","webhook_event_type":"order_approved"}' "$URL/kiwify.php?chave=$CHAVE" >/dev/null
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
 confere "$(tem 'Só pela API</td><td>0 (0%)' "$r")" "webhook atrasado junta com a venda da API (Webhook + API)"
@@ -368,6 +369,8 @@ curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=or
 
 echo "Gestor: ligar, pausar e selecionar"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem 'Campanhas<span class="info"[^>]*data-dica="Cada campanha' "$r")" "níveis do gestor com o (i)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
 confere "$(tem 'class="chave ligada" role="switch" aria-checked="true" aria-label="Pausar" title="O token da API Meta só lê' "$r")" "token só de leitura: chave aparece, sem clique"
 status() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "id=$2" --data-urlencode "status=$3" --data-urlencode "volta=./?aba=gestor&periodo=tudo" "$URL/meta-status.php"; curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo"; }
 r=$(status "$csrf" 120120 PAUSED)
@@ -409,13 +412,22 @@ meta "$csrf" "$LEITURA" 587364236934346 >/dev/null
 
 echo "Resumo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
-confere "$(tem 'R$ 202,00Faturamento líquido' "$(sem_tags "$r")")" "faturamento líquido do período (com order bump)"
-confere "$(tem 'R$ 60,00Gasto com anúncios' "$(sem_tags "$r")")" "gasto com anúncios"
-confere "$(tem '<b class="positivo">R$ 134,71</b><span><span class="nw">Lucro' "$r")" "lucro com imposto da Meta"
-confere "$(tem '<b class="positivo">3,00</b><span>ROI <span class="nw">geral' "$r")" "ROI geral: todo o faturamento ÷ (gasto + imposto)"
+confere "$(tem 'Faturamento líquidoiR$ 202,00' "$(sem_tags "$r")")" "faturamento líquido do período (com order bump)"
+confere "$(tem 'Gasto com anúnciosiR$ 60,00' "$(sem_tags "$r")")" "gasto com anúncios"
+confere "$(tem 'Lucro</span><span class="info"[^>]*>i</span></div><b class="positivo">R$ 134,71</b>' "$r")" "lucro com imposto da Meta"
+confere "$(tem 'ROI geral</span><span class="info"[^>]*>i</span></div><b class="positivo">3,00</b>' "$r")" "ROI geral: todo o faturamento ÷ (gasto + imposto)"
 confere "$(tem 'ROI rastreado' "$(sem_tags "$r")")" "ROI rastreado ao lado, para comparar"
-confere "$(tem '<b class="">66,7%</b><span><span class="nw">Margem' "$r")" "margem"
-confere "$(tem '<b class="">R$ 67,00</b><span><span class="nw">Pendentes' "$r")" "pendentes no valor cobrado"
+confere "$(tem 'Margem</span><span class="info"[^>]*>i</span></div><b class="positivo">66,7%</b>' "$r")" "margem"
+confere "$(tem 'Vendas pendentes</span><span class="info"[^>]*>i</span></div><b class="">R$ 67,00</b>' "$r")" "pendentes no valor cobrado"
+confere "$(tem 'class="rosca"' "$r")" "vendas por pagamento em rosca, como na UTMify"
+confere "$(tem 'aria-label="Vendas por dia da semana"' "$r")" "vendas por dia da semana"
+confere "$(tem 'Qualidade do rastreio' "$(sem_tags "$r")")" "qualidade do rastreio: quanto das vendas o painel explica"
+confere "$(tem 'Taxa de aprovação' "$(sem_tags "$r")")" "taxa de aprovação com anéis"
+confere "$(tem 'name="produto"' "$r")" "filtro de produto"
+confere "$(tem 'name="canal"' "$r")" "filtro de canal"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&canal=organico")
+confere "$(tem 'Filtro ligado' "$(sem_tags "$r")")" "filtro de canal avisa que o gasto continua o da conta toda"
+confere "$(grep -q 'Faturamento líquidoiR$ 202,00' <<<"$(sem_tags "$r")"; [ $? -ne 0 ]; echo $?)" "filtro de canal muda o faturamento"
 confere "$(tem 'Funil da Meta' "$(sem_tags "$r")")" "funil da Meta"
 confere "$(tem '<span class="nw">Visualizações&nbsp;' "$r")" "funil com visualizações da página"
 confere "$(tem 'Funil do site' "$(sem_tags "$r")")" "funil do site"

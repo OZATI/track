@@ -175,7 +175,11 @@ function organico_render(PDO $db, string $periodo, string $de, string $ate): voi
     echo '<div class="grade">';
     arsort($porLink);
     echo '<section class="bloco">' . titulo('Links orgânicos que vendem', 'Vendas orgânicas pela etiqueta completa (source / medium / campaign): mostra qual link da bio, do WhatsApp ou de outra ação trouxe a venda.')
-        . resumo_barras(array_map(fn($l) => $l['vendas'], $porLink), fn($v) => $v . ' venda(s)') . '</section>';
+        . resumo_barras(array_map(fn($l) => $l['vendas'], $porLink), fn($v) => $v . ' venda(s)')
+        // Etiquetas que o proprio Instagram poe: explicadas embaixo da lista
+        . (preg_grep('/^ig \/ social/', array_keys($porLink)) ? '<p class="suave legenda">ig / social: marca que o próprio Instagram põe no link clicado dentro do app (bio, story ou post). Sem o ID de uma campanha, é visita orgânica do Instagram.</p>' : '')
+        . (preg_grep('/^organico \/ instagram-bio/', array_keys($porLink)) ? '<p class="suave legenda">organico / instagram-bio: o link da bio com a nossa etiqueta (engdesk.pro/ig ou a marca link_in_bio).</p>' : '')
+        . '</section>';
     uasort($paginas, fn($a, $b) => $b['vis'] <=> $a['vis']);
     $entrada = [];
     foreach ($paginas as $pag => $p) {

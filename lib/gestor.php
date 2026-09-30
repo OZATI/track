@@ -16,6 +16,14 @@
 require_once __DIR__ . '/meta_sync.php';
 require_once __DIR__ . '/gestor_editar.php';
 
+// O (i) de cada nivel do gestor
+const GESTOR_NIVEIS_DICA = [
+    'contas' => 'A conta de anúncios da Meta inteira: o total de tudo o que está rodando.',
+    'campanhas' => 'Cada campanha: o objetivo e, quando é ela que controla, o orçamento. As vendas se ligam pelo ID que a etiqueta traz no utm_campaign.',
+    'conjuntos' => 'Cada conjunto de anúncios: público, posicionamento e orçamento. Ligado pelo ID no utm_medium.',
+    'anuncios' => 'Cada anúncio: o criativo que a pessoa viu. Ligado pelo ID no utm_content.',
+];
+
 const GESTOR_NIVEIS = [
     'contas' => ['Contas', null, null, 'conta'],
     'campanhas' => ['Campanhas', 'campanha_id', 'utm_campaign', 'campaign'],
@@ -400,7 +408,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     echo '<div class="gestor-niveis">';
     $icones = ['contas' => 'conta', 'campanhas' => 'campanha', 'conjuntos' => 'conjunto', 'anuncios' => 'anuncio'];
     foreach (GESTOR_NIVEIS as $n => [$rot]) {
-        echo '<a href="' . e('./?' . http_build_query($base + ['nivel' => $n] + $sel)) . '" class="' . ($nivel === $n ? 'atual' : '') . '">' . icone($icones[$n], 18) . e($rot) . '</a>';
+        echo '<a href="' . e('./?' . http_build_query($base + ['nivel' => $n] + $sel)) . '" class="' . ($nivel === $n ? 'atual' : '') . '">' . icone($icones[$n], 18) . e($rot) . info(GESTOR_NIVEIS_DICA[$n]) . '</a>';
     }
     echo '</div>';
     if ($aviso = aviso_pegar()) {
@@ -581,7 +589,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     $hist = gestor_historico(10);
     if ($hist) {
         echo '<section class="bloco">' . titulo('Alterações feitas pelo painel', 'As últimas vezes que alguém ligou ou pausou algo na Meta por aqui, com o resultado. Mudanças feitas direto no Gerenciador de Anúncios não aparecem.')
-            . '<div class="tabela"><table><tr><th>Quando</th><th>Quem</th><th>O quê</th><th>Mudança</th><th>Resultado</th></tr>';
+            . '<div class="tabela"><table><tr><th>' . com_info('Quando', 'Quando a mudança foi feita (horário de Brasília).') . '</th><th>' . com_info('Quem', 'Usuário do admin que fez a mudança.') . '</th><th>' . com_info('O quê', 'Campanha, conjunto ou anúncio.') . '</th><th>' . com_info('Mudança', 'De que status para qual.') . '</th><th>' . com_info('Resultado', 'Feito: a Meta aceitou. Recusado: a Meta não deixou, com o motivo.') . '</th></tr>';
         $nomeSt = ['ACTIVE' => 'ligado', 'PAUSED' => 'pausado'];
         foreach ($hist as $h) {
             echo '<tr><td>' . e(data_local($h['em'], 'd/m H:i')) . '</td><td>' . e($h['usuario']) . '</td>'
