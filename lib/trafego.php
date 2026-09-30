@@ -1,11 +1,11 @@
 <?php
-// Aba Trafego: o trafego por canal como painel (cartoes em vez de planilha). Numeros do topo,
-// a rosca dos visitantes por canal e um cartao por canal com a participacao, o caminho
-// visitante -> checkout -> venda e o faturamento. A planilha continua em "Ver em tabela".
+// Aba Trafego: o trafego por canal como painel, no mesmo desenho do Resumo. Numeros do topo,
+// a rosca dos visitantes por canal e um bloco por metrica (checkout, vendas, faturamento...)
+// com a lista de canais e o anel da %. A planilha continua em "Ver em tabela".
 
-require_once __DIR__ . '/resumo.php'; // resumo_cartao, resumo_rosca
+require_once __DIR__ . '/resumo.php'; // resumo_cartao, resumo_rosca, resumo_lista_aneis
 
-// Cor de cada canal (a mesma dos icones)
+// Cor de cada canal na rosca (a mesma dos icones)
 const CANAIS_COR = ['instagram' => '#C13584', 'facebook' => '#1877F2', 'meta' => '#4F46E5', 'compartilhado' => '#60A5FA',
     'google' => '#EA4335', 'organico' => '#16A34A', 'outros' => '#F59E0B', 'direto' => '#9CA3AF'];
 
@@ -35,6 +35,17 @@ function trafego_painel_canais(array $porCanal, bool $temWhats): string
             $t['vendas'] ? reais(intdiv($t['fat'], $t['vendas'])) . ' por venda' : 'sem venda ligada a visitante')
         . '</div>';
 
+    // Um bloco por metrica, com a lista de canais: [rotulo, numero, %]
+    $bloco = function (string $titulo, string $dica, callable $linha, string $rodape = '') use ($porCanal): string {
+        $linhas = [];
+        foreach ($porCanal as $l) {
+            $linhas[] = $linha($l);
+        }
+        return '<section class="rc c4"><div class="rc-cab"><span>' . e($titulo) . '</span>' . info($dica) . '</div>'
+            . resumo_lista_aneis($linhas) . ($rodape !== '' ? '<small class="rc-rodape">' . $rodape . '</small>' : '') . '</section>';
+    };
+    $pct = fn(int $n, int $d): ?float => $d ? $n * 100 / $d : null;
+
     // Canal com a maior conversao (com pelo menos 1 venda)
     $melhor = null;
     foreach ($porCanal as $k => $l) {
@@ -42,31 +53,32 @@ function trafego_painel_canais(array $porCanal, bool $temWhats): string
             $melhor = $k;
         }
     }
+    $rodapeVendas = $melhor !== null && count($porCanal) > 1
+        ? 'Melhor conversão: <b>' . e($porCanal[$melhor]['canal'][1]) . '</b> (' . e(trafego_pct($porCanal[$melhor]['vendas'], $porCanal[$melhor]['vis'])) . ')'
+        : '';
 
     $partes = [];
     $cores = [];
-    $cartoes = '';
     foreach ($porCanal as $k => $l) {
-        $cor = CANAIS_COR[$k] ?? '#9CA3AF';
         $partes[$l['canal'][1]] = $l['vis'];
-        $cores[$l['canal'][1]] = $cor;
-        $passo = fn(int $n, string $rot, string $dica) => '<div class="cc-passo"><span>' . com_info($rot, $dica) . '</span><b>' . $n . '</b>'
-            . '<i><em style="width:' . ($l['vis'] ? round(min(100, $n * 100 / $l['vis']), 1) : 0) . '%"></em></i><small>' . e(trafego_pct($n, $l['vis'])) . '</small></div>';
-        $cartoes .= '<article class="cc" style="--cor:' . e($cor) . '">'
-            . '<div class="cc-cab">' . selo_canal($l['canal'], false) . ($k === $melhor && count($porCanal) > 1 ? '<span class="selo ok">melhor conversão</span>' : '') . '</div>'
-            . '<div class="cc-num"><b>' . $l['vis'] . '</b><span>visitante' . ($l['vis'] === 1 ? '' : 's') . ' · ' . e(trafego_pct($l['vis'], $t['vis'])) . ' do total</span></div>'
-            . '<div class="cc-passos">'
-            . $passo($l['ck'], 'Checkout', 'Visitantes deste canal que clicaram no botão de compra (e a % dos visitantes do canal).')
-            . ($temWhats ? $passo($l['wa'], 'WhatsApp', 'Visitantes deste canal que clicaram no WhatsApp.') : '')
-            . $passo($l['vendas'], 'Vendas', 'Vendas aprovadas dos visitantes deste canal, sem order bump (e a conversão sobre os visitantes).')
-            . '</div>'
-            . '<div class="cc-pe"><span>' . com_info('Faturamento', 'Valor cobrado das vendas aprovadas deste canal, com order bump.') . '<b>' . e($l['fat'] ? reais($l['fat']) : '—') . '</b></span>'
-            . '<span>' . com_info('Conversão', 'Vendas aprovadas ÷ visitantes do canal.') . '<b>' . e(trafego_pct($l['vendas'], $l['vis'])) . '</b></span></div>'
-            . '</article>';
+        $cores[$l['canal'][1]] = CANAIS_COR[$k] ?? '#9CA3AF';
     }
+    $rot = fn(array $l) => selo_canal($l['canal'], false);
 
-    return $html . '<div class="rgrade"><section class="rc c4"><div class="rc-cab"><span>Visitantes por canal</span>'
-        . info('Como os visitantes do período se dividem entre os canais da primeira visita. Cada cartão ao lado mostra o caminho até a venda.') . '</div>'
+    $html .= '<div class="rgrade"><section class="rc c4 r2"><div class="rc-cab"><span>Visitantes por canal</span>'
+        . info('Como os visitantes do período se dividem entre os canais da primeira visita.') . '</div>'
         . resumo_rosca($partes, $cores, 'Visitantes') . '</section>'
-        . '<section class="c8 cc-grade">' . $cartoes . '</section></div>';
+        . $bloco('Checkout por canal', 'Visitantes de cada canal que clicaram no botão de compra. A % é sobre os visitantes do próprio canal.',
+            fn($l) => [$rot($l), $l['ck'], $pct($l['ck'], $l['vis'])])
+        . $bloco('Vendas por canal', 'Vendas aprovadas dos visitantes de cada canal, sem order bump. A % é a conversão: vendas ÷ visitantes do canal.',
+            fn($l) => [$rot($l), $l['vendas'], $pct($l['vendas'], $l['vis'])], $rodapeVendas)
+        . $bloco('Faturamento por canal', 'Valor cobrado das vendas aprovadas de cada canal, com order bump. A % é a parte do faturamento total.',
+            fn($l) => [$rot($l), $l['fat'] ? reais($l['fat']) : '—', $pct($l['fat'], $t['fat'])])
+        . ($temWhats
+            ? $bloco('WhatsApp por canal', 'Visitantes de cada canal que clicaram no WhatsApp. A % é sobre os visitantes do próprio canal.',
+                fn($l) => [$rot($l), $l['wa'], $pct($l['wa'], $l['vis'])])
+            : $bloco('Visualizações por canal', 'Páginas abertas pelos visitantes de cada canal. A % é a parte do total de visualizações.',
+                fn($l) => [$rot($l), $l['pv'], $pct($l['pv'], $t['pv'])]))
+        . '</div>';
+    return $html;
 }
