@@ -14,6 +14,7 @@
 //   CPA      = gasto / vendas;  custo por checkout = gasto / inicios de checkout na Meta
 
 require_once __DIR__ . '/meta_sync.php';
+require_once __DIR__ . '/gestor_editar.php';
 
 const GESTOR_NIVEIS = [
     'contas' => ['Contas', null, null, 'conta'],
@@ -62,6 +63,29 @@ function gestor_status(?array $obj): string
         return '<span class="status-meta" title="' . e($s) . '">Pausado</span>';
     }
     return '<span class="status-meta alerta" title="' . e($s) . '">' . e(ucfirst(strtolower(str_replace('_', ' ', $s)))) . '</span>';
+}
+
+// Chave de status: liga ou pausa na Meta (meta-status.php), com confirmacao. Sem permissao de
+// edicao, a chave aparece sem clique. Status efetivo diferente (ex.: pausado pela campanha,
+// em analise) aparece ao lado.
+function gestor_chave(?array $obj, string $volta, bool $pode): string
+{
+    if (!$obj || !isset(GESTOR_NIVEL_META[$obj['nivel']]) || !in_array($obj['status'], ['ACTIVE', 'PAUSED'], true)) {
+        return gestor_status($obj);
+    }
+    $ligado = $obj['status'] === 'ACTIVE';
+    $acao = ($ligado ? 'Pausar ' : 'Ligar ') . GESTOR_NIVEL_META[$obj['nivel']] . ' "' . $obj['nome'] . '" na Meta?';
+    $titulo = $pode ? ($ligado ? 'Ligado na Meta. Clique para pausar.' : 'Pausado na Meta. Clique para ligar.')
+        : 'O token da API Meta só lê: para ligar e pausar por aqui, gere um token com ads_management.';
+    $html = '<form method="post" action="meta-status.php" class="chave-form" data-confirma="' . e($acao) . '">'
+        . '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="id" value="' . e($obj['id']) . '">'
+        . '<input type="hidden" name="status" value="' . ($ligado ? 'PAUSED' : 'ACTIVE') . '"><input type="hidden" name="volta" value="' . e($volta) . '">'
+        . '<button type="submit" class="chave' . ($ligado ? ' ligada' : '') . '" role="switch" aria-checked="' . ($ligado ? 'true' : 'false') . '"'
+        . ' aria-label="' . e($ligado ? 'Pausar' : 'Ligar') . '" title="' . e($titulo) . '"' . ($pode ? '' : ' disabled') . '><span></span></button></form>';
+    if ($obj['status_efetivo'] !== $obj['status']) {
+        $html .= gestor_status($obj);
+    }
+    return $html;
 }
 
 function gestor_orcamento(?array $obj): string
@@ -284,6 +308,14 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     $idOk = fn($v) => is_string($v) && preg_match('/^\d{3,25}$/', $v) ? $v : '';
     $fCamp = in_array($nivel, ['conjuntos', 'anuncios'], true) ? $idOk($_GET['campanha'] ?? '') : '';
     $fConj = $nivel === 'anuncios' ? $idOk($_GET['conjunto'] ?? '') : '';
+    // Selecao (caixas de marcar): as campanhas marcadas filtram conjuntos e anuncios; os
+    // conjuntos marcados filtram os anuncios. O caminho aberto pelo nome tem prioridade.
+    $lista = fn($v) => array_values(array_unique(array_filter(array_map($idOk, is_array($v) ? array_slice($v, 0, 100) : []))));
+    $selCamp = $lista($_GET['campanhas'] ?? []);
+    $selConj = $lista($_GET['conjuntos'] ?? []);
+    $filtroCamp = $fCamp !== '' ? [$fCamp] : ($nivel !== 'campanhas' && $nivel !== 'contas' ? $selCamp : []);
+    $filtroConj = $fConj !== '' ? [$fConj] : ($nivel === 'anuncios' ? $selConj : []);
+    $pode = gestor_pode_editar();
     $temMeta = (bool)meta_api_chave();
     $pct = gestor_imposto_pct();
     [$dia1, $dia2] = gestor_dias($periodo);
@@ -319,7 +351,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         $obj = $objetos[$id] ?? null;
         $camp = $obj['campanha_id'] ?? $l['pai_camp'];
         $conj = $nivel === 'anuncios' ? ($obj['conjunto_id'] ?? $l['pai_conj']) : ($nivel === 'conjuntos' ? (string)$id : null);
-        if (($fCamp !== '' && (string)$camp !== $fCamp) || ($fConj !== '' && (string)$conj !== $fConj)) {
+        if (($filtroCamp && !in_array((string)$camp, $filtroCamp, true)) || ($filtroConj && !in_array((string)$conj, $filtroConj, true))) {
             continue;
         }
         $nome = $nivel === 'contas' ? $contaNome : ($obj['nome'] ?? $l['nome_utm'] ?? (string)$id);
@@ -351,15 +383,20 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
 
     // Links: nivel e filtros atuais mais o que mudar
     $base = ['aba' => 'gestor', 'periodo' => $periodo];
-    $atuais = $base + array_filter(['nivel' => $nivel, 'q' => $busca, 'st' => $stFiltro, 'campanha' => $fCamp, 'conjunto' => $fConj, 'ordem' => $ordem, 'dir' => $dir]);
-    $link = fn(array $mudar) => './?' . http_build_query(array_filter($mudar + $atuais, fn($v) => $v !== null && $v !== ''));
+    $sel = array_filter(['campanhas' => $selCamp, 'conjuntos' => $selConj]);
+    $atuais = $base + array_filter(['nivel' => $nivel, 'q' => $busca, 'st' => $stFiltro, 'campanha' => $fCamp, 'conjunto' => $fConj, 'ordem' => $ordem, 'dir' => $dir]) + $sel;
+    $link = fn(array $mudar) => './?' . http_build_query(array_filter($mudar + $atuais, fn($v) => $v !== null && $v !== '' && $v !== []));
 
+    // Abas de nivel levam a selecao junto (marcou campanhas, Conjuntos mostra so os delas)
     echo '<div class="gestor-niveis">';
     $icones = ['contas' => 'conta', 'campanhas' => 'campanha', 'conjuntos' => 'conjunto', 'anuncios' => 'anuncio'];
     foreach (GESTOR_NIVEIS as $n => [$rot]) {
-        echo '<a href="' . e('./?' . http_build_query($base + ['nivel' => $n])) . '" class="' . ($nivel === $n ? 'atual' : '') . '">' . icone($icones[$n], 18) . e($rot) . '</a>';
+        echo '<a href="' . e('./?' . http_build_query($base + ['nivel' => $n] + $sel)) . '" class="' . ($nivel === $n ? 'atual' : '') . '">' . icone($icones[$n], 18) . e($rot) . '</a>';
     }
     echo '</div>';
+    if ($aviso = aviso_pegar()) {
+        echo '<p class="' . ($aviso[1] === 'erro' ? 'erro' : 'aviso-ok') . '">' . e($aviso[0]) . '</p>';
+    }
 
     $meta = meta_sync_estado();
     $vencida = meta_sync_vencida() || kiwify_sync_vencida();
@@ -384,6 +421,19 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         echo '<p class="suave">Busca na Meta adiada: ' . e($meta['adiada']) . '</p>';
     } elseif ($meta['erro']) {
         echo '<p class="erro">Última busca na Meta falhou: ' . e($meta['erro']) . '</p>';
+    }
+
+    // Selecao que esta filtrando este nivel
+    $nomes = fn(array $ids) => implode(', ', array_map(fn($i) => $objetos[$i]['nome'] ?? $i, array_slice($ids, 0, 3))) . (count($ids) > 3 ? ' e mais ' . (count($ids) - 3) : '');
+    if ($fCamp === '' && $fConj === '' && ($filtroCamp || $filtroConj)) {
+        $partes = [];
+        if ($filtroCamp) {
+            $partes[] = count($filtroCamp) . ' campanha(s) marcada(s): ' . $nomes($filtroCamp);
+        }
+        if ($filtroConj) {
+            $partes[] = count($filtroConj) . ' conjunto(s) marcado(s): ' . $nomes($filtroConj);
+        }
+        echo '<p class="trilha">Mostrando só ' . e(implode(' · ', $partes)) . ' · <a href="' . e('./?' . http_build_query($base + ['nivel' => $nivel])) . '">limpar seleção</a></p>';
     }
 
     // Caminho aberto (campanha -> conjunto)
@@ -423,7 +473,27 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
             . ($dica !== '' ? '&nbsp;' . info($dica) : '') . '</th>';
     };
     $singular = ['contas' => 'Conta', 'campanhas' => 'Campanha', 'conjuntos' => 'Conjunto', 'anuncios' => 'Anúncio'][$nivel];
-    echo '<div class="tabela gestor"><table><tr><th>Status ' . info('Situação na Meta agora: ativo, pausado ou com problema (ex.: reprovado).') . '</th>' . $cab('nome', $singular);
+    // Caixas de marcar em campanhas e conjuntos: o formulario leva a selecao ao proximo nivel
+    $campoSel = ['campanhas' => 'campanhas', 'conjuntos' => 'conjuntos'][$nivel] ?? null;
+    if ($campoSel) {
+        $delas = $nivel === 'campanhas' ? 'delas' : 'deles';
+        $proximos = $nivel === 'campanhas' ? ['conjuntos' => 'Ver conjuntos', 'anuncios' => 'Ver anúncios'] : ['anuncios' => 'Ver anúncios'];
+        echo '<form id="form-sel" class="gestor-sel" method="get" action="./"><input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '">';
+        if ($nivel === 'conjuntos') {
+            foreach ($selCamp as $c) {
+                echo '<input type="hidden" name="campanhas[]" value="' . e($c) . '">';
+            }
+        }
+        echo '<span class="suave"><b data-sel-conta>' . count($nivel === 'campanhas' ? $selCamp : $selConj) . '</b> marcado(s) '
+            . info('Marque ' . $campoSel . ' e clique em ver para mostrar só os ' . ($nivel === 'campanhas' ? 'conjuntos e anúncios delas' : 'anúncios deles') . '. As abas de cima também levam a seleção.') . '</span>';
+        foreach ($proximos as $n => $rot) {
+            echo '<button type="submit" name="nivel" value="' . $n . '" class="discreto neutro">' . e($rot) . ' ' . $delas . '</button>';
+        }
+        echo '</form>';
+    }
+    $volta = $link([]);
+    echo '<div class="tabela gestor"><table><tr>' . ($campoSel ? '<th class="marca"><input type="checkbox" data-sel-todos aria-label="Marcar todos"></th>' : '')
+        . '<th>Status ' . info($pode ? 'Situação na Meta agora. A chave liga ou pausa na Meta, com confirmação; cada mudança fica registrada no histórico abaixo.' : 'Situação na Meta agora: ativo, pausado ou com problema (ex.: reprovado). Para ligar e pausar por aqui, o token da API Meta precisa de ads_management.') . '</th>' . $cab('nome', $singular);
     foreach ($colunas as $k) {
         echo $cab($k, $todas[$k][0], $todas[$k][1]);
     }
@@ -445,7 +515,9 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         } elseif ($nivel === 'conjuntos') {
             $nomeHtml = '<a class="abre" href="' . e('./?' . http_build_query($base + array_filter(['nivel' => 'anuncios', 'campanha' => (string)$r['camp'], 'conjunto' => $r['id']]))) . '" title="Ver os anúncios deste conjunto">' . $nomeHtml . '</a>';
         }
-        echo '<tr><td>' . gestor_status($r['obj']) . '</td>'
+        $marcado = $campoSel && in_array($r['id'], $nivel === 'campanhas' ? $selCamp : $selConj, true);
+        echo '<tr>' . ($campoSel ? '<td class="marca"><input type="checkbox" form="form-sel" name="' . $campoSel . '[]" value="' . e($r['id']) . '" data-sel' . ($marcado ? ' checked' : '') . ' aria-label="Marcar ' . e($r['nome']) . '"></td>' : '')
+            . '<td>' . ($nivel === 'contas' ? gestor_status($r['obj']) : gestor_chave($r['obj'], $volta, $pode)) . '</td>'
             . '<td class="quebra">' . $nomeHtml . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
         foreach ($colunas as $k) {
             $delta = '';
@@ -459,18 +531,33 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     }
     if ($tabela) {
         $t = gestor_metricas(['id' => '', 'obj' => null] + $total, $pct);
-        echo '<tr class="total"><td></td><td>' . count($tabela) . ' ' . e(mb_strtolower(count($tabela) === 1 ? $singular : $rotuloNivel)) . '</td>';
+        echo '<tr class="total">' . ($campoSel ? '<td></td>' : '') . '<td></td><td>' . count($tabela) . ' ' . e(mb_strtolower(count($tabela) === 1 ? $singular : $rotuloNivel)) . '</td>';
         foreach ($colunas as $k) {
             echo '<td>' . ($k === 'orcamento' || $k === 'id' ? '' : $todas[$k][2]($t)) . '</td>';
         }
         echo '</tr>';
     } else {
-        echo '<tr><td colspan="' . (2 + count($colunas)) . '" class="suave">Nada no período.' . ($temMeta ? '' : ' Conecte a API Meta para ver o gasto.') . '</td></tr>';
+        echo '<tr><td colspan="' . (2 + ($campoSel ? 1 : 0) + count($colunas)) . '" class="suave">Nada no período.' . ($temMeta ? '' : ' Conecte a API Meta para ver o gasto.') . '</td></tr>';
     }
     echo '</table></div>';
     $comparacao = $anterior
         ? 'As setas comparam com o período anterior do mesmo tamanho (' . data_local($anterior[2], 'd/m') . ' a ' . (new DateTime($anterior[1]))->format('d/m') . '). '
         : '';
-    echo '<p class="suave legenda">' . e($comparacao) . 'Clique no nome da campanha para ver os conjuntos, e no conjunto para ver os anúncios; clique no título da coluna para ordenar. '
+    echo '<p class="suave legenda">' . e($comparacao) . 'Clique no nome da campanha para ver os conjuntos, e no conjunto para ver os anúncios; marque várias para ver só as delas; clique no título da coluna para ordenar. '
         . 'Faturamento líquido da Kiwify, com order bump. Lucro = faturamento − gasto − imposto da Meta (' . e(number_format($pct, 2, ',', '.')) . '%).</p>';
+
+    // Historico: quem ligou ou pausou o que, pelo painel
+    $hist = gestor_historico(10);
+    if ($hist) {
+        echo '<section class="bloco">' . titulo('Alterações feitas pelo painel', 'As últimas vezes que alguém ligou ou pausou algo na Meta por aqui, com o resultado. Mudanças feitas direto no Gerenciador de Anúncios não aparecem.')
+            . '<div class="tabela"><table><tr><th>Quando</th><th>Quem</th><th>O quê</th><th>Mudança</th><th>Resultado</th></tr>';
+        $nomeSt = ['ACTIVE' => 'ligado', 'PAUSED' => 'pausado'];
+        foreach ($hist as $h) {
+            echo '<tr><td>' . e(data_local($h['em'], 'd/m H:i')) . '</td><td>' . e($h['usuario']) . '</td>'
+                . '<td class="quebra">' . e(ucfirst(GESTOR_NIVEL_META[$h['nivel']] ?? $h['nivel'])) . ' <strong>' . e((string)$h['nome']) . '</strong></td>'
+                . '<td>' . e(($nomeSt[$h['de']] ?? '—') . ' → ' . ($nomeSt[$h['para']] ?? $h['para'])) . '</td>'
+                . '<td>' . ($h['ok'] ? '<span class="selo ok">Feito</span>' : '<span class="selo erro">Recusado</span> <span class="suave">' . e((string)$h['erro']) . '</span>') . '</td></tr>';
+        }
+        echo '</table></div></section>';
+    }
 }

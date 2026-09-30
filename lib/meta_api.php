@@ -71,13 +71,29 @@ function meta_api_mensagem(?array $corpo): string
 // Devolve [status, corpo]. 0 = sem conexao; META_ADIADA = nao chamou (limite ou pausa).
 function meta_api_get(string $rota, array $consulta, string $token): array
 {
+    return meta_api_chamar('GET', $rota, $consulta, $token);
+}
+
+// POST na Graph API: so para o gestor ligar e pausar (lib/gestor_editar.php), com o mesmo
+// limite e a mesma pausa das leituras
+function meta_api_post(string $rota, array $campos, string $token): array
+{
+    return meta_api_chamar('POST', $rota, $campos, $token);
+}
+
+function meta_api_chamar(string $metodo, string $rota, array $dados, string $token): array
+{
     if ($ate = meta_api_pausa_ate()) {
         return [META_ADIADA, ['error' => ['message' => 'A Meta pediu uma pausa nas consultas; o painel volta sozinho às ' . data_local(gmdate('Y-m-d H:i:s', $ate), 'H:i') . '.']]];
     }
     if (!dentro_do_limite('meta-api', meta_api_limite_minuto(), 60)) {
         return [META_ADIADA, ['error' => ['message' => 'Limite interno de ' . meta_api_limite_minuto() . ' consultas por minuto à Meta atingido (proteção contra bloqueio).']]];
     }
-    $ch = curl_init(meta_api_base() . $rota . ($consulta ? '?' . http_build_query($consulta) : ''));
+    $post = $metodo === 'POST';
+    $ch = curl_init(meta_api_base() . $rota . (!$post && $dados ? '?' . http_build_query($dados) : ''));
+    if ($post) {
+        curl_setopt_array($ch, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => http_build_query($dados)]);
+    }
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token, 'Accept: application/json'],

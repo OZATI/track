@@ -50,4 +50,32 @@
   document.addEventListener('focusin', function (e) { if (e.target.getAttribute && e.target.getAttribute('data-dica')) { mostrar(e.target); } });
   document.addEventListener('focusout', esconder);
   window.addEventListener('scroll', esconder, true);
+
+  // Gestor: ligar ou pausar na Meta sempre pergunta antes
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (f && f.classList && f.classList.contains('chave-form') && !window.confirm(f.getAttribute('data-confirma') || 'Confirmar?')) {
+      e.preventDefault();
+    }
+  });
+  // Gestor: marcar todos e contar os marcados
+  var todos = document.querySelector('[data-sel-todos]');
+  var conta = document.querySelector('[data-sel-conta]');
+  var caixas = document.querySelectorAll('input[data-sel]');
+  function contar() {
+    var n = 0;
+    for (var i = 0; i < caixas.length; i++) { if (caixas[i].checked) { n++; } }
+    if (conta) { conta.textContent = String(n); }
+    if (todos) { todos.checked = n > 0 && n === caixas.length; todos.indeterminate = n > 0 && n < caixas.length; }
+  }
+  if (caixas.length) {
+    for (var i = 0; i < caixas.length; i++) { caixas[i].addEventListener('change', contar); }
+    if (todos) {
+      todos.addEventListener('change', function () {
+        for (var j = 0; j < caixas.length; j++) { caixas[j].checked = todos.checked; }
+        contar();
+      });
+    }
+    contar();
+  }
 })();

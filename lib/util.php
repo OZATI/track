@@ -256,10 +256,25 @@ function usuario_valido(string $u): bool
 // Para onde ir depois do login: so caminho do proprio site (sem host, sem //), senao ./
 function destino_seguro(string $volta): string
 {
-    if ($volta !== '' && strlen($volta) <= 300 && preg_match('#^(/(?![/\\\\])|\.\./|\./)[^\s\\\\]*$#', $volta)) {
+    if ($volta !== '' && strlen($volta) <= 1500 && preg_match('#^(/(?![/\\\\])|\.\./|\./)[^\s\\\\]*$#', $volta)) {
         return $volta;
     }
     return './';
+}
+
+// Aviso de uma tela para a proxima (depois de um POST que redireciona): [texto, 'ok' ou 'erro']
+function aviso_definir(string $texto, string $tipo = 'ok'): void
+{
+    sessao_iniciar();
+    $_SESSION['track_aviso'] = [$texto, $tipo === 'erro' ? 'erro' : 'ok'];
+}
+
+function aviso_pegar(): ?array
+{
+    sessao_iniciar();
+    $a = $_SESSION['track_aviso'] ?? null;
+    unset($_SESSION['track_aviso']);
+    return is_array($a) ? $a : null;
 }
 
 function exigir_login(): void

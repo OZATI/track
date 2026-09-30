@@ -21,6 +21,17 @@ if (strpos($token, 'TokenLeitura') !== 0 && strpos($token, 'TokenGerencia') !== 
     $erro(400, 190, 'Invalid OAuth access token - Cannot parse access token');
 }
 $comInstagram = strpos($token, 'TokenInstagram') === 0;
+// Ligar e pausar pelo gestor: so o token que pode editar (TokenGerencia)
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && preg_match('~^/graph/(\d+)$~', $rota)) {
+    if (strpos($token, 'TokenGerencia') !== 0) {
+        $erro(403, 200, '(#200) Requires ads_management permission to manage the object');
+    }
+    if (!in_array($_POST['status'] ?? '', ['ACTIVE', 'PAUSED'], true)) {
+        $erro(400, 100, '(#100) Invalid parameter');
+    }
+    echo json_encode(['success' => true]);
+    exit;
+}
 if ($rota === '/graph/me/accounts') {
     $pagina = ['id' => '300300', 'name' => 'EngDesk'];
     if ($comInstagram) {

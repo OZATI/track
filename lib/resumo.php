@@ -34,17 +34,60 @@ function resumo_barras(array $itens, callable $texto): string
     return $html . '</div>';
 }
 
-// Funil em faixas: [rotulo => [valor, dica]]; a % e sempre sobre o primeiro passo
+// Funil em fluxo (como o da UTMify): a faixa afunila de um passo para o outro, com a % sobre
+// o primeiro passo no meio e o numero embaixo. [rotulo => [valor, dica]]; o nome leva o (i).
+// O desenho e um SVG esticado na largura (sem texto dentro); textos ficam no HTML.
 function resumo_funil(array $passos): string
 {
-    $primeiro = (float)(reset($passos)[0] ?? 0);
-    $html = '<div class="funil">';
-    foreach ($passos as $rotulo => [$v, $dica]) {
-        $html .= '<div><span>' . com_info($rotulo, $dica) . '</span><b>' . number_format((float)$v, 0, ',', '.') . '</b>'
-            . '<em>' . e(resumo_pct((float)$v, $primeiro)) . '</em>'
-            . '<div class="trilho"><i style="width:' . ($primeiro > 0 ? min(100, round($v * 100 / $primeiro, 1)) : 0) . '%"></i></div></div>';
+    static $seq = 0;
+    $seq++;
+    $n = max(1, count($passos));
+    $vals = array_map(fn($p) => max(0.0, (float)$p[0]), array_values($passos));
+    $max = max(1.0, ...$vals);
+    $primeiro = $vals[0] ?? 0.0;
+    $larg = 1000 / $n;
+    $alt = fn(float $v) => max(3.0, $v * 94 / $max); // passo zerado ainda aparece como um fio
+    $cima = fn(float $v) => round(50 - $alt($v) / 2, 2);
+    $baixo = fn(float $v) => round(50 + $alt($v) / 2, 2);
+    $x = fn(float $v) => round($v, 2);
+
+    // Contorno: em cada passo a faixa fica reta ate o meio e desce/sobe ate o comeco do proximo
+    $d = 'M0,' . $cima($vals[0]);
+    for ($i = 0; $i < $n; $i++) {
+        $x0 = $i * $larg;
+        $d .= ' L' . $x($x0 + $larg * .5) . ',' . $cima($vals[$i]);
+        $d .= $i < $n - 1
+            ? ' C' . $x($x0 + $larg * .8) . ',' . $cima($vals[$i]) . ' ' . $x($x0 + $larg * .85) . ',' . $cima($vals[$i + 1]) . ' ' . $x($x0 + $larg) . ',' . $cima($vals[$i + 1])
+            : ' L1000,' . $cima($vals[$i]);
     }
-    return $html . '</div>';
+    $d .= ' L1000,' . $baixo($vals[$n - 1]);
+    for ($i = $n - 1; $i >= 0; $i--) {
+        $x0 = $i * $larg;
+        if ($i < $n - 1) {
+            $d .= ' C' . $x($x0 + $larg * .85) . ',' . $baixo($vals[$i + 1]) . ' ' . $x($x0 + $larg * .8) . ',' . $baixo($vals[$i]) . ' ' . $x($x0 + $larg * .5) . ',' . $baixo($vals[$i]);
+        }
+        $d .= ' L' . $x($x0) . ',' . $baixo($vals[$i]);
+    }
+    $linhas = '';
+    for ($i = 1; $i < $n; $i++) {
+        $linhas .= '<line x1="' . $x($i * $larg) . '" y1="0" x2="' . $x($i * $larg) . '" y2="100" vector-effect="non-scaling-stroke"></line>';
+    }
+
+    $html = '<div class="fluxo" style="--n:' . $n . '"><div class="fluxo-cab">';
+    foreach ($passos as $rotulo => [, $dica]) {
+        $html .= '<span>' . com_info((string)$rotulo, $dica) . '</span>';
+    }
+    $html .= '</div><div class="fluxo-corpo"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">'
+        . '<defs><linearGradient id="fluxo' . $seq . '" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--marca)"></stop><stop offset="1" style="stop-color:var(--marca-hover)"></stop></linearGradient></defs>'
+        . '<path d="' . $d . ' Z" fill="url(#fluxo' . $seq . ')"></path>' . $linhas . '</svg><div class="fluxo-pct">';
+    foreach ($vals as $v) {
+        $html .= '<b class="' . ($alt($v) >= 30 ? 'dentro' : 'fora') . '">' . e(resumo_pct($v, $primeiro)) . '</b>';
+    }
+    $html .= '</div></div><div class="fluxo-pe">';
+    foreach ($vals as $v) {
+        $html .= '<b>' . number_format($v, 0, ',', '.') . '</b>';
+    }
+    return $html . '</div></div>';
 }
 
 // Grafico de linhas por hora (0 a 23). $series = [[rotulo, cor, [hora => centavos]]]
@@ -117,7 +160,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     $imposto = (int)round($gasto * $pct / 100);
 
     // Kiwify: vendas do periodo
-    $fat = $aprovadas = $pendValor = $pendN = $reembValor = $reembN = 0;
+    $fat = $fatMeta = $aprovadas = $pendValor = $pendN = $reembValor = $reembN = 0;
     $metaIniciadas = $metaAprovadas = $siteIniciadas = $siteAprovadas = 0;
     $porPagamento = $porProduto = $porFonte = $porHora = $fatHora = [];
     $tentativas = $aprovPorMeio = [];
@@ -137,6 +180,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         }
         if (aprovada($v)) {
             $fat += $liquido;
+            $fatMeta += $daMeta ? $liquido : 0;
             $porProduto[$v['produto'] ?: '—'] = ($porProduto[$v['produto'] ?: '—'] ?? 0) + 1;
             $quando = new DateTime($v['aprovada_em'] ?: $v['recebida_em'], new DateTimeZone('UTC'));
             $h = (int)$quando->setTimezone($tz)->format('G');
@@ -184,12 +228,18 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     }
 
     // Numeros
-    $roi = $gasto ? ($fat - $imposto) / $gasto : null;
+    // ROI geral: tudo o que voltou (anuncio, organico, direto, rastreado ou nao) sobre tudo o
+    // que foi investido (gasto + imposto da Meta). O rastreado usa so as vendas com o ID de
+    // uma campanha, para ver quanto do retorno o painel liga aos anuncios.
+    $investido = $gasto + $imposto;
+    $roi = $investido ? $fat / $investido : null;
+    $roiMeta = $investido ? $fatMeta / $investido : null;
     echo '<div class="numeros">'
         . numero(reais($fat), 'Faturamento líquido', 'Soma do que a Kiwify repassa (depois das taxas) das vendas aprovadas no período, com order bump.')
         . numero(reais($gasto), 'Gasto com anúncios', 'Quanto a Meta cobrou pelos anúncios no período, sem o imposto.')
         . numero(reais($lucro), 'Lucro', 'Faturamento líquido − gasto − imposto da Meta (' . $num($pct) . '% sobre o gasto).', $lucro >= 0 ? 'positivo' : 'negativo')
-        . numero($roi === null ? 'N/A' : $num($roi), 'ROI', '(Faturamento líquido − imposto) ÷ gasto. Acima de 1, os anúncios se pagam. Mesma conta da UTMify.', $roi === null ? '' : ($roi >= 1 ? 'positivo' : 'negativo'))
+        . numero($roi === null ? 'N/A' : $num($roi), 'ROI geral', 'Tudo o que voltou ÷ tudo o que foi investido: faturamento líquido de todas as vendas aprovadas (anúncio, orgânico e direto, rastreadas ou não) ÷ (gasto na Meta + imposto). Acima de 1, o investimento se paga.', $roi === null ? '' : ($roi >= 1 ? 'positivo' : 'negativo'))
+        . numero($roiMeta === null ? 'N/A' : $num($roiMeta), 'ROI rastreado', 'Só as vendas com o ID de uma campanha da Meta ÷ (gasto + imposto). A diferença para o ROI geral é o retorno que veio de orgânico, direto ou venda sem etiqueta.', $roiMeta === null ? '' : ($roiMeta >= 1 ? 'positivo' : 'negativo'))
         . numero($fat ? $num($lucro * 100 / $fat, 1) . '%' : '—', 'Margem', 'Lucro ÷ faturamento líquido: quanto de cada real vendido sobra.')
         . numero($aprovadas ? reais((int)round($gasto / $aprovadas)) : 'N/A', 'CPA', 'Gasto ÷ vendas aprovadas. Order bump não conta como outra venda.')
         . numero(reais($imposto), 'Imposto da Meta', 'Impostos que a Meta cobra sobre o gasto com anúncios no Brasil: ' . $num($pct) . '%.')

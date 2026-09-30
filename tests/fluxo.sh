@@ -38,6 +38,8 @@ META_FALSA=$!
 PORTA_IG=$((PORTA + 3))
 export TRACK_IG_API="http://127.0.0.1:$PORTA_IG/ig"
 export TRACK_IG_LIMITE_MINUTO=200
+# Limite folgado para a Meta falsa: a sequencia de testes passa das 30 consultas por minuto
+export TRACK_META_LIMITE_MINUTO=200
 export TRACK_IG_MIDIA_HOST="127.0.0.1:$PORTA_IG"
 # shellcheck disable=SC2086
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_IG" "$RAIZ/tests/instagram-falsa.php" >"$DADOS/instagram-falsa.log" 2>&1 &
@@ -141,7 +143,8 @@ confere "$(tem 'R$ 67,00' "$r")" "valor com ponto decimal exibido em reais"
 confere "$(tem '<span>Anúncio sem posicionamento</span>' "$r")" "venda de anúncio sem posicionamento fica como tal, não como Facebook ou Instagram"
 confere "$(tem '<span>Anúncio sem posicionamento</span><span class="info" tabindex="0" role="img" aria-label="Veio de anúncio da Meta' "$r")" "anúncio sem posicionamento tem o (i) explicando"
 confere "$(tem '<span class="suave">· utm_term ' "$r")" "anúncio sem posicionamento mostra o utm_term que chegou"
-confere "$(tem '<span>Orgânico</span><span class="suave">· WhatsApp</span>' "$r")" "venda orgânica mostra o meio (WhatsApp)"
+confere "$(tem '<span>Orgânico</span><span class="info"[^>]*>i</span><span class="suave">· WhatsApp</span>' "$r")" "venda orgânica mostra o meio (WhatsApp)"
+confere "$(tem 'data-dica="Chegou sem anúncio: link da bio' "$r")" "canal Orgânico tem o (i) dizendo de onde vem e em que condição"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo")
 confere "$(tem '&lt;script&gt;alert(1)&lt;/script&gt;' "$r")" "texto vindo da página é escapado (sem XSS)"
 confere "$(grep -q '<script>alert(1)' <<<"$r"; [ $? -ne 0 ]; echo $?)" "nenhum script injetado na tela"
@@ -314,7 +317,7 @@ confere "$(tem 'R$ 40,00<br><span class="suave">Diário' "$linha")" "orçamento 
 confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$linha")" "gasto, 2 vendas (bump fora) e faturamento líquido com bump"
 confere "$(tem 'positivo">R$ 78,92' "$linha")" "lucro desconta gasto e imposto de 12,15% (igual à UTMify)"
 confere "$(tem 'R$ 25,00</td><td><span class="positivo">2,58</span></td><td>R$ 16,67</td><td>3</td><td>R$ 0,83</td><td>1,50%</td><td><span class="positivo">58,5%</span>' "$linha")" "CPA, ROI, CPI, IC, CPC, CTR e margem"
-confere "$(tem 'status-meta ativo" title="Ativo na Meta">Ativo</span></td><td class="quebra"><a class="abre" href="./?aba=gestor&amp;periodo=tudo&amp;nivel=conjuntos&amp;campanha=120120"' "$r")" "campanha ativa na Meta, com o nome abrindo os conjuntos dela"
+confere "$(tem 'aria-checked="true"[^<]*><span></span></button></form></td><td class="quebra"><a class="abre" href="./?aba=gestor&amp;periodo=tudo&amp;nivel=conjuntos&amp;campanha=120120"' "$r")" "campanha ativa na Meta, com o nome abrindo os conjuntos dela"
 confere "$(tem 'negativo">R$ -11,22' "$r")" "campanha pausada com gasto e sem venda aparece no prejuízo"
 confere "$(tem '1 venda(s) fora de anúncio' "$r")" "venda orgânica conta como fora de anúncio"
 confere "$(tem 'data-dica="Vendas aprovadas sem o ID de uma campanha da Meta (a UTMify chama de &quot;não trackeadas&quot;): 1 orgânico' "$r")" "(i) do aviso diz o motivo de cada uma"
@@ -358,19 +361,63 @@ confere "$(tem '>CPM</a>' "$r")" "escolha de colunas fica salva"
 confere "$(tem '<td>R$ 50,00</td><td>4.000</td><td>R$ 12,50</td>' "$r")" "CPM e impressões calculados"
 curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=orcamento&cols[]=gasto&cols[]=vendas&cols[]=fat&cols[]=lucro&cols[]=cpa&cols[]=roi"
 
+echo "Gestor: ligar, pausar e selecionar"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem 'class="chave ligada" role="switch" aria-checked="true" aria-label="Pausar" title="O token da API Meta só lê' "$r")" "token só de leitura: chave aparece, sem clique"
+status() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "id=$2" --data-urlencode "status=$3" --data-urlencode "volta=./?aba=gestor&periodo=tudo" "$URL/meta-status.php"; curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo"; }
+r=$(status "$csrf" 120120 PAUSED)
+confere "$(tem 'O token da API Meta só lê' "$(sem_tags "$r")")" "sem ads_management, a Meta nem é chamada"
+meta "$csrf" "TokenGerencia00000000000000000000000000000000" 587364236934346 >/dev/null
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem 'class="chave ligada" role="switch" aria-checked="true" aria-label="Pausar" title="Ligado na Meta. Clique para pausar."' "$r")" "token que edita: chave clicável"
+confere "$(tem 'data-confirma="Pausar a campanha &quot;TL 1&quot; na Meta?"' "$r")" "pausar pede confirmação na tela"
+r=$(status "" 120120 PAUSED)
+confere "$(tem 'Sessão expirada' "$r")" "sem o token do formulário não muda nada"
+r=$(status "$csrf" 999999 PAUSED)
+confere "$(tem 'Não encontrei esse item' "$(sem_tags "$r")")" "item que não é da conta é recusado"
+r=$(status "$csrf" 120120 DELETED)
+confere "$(tem 'Não encontrei esse item' "$(sem_tags "$r")")" "só ligar ou pausar (nada de apagar)"
+r=$(status "$csrf" 120120 PAUSED)
+confere "$(tem 'A campanha &quot;TL 1&quot; foi pausada na Meta.' "$r")" "pausar a campanha na Meta"
+confere "$(tem 'class="chave" role="switch" aria-checked="false" aria-label="Ligar"' "$r")" "chave da campanha fica desligada"
+confere "$(tem 'Alterações feitas pelo painel' "$(sem_tags "$r")")" "histórico das alterações"
+confere "$(tem 'A campanha.*TL 1.*ligado → pausado.*Feito' "$(sem_tags "$r" | tr -d '\n')")" "histórico diz quem, o quê, de/para e o resultado"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos&campanha=120120")
+confere "$(tem 'title="CAMPAIGN_PAUSED">Pausado</span>' "$r")" "conjunto da campanha pausada fica pausado pela campanha"
+r=$(status "$csrf" 120120 ACTIVE)
+confere "$(tem 'A campanha &quot;TL 1&quot; foi ligada na Meta.' "$r")" "ligar de novo"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos&campanha=120120")
+confere "$(grep -q 'title="CAMPAIGN_PAUSED"' <<<"$r"; [ $? -ne 0 ]; echo $?)" "conjunto volta com a campanha"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&campanhas[]=555555")
+confere "$(tem 'name="campanhas\[\]" value="555555" data-sel checked' "$r")" "campanha marcada continua marcada"
+confere "$(tem 'href="./?aba=gestor&amp;periodo=tudo&amp;nivel=conjuntos&amp;campanhas%5B0%5D=555555"' "$r")" "aba Conjuntos leva a seleção"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos&campanhas[]=555555")
+confere "$(tem '<strong>conjunto free</strong>' "$r")" "conjuntos só das campanhas marcadas"
+confere "$(grep -q '<strong>conjunto 5</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "conjunto de campanha não marcada fica de fora"
+confere "$(tem 'Mostrando só 1 campanha(s) marcada(s): FREE' "$(sem_tags "$r")")" "tela diz qual seleção está filtrando"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&campanhas[]=120120")
+confere "$(tem '<strong>cv 05</strong>' "$r")" "anúncios só das campanhas marcadas"
+confere "$(grep -q '<strong>cv free</strong>' <<<"$r"; [ $? -ne 0 ]; echo $?)" "anúncio de campanha não marcada fica de fora"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&conjuntos[]=444444")
+confere "$(tem '<strong>cv free</strong>' "$r")" "anúncios só dos conjuntos marcados"
+meta "$csrf" "$LEITURA" 587364236934346 >/dev/null
+
 echo "Resumo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'R$ 202,00Faturamento líquido' "$(sem_tags "$r")")" "faturamento líquido do período (com order bump)"
 confere "$(tem 'R$ 60,00Gasto com anúncios' "$(sem_tags "$r")")" "gasto com anúncios"
 confere "$(tem '<b class="positivo">R$ 134,71</b><span><span class="nw">Lucro' "$r")" "lucro com imposto da Meta"
-confere "$(tem '<b class="positivo">3,25</b><span><span class="nw">ROI' "$r")" "ROI"
+confere "$(tem '<b class="positivo">3,00</b><span>ROI <span class="nw">geral' "$r")" "ROI geral: todo o faturamento ÷ (gasto + imposto)"
+confere "$(tem 'ROI rastreado' "$(sem_tags "$r")")" "ROI rastreado ao lado, para comparar"
 confere "$(tem '<b class="">66,7%</b><span><span class="nw">Margem' "$r")" "margem"
 confere "$(tem '<b class="">R$ 67,00</b><span><span class="nw">Pendentes' "$r")" "pendentes no valor cobrado"
 confere "$(tem 'Funil da Meta' "$(sem_tags "$r")")" "funil da Meta"
 confere "$(tem '<span class="nw">Visualizações&nbsp;' "$r")" "funil com visualizações da página"
 confere "$(tem 'Funil do site' "$(sem_tags "$r")")" "funil do site"
+confere "$(tem '<div class="fluxo" style="--n:5">' "$r")" "funil da Meta em fluxo, com os 5 passos"
+confere "$(tem '<b class="dentro">100,0%</b>' "$r")" "primeiro passo do funil com 100% dentro da faixa"
 confere "$(tem 'class="grafico"' "$r")" "gráficos por hora em SVG"
-confere "$(tem 'data-dica="(Faturamento líquido − imposto) ÷ gasto.' "$r")" "número do Resumo tem o (i) com a conta"
+confere "$(tem 'data-dica="Tudo o que voltou ÷ tudo o que foi investido' "$r")" "número do Resumo tem o (i) com a conta"
 
 echo "Orgânico"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=tudo")

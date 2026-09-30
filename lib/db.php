@@ -131,6 +131,24 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 5;
             SQL);
     }
+    if ($versao < 6) {
+        // Gestor de anuncios: cada vez que alguem liga ou pausa algo na Meta pelo painel
+        track_migrar_para($pdo, 6, <<<'SQL'
+            CREATE TABLE IF NOT EXISTS meta_alteracoes (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                em        TEXT NOT NULL,
+                usuario   TEXT NOT NULL,
+                nivel     TEXT NOT NULL,
+                objeto_id TEXT NOT NULL,
+                nome      TEXT,
+                de        TEXT,
+                para      TEXT NOT NULL,
+                ok        INTEGER NOT NULL,
+                erro      TEXT
+            );
+            PRAGMA user_version = 6;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

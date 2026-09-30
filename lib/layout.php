@@ -158,6 +158,18 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor a.abre{ color:var(--texto); } .tabela.gestor a.abre:hover strong{ color:var(--marca); text-decoration:underline; }
 .delta{ font-size:11px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); }
 .trilha{ margin:0 0 12px; }
+/* Gestor: chave liga/pausa e caixas de marcar */
+.chave-form{ display:inline-block; margin:0 6px 0 0; vertical-align:middle; }
+.chave{ position:relative; width:34px; height:20px; padding:0; border-radius:10px; border:0; background:var(--linha-forte); cursor:pointer; }
+.chave:hover{ background:var(--apagado); }
+.chave span{ position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:left .15s; }
+.chave.ligada{ background:var(--marca); } .chave.ligada:hover{ background:var(--marca-hover); }
+.chave.ligada span{ left:16px; }
+.chave:disabled, .chave:disabled:hover{ opacity:.55; cursor:not-allowed; background:var(--linha-forte); }
+.chave.ligada:disabled{ background:var(--marca); }
+.chave:focus-visible{ outline:2px solid var(--marca); outline-offset:2px; }
+th.marca, td.marca{ width:34px; text-align:center; }
+.gestor-sel{ display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin:0 0 10px; }
 .status-meta{ display:inline-flex; align-items:center; gap:6px; color:var(--suave); }
 .status-meta::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--apagado); }
 .status-meta.ativo{ color:var(--texto); } .status-meta.ativo::before{ background:#16A34A; }
@@ -182,16 +194,20 @@ td.quebra{ white-space:normal; min-width:220px; }
 .barras .trilho i{ display:block; height:100%; background:var(--marca); border-radius:2px; }
 .barras .val{ text-align:right; white-space:nowrap; }
 .barras .val span{ color:var(--suave); margin-left:8px; }
-.funil{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); border:1px solid var(--linha); border-radius:var(--r-sm); }
-.funil > div{ padding:10px 12px; border-right:1px solid var(--linha); min-width:0; }
-.funil > div:last-child{ border-right:0; }
+/* Funil em fluxo (resumo_funil) */
+.fluxo-cab, .fluxo-pct, .fluxo-pe{ display:grid; grid-template-columns:repeat(var(--n),minmax(0,1fr)); text-align:center; }
+.fluxo-cab span{ padding:0 6px 10px; font-size:13px; font-weight:600; color:var(--suave); }
+.fluxo-corpo{ position:relative; height:150px; }
+.fluxo-corpo svg{ position:absolute; inset:0; width:100%; height:100%; }
+.fluxo-corpo line{ stroke:var(--linha-forte); stroke-width:1; }
+.fluxo-pct{ position:absolute; inset:0; align-items:center; pointer-events:none; }
+.fluxo-pct b{ font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
+.fluxo-pct b.dentro{ color:#fff; }
+.fluxo-pct b.fora{ color:var(--texto); transform:translateY(-18px); }
+.fluxo-pe b{ padding-top:10px; font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; }
+@media (max-width:640px){ .fluxo-cab span{ font-size:11px; padding:0 2px 8px; } .fluxo-pct b{ font-size:13px; } .fluxo-pe b{ font-size:13px; } .fluxo-corpo{ height:110px; } }
 .bloco + .bloco, .grade + .bloco, .bloco + .grade{ margin-top:16px; }
 .grade > .bloco{ margin-top:0; }
-.funil > div > span{ display:block; color:var(--suave); font-size:12px; }
-.funil b{ display:block; font-size:18px; font-weight:600; }
-.funil em{ font-style:normal; color:var(--suave); font-size:12px; }
-.funil .trilho{ height:4px; background:var(--cartao-2); margin-top:8px; }
-.funil .trilho i{ display:block; height:100%; background:var(--marca); }
 
 /* Filtro por tipo de evento */
 .filtro-eventos{ display:flex; flex-wrap:wrap; gap:4px 18px; margin:0 0 4px; }
@@ -349,8 +365,13 @@ function canal(?string $source, ?string $medium = null, ?string $term = null, ?s
 // Ordem dos canais nas tabelas agrupadas
 const CANAIS_ORDEM = ['instagram', 'facebook', 'meta', 'compartilhado', 'google', 'organico', 'outros', 'direto'];
 
-// Canais que o nome nao explica: o (i) ao lado diz o que sao
+// O (i) ao lado de cada canal: de onde vem e em que condicao a visita ou venda cai nele
 const CANAIS_DICA = [
+    'instagram' => 'Veio de um anúncio pago que apareceu no Instagram (feed, stories, reels, explorar). Condição: o link traz a campanha do anúncio e o posicionamento Instagram (utm_term), ou o Instagram trocou a origem para ig / social mas a campanha tem o ID da Meta.',
+    'facebook' => 'Veio de um anúncio pago que apareceu no Facebook, no Messenger ou na Audience Network. Condição: o link traz a campanha do anúncio e o posicionamento Facebook (utm_term).',
+    'google' => 'Veio de um anúncio do Google Ads. Condição: o link traz utm_source=google (ou googleads) com meio pago, como cpc.',
+    'organico' => 'Chegou sem anúncio: link da bio, post, story, Direct, WhatsApp, busca do Google, IA ou outro site. Condição: o link diz que é orgânico (ex.: organico / instagram-bio) ou a pessoa veio de um site sem etiqueta de anúncio. O detalhe ao lado diz de onde.',
+    'outros' => 'O link tem etiqueta, mas não é de anúncio da Meta, do Google nem orgânica (ex.: e-mail marketing, parceiro, outra ferramenta). O detalhe mostra a origem escrita no link.',
     'meta' => 'Veio de anúncio da Meta (a etiqueta traz a campanha), mas o utm_term, que diz onde o anúncio apareceu, chegou vazio ou com um valor que não é Facebook nem Instagram (ex.: "an", da Audience Network). Por isso não entra em Facebook nem em Instagram. Campanha, conjunto e anúncio continuam valendo no Gestor de anúncios. Para diminuir: o link do anúncio precisa ter utm_term={{placement}}.',
     'compartilhado' => 'Link de anúncio aberto fora da entrega paga (post compartilhado, link copiado, prévia do anúncio): as etiquetas chegaram com {{...}} escrito, sem o que a Meta preencheria. Não dá para ligar a uma campanha.',
     'direto' => 'Chegou sem etiqueta e sem site de origem: link digitado ou salvo, app que esconde de onde veio, link direto do checkout ou troca de aparelho entre o clique e a compra.',
