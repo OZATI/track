@@ -265,15 +265,15 @@ th.marca, td.marca{ width:34px; text-align:center; }
 /* Funil em fluxo (resumo_funil) */
 .fluxo-cab, .fluxo-pct, .fluxo-pe{ display:grid; grid-template-columns:repeat(var(--n),minmax(0,1fr)); text-align:center; }
 .fluxo-cab span{ padding:0 6px 10px; font-size:13px; font-weight:600; color:var(--suave); }
-.fluxo-corpo{ position:relative; height:150px; }
+.fluxo-corpo{ position:relative; height:150px; --escala:1.5px; }
 .fluxo-corpo svg{ position:absolute; inset:0; width:100%; height:100%; }
 .fluxo-corpo line{ stroke:var(--linha-forte); stroke-width:1; }
 .fluxo-pct{ position:absolute; inset:0; align-items:center; pointer-events:none; }
 .fluxo-pct b{ font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; }
 .fluxo-pct b.dentro{ color:#fff; }
-.fluxo-pct b.fora{ color:var(--texto); transform:translateY(-18px); }
+.fluxo-pct b.fora{ color:var(--texto); transform:translateY(calc(var(--h) * var(--escala) * -0.5 - 14px)); }
 .fluxo-pe b{ padding-top:10px; font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; }
-@media (max-width:640px){ .fluxo-cab span{ font-size:11px; padding:0 2px 8px; } .fluxo-pct b{ font-size:13px; } .fluxo-pe b{ font-size:13px; } .fluxo-corpo{ height:110px; } }
+@media (max-width:640px){ .fluxo-cab span{ font-size:11px; padding:0 2px 8px; } .fluxo-pct b{ font-size:13px; } .fluxo-pe b{ font-size:13px; } .fluxo-corpo{ height:110px; --escala:1.1px; } }
 .bloco + .bloco, .grade + .bloco, .bloco + .grade{ margin-top:16px; }
 .grade > .bloco{ margin-top:0; }
 

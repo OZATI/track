@@ -82,7 +82,9 @@ function resumo_funil(array $passos): string
         . '<defs><linearGradient id="fluxo' . $seq . '" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--marca)"></stop><stop offset="1" style="stop-color:var(--marca-hover)"></stop></linearGradient></defs>'
         . '<path d="' . $d . ' Z" fill="url(#fluxo' . $seq . ')"></path>' . $linhas . '</svg><div class="fluxo-pct">';
     foreach ($vals as $v) {
-        $html .= '<b class="' . ($alt($v) >= 30 ? 'dentro' : 'fora') . '">' . e(resumo_pct($v, $primeiro)) . '</b>';
+        // Faixa grossa: a % vai dentro, em branco; faixa fina: logo acima dela, pela altura
+        $html .= $alt($v) >= 24 ? '<b class="dentro">' . e(resumo_pct($v, $primeiro)) . '</b>'
+            : '<b class="fora" style="--h:' . round($alt($v), 1) . '">' . e(resumo_pct($v, $primeiro)) . '</b>';
     }
     $html .= '</div></div><div class="fluxo-pe">';
     foreach ($vals as $v) {
@@ -205,7 +207,7 @@ function resumo_rosca(array $partes, array $cores, string $centro): string
 // Colunas com a % em cima (ex.: vendas por dia da semana). $itens = [rotulo => n]
 function resumo_svg_colunas(array $itens, string $nome): string
 {
-    $L = 700; $A = 210; $esq = 8; $baixo = 24; $cima = 20;
+    $L = 460; $A = 200; $esq = 6; $baixo = 22; $cima = 18;
     $total = array_sum($itens);
     $max = max(1, ...array_values($itens));
     $larg = ($L - 2 * $esq) / max(1, count($itens));
@@ -372,7 +374,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         . resumo_cartao(reais($gasto), 'Gasto com anúncios', 'Quanto a Meta cobrou pelos anúncios no período, sem o imposto.', '', 'investimento com imposto: ' . reais($investido), 'c3')
         . resumo_cartao($roi === null ? 'N/A' : $num($roi), 'ROI geral', 'Tudo o que voltou ÷ tudo o que foi investido: faturamento líquido de todas as vendas aprovadas (anúncio, orgânico e direto, rastreadas ou não) ÷ (gasto na Meta + imposto). Acima de 1, o investimento se paga.', $cor($roi, 1), '', 'c2')
         . resumo_cartao($roiMeta === null ? 'N/A' : $num($roiMeta), 'ROI rastreado', 'Só as vendas com o ID de uma campanha da Meta ÷ (gasto + imposto). A diferença para o ROI geral é o retorno que veio de orgânico, direto ou venda sem etiqueta.', $cor($roiMeta, 1), '', 'c2')
-        . resumo_cartao(reais($lucro), 'Lucro', 'Faturamento líquido − gasto − imposto da Meta (' . $num($pct) . '% sobre o gasto).', $cor((float)$lucro), '', 'c2')
+        . resumo_cartao(reais($lucro), 'Lucro', 'Faturamento líquido − gasto − imposto da Meta (' . $num($pct) . '% sobre o gasto).', $lucro ? $cor((float)$lucro) : '', '', 'c2')
         . '<section class="rc c4 r2"><div class="rc-cab"><span>Vendas por pagamento</span>' . info('Vendas aprovadas (sem contar order bump) por forma de pagamento.') . '</div>'
         . resumo_rosca($porPagamento, ['Pix' => '#1D6FF2', 'Cartão' => '#60A5FA', 'Boleto' => '#F59E0B', 'Outros' => '#9CA3AF'], 'Total') . '</section>'
         . resumo_cartao($fat ? $num($lucro * 100 / $fat, 1) . '%' : '—', 'Margem', 'Lucro ÷ faturamento líquido: quanto de cada real vendido sobra.', $fat ? $cor((float)$lucro) : '', '', 'c2')
