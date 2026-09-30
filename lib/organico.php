@@ -4,10 +4,12 @@
 // agrupados pelo mesmo canal organico (bio do Instagram, Instagram, Google, WhatsApp, IA,
 // outros sites) e, a parte, o que chegou sem origem nenhuma.
 //
-// O perfil do Instagram (seguidores, alcance, posts) entra quando o token da Meta tiver as
-// permissoes do Instagram; ate la o bloco explica o que falta.
+// O perfil do Instagram (seguidores, alcance, toques nos links do perfil, posts e reels) vem
+// da API do Instagram (lib/instagram_sync.php), com o token da aba API Instagram; sem ele, o
+// bloco explica como conectar.
 
 require_once __DIR__ . '/resumo.php';
+require_once __DIR__ . '/instagram_sync.php';
 
 // Grupo organico de uma origem: [chave, rotulo] ou null quando e anuncio
 function organico_grupo(?string $source, ?string $medium, ?string $term, ?string $referrer = null): ?array
@@ -24,13 +26,13 @@ function organico_grupo(?string $source, ?string $medium, ?string $term, ?string
 }
 
 // Barras por dia (SVG). $porDia = ['Y-m-d' => n]
-function organico_svg_dias(array $porDia): string
+function organico_svg_dias(array $porDia, string $unidade = 'venda(s)', string $nome = 'Vendas orgânicas por dia'): string
 {
     $L = 1400; $A = 170; $esq = 10; $baixo = 22; $cima = 18;
     $n = count($porDia);
     $max = max(1, ...array_values($porDia));
     $larg = ($L - 2 * $esq) / max(1, $n);
-    $svg = '<svg class="grafico" viewBox="0 0 ' . $L . ' ' . $A . '" role="img" aria-label="Vendas orgânicas por dia">';
+    $svg = '<svg class="grafico" viewBox="0 0 ' . $L . ' ' . $A . '" role="img" aria-label="' . e($nome) . '">';
     $i = 0;
     $passoRotulo = max(1, (int)ceil($n / 15));
     foreach ($porDia as $dia => $v) {
@@ -39,8 +41,8 @@ function organico_svg_dias(array $porDia): string
         $rot = (new DateTime($dia))->format('d/m');
         if ($v) {
             $svg .= '<rect x="' . round($x + $larg * .15, 1) . '" y="' . round($A - $baixo - $alt, 1) . '" width="' . round($larg * .7, 1) . '" height="' . round($alt, 1) . '" class="barra"><title>'
-                . $rot . ': ' . $v . ' venda(s)</title></rect>'
-                . '<text x="' . round($x + $larg / 2, 1) . '" y="' . round($A - $baixo - $alt - 5, 1) . '" text-anchor="middle">' . $v . '</text>';
+                . $rot . ': ' . number_format($v, 0, ',', '.') . ' ' . e($unidade) . '</title></rect>'
+                . '<text x="' . round($x + $larg / 2, 1) . '" y="' . round($A - $baixo - $alt - 5, 1) . '" text-anchor="middle">' . number_format($v, 0, ',', '.') . '</text>';
         }
         if ($i % $passoRotulo === 0) {
             $svg .= '<text x="' . round($x + $larg / 2, 1) . '" y="' . ($A - 6) . '" text-anchor="middle">' . $rot . '</text>';
@@ -126,6 +128,21 @@ function organico_render(PDO $db, string $periodo, string $de, string $ate): voi
         }
     }
 
+    // Barra de atualizacao: vendas da Kiwify e perfil do Instagram
+    $k = kiwify_sync_estado();
+    $ig = ig_sync_estado();
+    $partes = [];
+    if ($k['ok_em']) {
+        $partes[] = 'vendas atualizadas em ' . data_local($k['ok_em'], 'd/m H:i');
+    }
+    if ($ig['ok_em']) {
+        $partes[] = 'Instagram em ' . data_local($ig['ok_em'], 'd/m H:i');
+    }
+    $vencida = ig_sync_vencida() || kiwify_sync_vencida();
+    echo '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '><span data-sync-texto>' . e(ucfirst(implode(' · ', $partes))) . '</span>'
+        . '<form method="post" action="sincronizar.php"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
+        . '<input type="hidden" name="volta" value="' . e('./?' . http_build_query(['aba' => 'organico', 'periodo' => $periodo])) . '"><button type="submit">Atualizar</button></form></div>';
+
     // Numeros
     $pct = fn($a, $b) => $b ? number_format($a * 100 / $b, 1, ',', '.') . '%' : '—';
     echo '<div class="numeros">'
@@ -173,8 +190,132 @@ function organico_render(PDO $db, string $periodo, string $de, string $ate): voi
             . organico_svg_dias($porDia) . '</section>';
     }
 
-    echo '<section class="bloco">' . titulo('Perfil do Instagram', 'Seguidores, alcance e os posts e reels que mais engajam e levam gente à página. Vem da API do Instagram.')
-        . '<p class="suave">Para trazer os números do perfil, o app da Meta precisa do caso de uso <strong>Gerenciar mensagens e conteúdo no Instagram</strong>, '
-        . 'com a conta do Instagram ligada ao portfólio, e o token com as permissões <strong>instagram_basic</strong> e <strong>instagram_manage_insights</strong>. '
-        . 'Depois é só trocar o token na aba <a href="meta-api.php">API Meta</a>.</p></section>';
+    organico_instagram($db, $periodo, $grupos);
+}
+
+// Perfil do Instagram: numeros da conta no periodo, o caminho do perfil ate a venda (com as
+// visitas e vendas que o painel mediu), alcance por dia e cada post ou reel.
+// $grupos = canais organicos da aba, com visitas, cliques no checkout e vendas.
+function organico_instagram(PDO $db, string $periodo, array $grupos): void
+{
+    $perfil = ig_perfil();
+    $estado = ig_sync_estado();
+    $explica = 'Seguidores, alcance, visualizações, toques nos links do perfil e os posts e reels do período. Vem da API do Instagram; os números de um dia podem levar até 48 horas para fechar.';
+    if (!$perfil) {
+        echo '<section class="bloco">' . titulo('Perfil do Instagram', $explica) . '<p class="suave">'
+            . (ig_api_chave() ? e($estado['erro'] ?: 'Primeira busca no Instagram em andamento: os números aparecem em instantes.')
+                : 'Conecte o perfil na aba <a href="instagram-api.php">API Instagram</a> para ver aqui seguidores, alcance, toques no link da bio e os posts e reels que mais engajam, ao lado das visitas e vendas que vieram do perfil.')
+            . '</p></section>';
+        return;
+    }
+    $n = fn($v) => number_format((int)$v, 0, ',', '.');
+    [$d1, $d2] = gestor_dias($periodo);
+    $st = $db->prepare('SELECT COUNT(buscado_em) AS dias, SUM(alcance) AS alcance, SUM(visualizacoes) AS vis, SUM(contas_engajadas) AS eng,
+            SUM(interacoes) AS inter, SUM(toques_links) AS toques, SUM(seguiram) AS seguiram, SUM(deixaram) AS deixaram, COUNT(seguiram) AS dias_seguir
+        FROM ig_dia WHERE dia >= ? AND dia <= ?');
+    $st->execute([$d1, $d2]);
+    $t = $st->fetch(PDO::FETCH_ASSOC);
+    $temInsights = (int)$t['dias'] > 0;
+
+    [$de, $ate] = periodo_utc($periodo);
+    $posts = consulta_ig($db, 'SELECT * FROM ig_media WHERE publicado_em >= ? AND publicado_em < ? ORDER BY publicado_em DESC LIMIT 60', [$de, $ate]);
+    $noPeriodo = count($posts);
+
+    // Numeros
+    $saldo = (int)$t['dias_seguir'] ? (int)$t['seguiram'] - (int)$t['deixaram'] : null;
+    echo '<section class="bloco">' . titulo('Perfil do Instagram · @' . $perfil['usuario'], $explica);
+    if ($estado['erro']) {
+        echo '<p class="erro">Última busca no Instagram falhou: ' . e($estado['erro']) . '</p>';
+    }
+    if (!$temInsights) {
+        echo '<p class="suave">' . e($estado['insights_erro'] ?: ($estado['ok_em'] ? 'Sem números da conta neste período.' : 'Buscando os números da conta.'))
+            . ' Seguidores e posts aparecem mesmo assim.</p>';
+    }
+    echo '<div class="numeros">'
+        . numero($n($perfil['seguidores'] ?? 0), 'Seguidores', 'Seguidores do perfil na última busca.');
+    if ($temInsights) {
+        echo numero($saldo === null ? 'N/A' : ($saldo >= 0 ? '+' : '−') . $n(abs($saldo)), 'Saldo de seguidores', $saldo === null
+                ? 'O Instagram só informa quem seguiu e quem deixou de seguir em perfis com 100 seguidores ou mais.'
+                : 'Começaram a seguir (' . $n($t['seguiram']) . ') menos deixaram de seguir (' . $n($t['deixaram']) . ') no período.')
+            . numero($n($t['alcance']), 'Alcance', 'Contas diferentes que viram algum conteúdo do perfil, somadas dia a dia: quem viu em dois dias conta duas vezes.')
+            . numero($n($t['vis']), 'Visualizações', 'Quantas vezes posts, reels e stories foram vistos no período, contando repetições.')
+            . numero($n($t['inter']), 'Interações', 'Curtidas, comentários, salvamentos, compartilhamentos e respostas no período.')
+            . numero($n($t['eng']), 'Contas engajadas', 'Contas que interagiram com o conteúdo, somadas dia a dia.')
+            . numero($n($t['toques']), 'Toques nos links do perfil', 'Toques no link da bio e nos botões de contato do perfil: o começo do caminho até o site.');
+    }
+    echo numero((string)$noPeriodo, 'Posts no período', 'Posts e reels publicados no período. Stories não entram.') . '</div></section>';
+
+    // Do perfil a venda, e alcance por dia
+    if ($temInsights) {
+        $vis = $ck = $vendas = 0;
+        foreach ($grupos as $chave => $g) {
+            if (strpos($chave, 'org:instagram') === 0) {
+                $vis += $g['vis'];
+                $ck += $g['ck'];
+                $vendas += $g['vendas'];
+            }
+        }
+        echo '<section class="bloco">' . titulo('Do perfil à venda', 'O caminho de quem viu o perfil até comprar sem anúncio. Os dois primeiros passos vêm do Instagram; os outros, do painel e da Kiwify.')
+            . resumo_funil([
+                'Alcance' => [(int)$t['alcance'], 'Contas que viram algum conteúdo do perfil (soma dos dias).'],
+                'Toques nos links do perfil' => [(int)$t['toques'], 'Toques no link da bio e nos botões de contato.'],
+                'Visitantes vindos do Instagram' => [$vis, 'Aparelhos que chegaram às páginas pelo link da bio ou outro link do Instagram sem anúncio, medidos pelo painel.'],
+                'Clicaram no checkout' => [$ck, 'Desses visitantes, quantos clicaram no botão de compra.'],
+                'Vendas' => [$vendas, 'Vendas aprovadas com a etiqueta do Instagram sem anúncio (bio e outros links). Order bump não conta como outra venda.'],
+            ]) . '</section>';
+        $porDia = [];
+        if ($periodo !== 'hoje') {
+            $ini = $periodo === 'tudo' ? (new DateTime('today', fuso()))->modify('-' . (IG_SYNC_DIAS - 1) . ' days')->format('Y-m-d') : $d1;
+            $fim = $periodo === 'tudo' ? (new DateTime('today', fuso()))->format('Y-m-d') : $d2;
+            for ($d = new DateTime($ini); $d->format('Y-m-d') <= $fim; $d->modify('+1 day')) {
+                $porDia[$d->format('Y-m-d')] = 0;
+            }
+            $st = $db->prepare('SELECT dia, alcance FROM ig_dia WHERE dia >= ? AND dia <= ?');
+            $st->execute([$ini, $fim]);
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $l) {
+                $porDia[$l['dia']] = (int)$l['alcance'];
+            }
+        }
+        echo '<section class="bloco">' . titulo('Alcance por dia', 'Contas diferentes que viram algum conteúdo do perfil em cada dia' . ($periodo === 'tudo' ? ' (últimos ' . IG_SYNC_DIAS . ' dias)' : '') . '.')
+            . ($porDia ? organico_svg_dias($porDia, 'contas alcançadas', 'Alcance por dia') : '<p class="suave">Escolha um período de mais de um dia.</p>') . '</section>';
+    }
+
+    // Posts e reels: os do periodo, do maior alcance para o menor; sem post no periodo, os mais recentes
+    $recentes = !$posts;
+    if ($recentes) {
+        $posts = consulta_ig($db, 'SELECT * FROM ig_media ORDER BY publicado_em DESC LIMIT 6', []);
+    } else {
+        usort($posts, fn($a, $b) => [(int)$b['alcance'], $b['publicado_em']] <=> [(int)$a['alcance'], $a['publicado_em']]);
+    }
+    $cel = fn($v) => $v === null ? '<span class="suave">—</span>' : e($n($v));
+    $tipos = ['CAROUSEL_ALBUM' => 'Carrossel', 'VIDEO' => 'Vídeo', 'IMAGE' => 'Foto'];
+    echo '<section class="bloco">' . titulo('Posts e reels', 'Cada post ou reel com os números dele desde a publicação (não só os do período). Clique para abrir no Instagram.')
+        . ($recentes ? '<p class="suave">Nenhum post no período. Abaixo, os mais recentes.</p>' : '')
+        . '<div class="tabela"><table><tr><th>Post</th>'
+        . '<th>' . com_info('Alcance', 'Contas diferentes que viram o post.') . '</th>'
+        . '<th>' . com_info('Visualizações', 'Vezes que o post foi visto, contando repetições.') . '</th>'
+        . '<th>' . com_info('Curtidas', 'Curtidas no post.') . '</th>'
+        . '<th>' . com_info('Comentários', 'Comentários no post.') . '</th>'
+        . '<th>' . com_info('Salvos', 'Quantas vezes o post foi salvo.') . '</th>'
+        . '<th>' . com_info('Compartilhamentos', 'Quantas vezes o post foi enviado ou compartilhado.') . '</th>'
+        . '<th>' . com_info('Visitas ao perfil', 'Visitas ao perfil a partir do post (posts de feed).') . '</th>'
+        . '<th>' . com_info('Seguiram', 'Contas que começaram a seguir a partir do post (posts de feed).') . '</th>'
+        . '<th>' . com_info('Engajamento', 'Interações (curtidas, comentários, salvos e compartilhamentos) ÷ alcance.') . '</th>'
+        . '<th>' . com_info('Tempo médio', 'Quanto tempo, em média, cada pessoa assistiu o reel.') . '</th></tr>';
+    foreach ($posts as $p) {
+        $tipo = $p['produto'] === 'REELS' ? 'Reels' : ($tipos[$p['tipo']] ?? 'Post');
+        $leg = texto(preg_replace('/\s+/u', ' ', (string)$p['legenda']), 90);
+        $rot = '<strong>' . e($tipo) . '</strong> <span class="suave">' . e(data_local($p['publicado_em'], 'd/m H:i')) . '</span>'
+            . ($leg !== '' ? '<br><span class="suave">' . e($leg) . (mb_strlen((string)$p['legenda']) > 90 ? '…' : '') . '</span>' : '');
+        $engaj = (int)$p['alcance'] > 0 && $p['interacoes'] !== null ? number_format($p['interacoes'] * 100 / $p['alcance'], 1, ',', '.') . '%' : '—';
+        $tempo = $p['tempo_medio_ms'] !== null ? number_format($p['tempo_medio_ms'] / 1000, 1, ',', '.') . ' s' : '—';
+        echo '<tr><td class="quebra">' . ($p['link'] ? '<a class="abre" href="' . e($p['link']) . '" target="_blank" rel="noopener noreferrer">' . $rot . '</a>' : $rot) . '</td>'
+            . '<td>' . $cel($p['alcance']) . '</td><td>' . $cel($p['visualizacoes']) . '</td><td>' . $cel($p['curtidas']) . '</td><td>' . $cel($p['comentarios']) . '</td>'
+            . '<td>' . $cel($p['salvos']) . '</td><td>' . $cel($p['compartilhamentos']) . '</td><td>' . $cel($p['visitas_perfil']) . '</td><td>' . $cel($p['seguiram']) . '</td>'
+            . '<td>' . e($engaj) . '</td><td>' . e($tempo) . '</td></tr>';
+    }
+    if (!$posts) {
+        echo '<tr><td colspan="11" class="suave">Nenhum post encontrado ainda.</td></tr>';
+    }
+    echo '</table></div></section>';
 }

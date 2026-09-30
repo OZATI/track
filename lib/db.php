@@ -91,6 +91,46 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 4;
             SQL);
     }
+    if ($versao < 5) {
+        // Perfil do Instagram (aba Organico): numeros da conta por dia e cada post ou reel.
+        // Nada de seguidores um a um: so contagens.
+        track_migrar_para($pdo, 5, <<<'SQL'
+            CREATE TABLE IF NOT EXISTS ig_dia (
+                dia              TEXT PRIMARY KEY,
+                seguidores       INTEGER,
+                alcance          INTEGER,
+                visualizacoes    INTEGER,
+                contas_engajadas INTEGER,
+                interacoes       INTEGER,
+                toques_links     INTEGER,
+                seguiram         INTEGER,
+                deixaram         INTEGER,
+                buscado_em       TEXT
+            );
+            CREATE TABLE IF NOT EXISTS ig_media (
+                id                TEXT PRIMARY KEY,
+                tipo              TEXT,
+                produto           TEXT,
+                legenda           TEXT,
+                link              TEXT,
+                publicado_em      TEXT,
+                curtidas          INTEGER,
+                comentarios       INTEGER,
+                alcance           INTEGER,
+                visualizacoes     INTEGER,
+                salvos            INTEGER,
+                compartilhamentos INTEGER,
+                interacoes        INTEGER,
+                visitas_perfil    INTEGER,
+                seguiram          INTEGER,
+                tempo_medio_ms    INTEGER,
+                atualizado_em     TEXT,
+                insights_em       TEXT
+            );
+            CREATE INDEX IF NOT EXISTS ig_media_publicado ON ig_media (publicado_em);
+            PRAGMA user_version = 5;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

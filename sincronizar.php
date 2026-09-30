@@ -1,5 +1,6 @@
 <?php
-// Busca as vendas pela API da Kiwify (lib/kiwify_sync.php).
+// Busca as vendas pela API da Kiwify (lib/kiwify_sync.php), o gasto na Meta e o perfil do
+// Instagram, cada um no seu intervalo.
 //
 // Duas formas, sempre com login e token do formulario:
 // - painel.js, em segundo plano, com o cabecalho X-CSRF: responde JSON. So busca se a
@@ -10,6 +11,7 @@
 require __DIR__ . '/lib/util.php';
 require_once __DIR__ . '/lib/kiwify_sync.php';
 require_once __DIR__ . '/lib/meta_sync.php';
+require_once __DIR__ . '/lib/instagram_sync.php';
 
 header('Cache-Control: no-store');
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -39,6 +41,12 @@ if ($json) {
         $resposta['ok'] = $resposta['ok'] && $r['ok'];
         $resposta['atualizadas'] += $r['ok'] ? 1 : 0; // gasto novo: a tela recarrega
     }
+    if (ig_sync_vencida()) {
+        $r = ig_sincronizar();
+        $resposta['buscou'] = true;
+        $resposta['ok'] = $resposta['ok'] && ($r['ok'] || !empty($r['ocupado']));
+        $resposta['atualizadas'] += $r['ok'] ? 1 : 0;
+    }
     responder_json(200, $resposta);
 }
 
@@ -52,6 +60,9 @@ if (dentro_do_limite('sincronizar:' . ip_cliente(), 30, 600)) {
     }
     if (meta_api_chave() && time() - (int)(ajuste('meta_sync_tentativa') ?? 0) >= 60) {
         meta_sincronizar();
+    }
+    if (ig_api_chave() && time() - (int)(ajuste('ig_sync_tentativa') ?? 0) >= 60) {
+        ig_sincronizar();
     }
 }
 header('Location: ' . destino_seguro((string)($_POST['volta'] ?? '')));

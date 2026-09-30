@@ -3,7 +3,9 @@
 // arquivo como roteador). Imita /me, /me/permissions, /act_<conta> e /act_<conta>/insights.
 //
 //   token TokenLeitura...   -> so ads_read
-//   token TokenGerencia...  -> ads_read + ads_management (o painel deve recusar)
+//   token TokenGerencia...  -> ads_read + ads_management (aceito, com aviso)
+//   token TokenInstagram... -> ads_read + permissoes do Instagram; a pagina tem o @engdesk,
+//                              e as consultas do Instagram vao para tests/instagram-falsa.php
 //   conta 587364236934346   -> DRIVE DE PROJETOS; outra conta -> erro 100
 
 header('Content-Type: application/json');
@@ -15,8 +17,28 @@ $erro = function (int $http, int $codigo, string $msg) {
     exit;
 };
 
-if (strpos($token, 'TokenLeitura') !== 0 && strpos($token, 'TokenGerencia') !== 0) {
+if (strpos($token, 'TokenLeitura') !== 0 && strpos($token, 'TokenGerencia') !== 0 && strpos($token, 'TokenInstagram') !== 0) {
     $erro(400, 190, 'Invalid OAuth access token - Cannot parse access token');
+}
+$comInstagram = strpos($token, 'TokenInstagram') === 0;
+if ($rota === '/graph/me/accounts') {
+    $pagina = ['id' => '300300', 'name' => 'EngDesk'];
+    if ($comInstagram) {
+        $pagina['instagram_business_account'] = ['id' => '17841400000000000', 'username' => 'engdesk'];
+    }
+    echo json_encode(['data' => [$pagina]]);
+    exit;
+}
+// Conta do Instagram pelo login do Facebook: mesmas respostas da API do Instagram falsa
+if (preg_match('~^/graph/(17841400000000000|179\d+)(/.*)?$~', $rota, $m)) {
+    if (!$comInstagram) {
+        $erro(400, 10, 'Application does not have permission for this action');
+    }
+    $novo = $m[1] === '17841400000000000' ? '/ig/v23.0/me' . ($m[2] ?? '') : '/ig/v23.0/' . $m[1] . ($m[2] ?? '');
+    $_SERVER['REQUEST_URI'] = $novo . (($q = parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY)) ? '?' . $q : '');
+    $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer IGAATeste';
+    require __DIR__ . '/instagram-falsa.php';
+    exit;
 }
 if ($rota === '/graph/me') {
     echo json_encode(['id' => '100', 'name' => 'Painel UTM']);
@@ -26,6 +48,11 @@ if ($rota === '/graph/me/permissions') {
     $dados = [['permission' => 'ads_read', 'status' => 'granted']];
     if (strpos($token, 'TokenGerencia') === 0) {
         $dados[] = ['permission' => 'ads_management', 'status' => 'granted'];
+    }
+    if ($comInstagram) {
+        foreach (['instagram_basic', 'instagram_manage_insights', 'pages_show_list', 'pages_read_engagement'] as $p) {
+            $dados[] = ['permission' => $p, 'status' => 'granted'];
+        }
     }
     echo json_encode(['data' => $dados]);
     exit;

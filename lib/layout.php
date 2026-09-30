@@ -40,6 +40,7 @@ button{ background:var(--marca); color:#fff; border:1px solid var(--marca); bord
 button:hover{ background:var(--marca-hover); }
 button.discreto{ background:var(--cartao); color:var(--erro); border-color:var(--linha-forte); padding:4px 10px; }
 button.discreto:hover{ background:var(--cartao-2); }
+button:disabled, button:disabled:hover{ background:var(--cartao-2); color:var(--suave); border-color:var(--linha-forte); cursor:not-allowed; }
 button.discreto.neutro{ color:var(--texto); }
 .ico{ flex:none; } button .ico{ vertical-align:-2px; }
 .info{ display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; margin-left:3px; border:1px solid var(--linha-forte); border-radius:50%; font:600 9px/1 var(--f-texto); color:var(--suave); cursor:help; vertical-align:1px; text-transform:none; }
@@ -431,5 +432,6 @@ function abas_painel(string $aba, array $filtro = []): void
     echo '<span class="abas-espaco"></span>';
     echo '<a href="kiwify-api.php" class="' . ($aba === 'kiwify-api' ? 'atual' : '') . '">' . icone('chave') . 'API Kiwify</a>';
     echo '<a href="meta-api.php" class="' . ($aba === 'meta-api' ? 'atual' : '') . '">' . icone('meta') . 'API Meta</a>';
+    echo '<a href="instagram-api.php" class="' . ($aba === 'instagram-api' ? 'atual' : '') . '">' . icone('instagram') . 'API Instagram</a>';
     echo '<a href="usuarios.php" class="' . ($aba === 'usuarios' ? 'atual' : '') . '">' . icone('usuario') . 'Usuários</a></nav>';
 }

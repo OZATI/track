@@ -116,8 +116,8 @@ abas_painel('meta-api');
     <p class="suave">Serve para o painel ler <strong>quanto cada anúncio gastou</strong> e mostrar lucro e ROI ao lado das vendas. Precisa de <strong>ads_read</strong>. Com ads_management, o gestor poderá, quando essa função existir, ligar, pausar e mudar orçamento (sempre com confirmação).</p>
     <ol class="suave passos">
       <li><strong>business.facebook.com</strong> → Configurações do negócio → Usuários → <strong>Usuários do sistema</strong> → Adicionar (nome: Painel UTM, função: Funcionário).</li>
-      <li>No usuário criado: <strong>Atribuir ativos</strong> → Contas de anúncios → DRIVE DE PROJETOS → só <strong>Ver desempenho</strong>.</li>
-      <li><strong>Gerar novo token</strong> → escolha o app do negócio → validade <strong>Nunca</strong> → marque <strong>ads_read</strong> (e as de edição, se for usar) → Gerar.</li>
+      <li>No usuário criado: <strong>Atribuir ativos</strong> → Contas de anúncios → DRIVE DE PROJETOS → só <strong>Ver desempenho</strong>. Para o Instagram na aba Orgânico, atribua também a página do Facebook e a conta do Instagram.</li>
+      <li><strong>Gerar novo token</strong> → escolha o app do negócio → validade <strong>Nunca</strong> → marque <strong>ads_read</strong> (e as de edição, se for usar). Para o Instagram, marque também <strong>instagram_basic</strong>, <strong>instagram_manage_insights</strong>, <strong>pages_show_list</strong> e <strong>pages_read_engagement</strong> → Gerar.</li>
       <li>Copie o token e cole aqui, direto, sem passar por WhatsApp ou e-mail.</li>
     </ol>
     <form method="post" action="meta-api.php" autocomplete="off">

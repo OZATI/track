@@ -34,10 +34,17 @@ export TRACK_META_API="http://127.0.0.1:$PORTA_META/graph"
 # shellcheck disable=SC2086
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_META" "$RAIZ/tests/meta-falsa.php" >"$DADOS/meta-falsa.log" 2>&1 &
 META_FALSA=$!
+# API do Instagram falsa (tests/instagram-falsa.php), com limite folgado para a busca inteira
+PORTA_IG=$((PORTA + 3))
+export TRACK_IG_API="http://127.0.0.1:$PORTA_IG/ig"
+export TRACK_IG_LIMITE_MINUTO=200
+# shellcheck disable=SC2086
+"$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_IG" "$RAIZ/tests/instagram-falsa.php" >"$DADOS/instagram-falsa.log" 2>&1 &
+IG_FALSA=$!
 # shellcheck disable=SC2086
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA" -t "$RAIZ" >"$DADOS/servidor.log" 2>&1 &
 SERVIDOR=$!
-trap 'kill $SERVIDOR $API_FALSA $META_FALSA 2>/dev/null; rm -rf "$DADOS"' EXIT
+trap 'kill $SERVIDOR $API_FALSA $META_FALSA $IG_FALSA 2>/dev/null; rm -rf "$DADOS"' EXIT
 sleep 1
 
 echo "Instalação"
@@ -372,6 +379,104 @@ confere "$(tem 'Perfil do Instagram' "$(sem_tags "$r")")" "bloco do perfil do In
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/meta-api.php")
 confere "$(tem 'Token removido do painel' "$r")" "remover o token da Meta"
 confere "$(grep -q "$LEITURA" "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "token removido sai da configuração"
+
+echo "API do Instagram"
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/instagram-api.php")
+confere "$(tem 'entrar.php' "$destino")" "tela da API Instagram exige login"
+r=$(curl -s -b "$JAR" "$URL/instagram-api.php")
+confere "$(tem 'Conectar o perfil do Instagram' "$r")" "tela da API Instagram abre com o passo a passo"
+confere "$(tem 'href="instagram-api.php" class="atual"' "$r")" "aba API Instagram aparece marcada"
+ig() { curl -s -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=salvar" --data-urlencode "token=$2" "$URL/instagram-api.php"; }
+ZEROS=$(printf '0%.0s' $(seq 60))
+IGTOKEN="IGAATeste$ZEROS"
+r=$(ig "" "$IGTOKEN")
+confere "$(tem 'Sessão expirada' "$r")" "salvar token do Instagram sem o token do formulário é recusado"
+r=$(ig "$csrf" "0123456789abcdef0123456789abcdef")
+confere "$(tem 'A chave secreta do app (32 caracteres) não serve aqui' "$r")" "chave secreta do app no lugar do token é recusada"
+r=$(ig "$csrf" "IGAAFalso$ZEROS")
+confere "$(tem 'O Instagram recusou o token' "$r")" "token que o Instagram recusa não é salvo"
+confere "$(grep -q 'IGAA' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "nenhum token do Instagram recusado foi gravado"
+r=$(ig "$csrf" "IGAASemInsights$ZEROS")
+confere "$(tem 'Conta @engdesk conectada pelo token do Instagram: 1.234 seguidores e 2 posts. Atenção: sem a permissão' "$r")" "token sem insights é aceito, com aviso"
+confere "$(tem 'Sem insights</span>' "$r")" "aba API Instagram marca que faltam os insights"
+r=$(ig "$csrf" "$IGTOKEN")
+confere "$(tem 'Conta @engdesk conectada pelo token do Instagram: 1.234 seguidores e 2 posts. Os números aparecem' "$r")" "token do Instagram conferido e salvo"
+confere "$(grep -q "$IGTOKEN" <<<"$r"; [ $? -ne 0 ]; echo $?)" "token do Instagram não volta para a tela"
+confere "$(tem 'Liberados</span>' "$r")" "insights liberados"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=testar" "$URL/instagram-api.php")
+confere "$(tem 'Conexão OK. @engdesk: 1.234 seguidores. Insights liberados.' "$r")" "testar a conexão com o Instagram"
+
+echo "Orgânico com o Instagram"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d")
+confere "$(tem 'id="sync" data-sync="1"' "$r")" "aba Orgânico pede a busca no Instagram em segundo plano"
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "volta=./?aba=organico&periodo=7d" "$URL/sincronizar.php"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d")
+t=$(sem_tags "$r")
+confere "$(tem 'Instagram em ' "$t")" "barra mostra a hora da busca no Instagram"
+confere "$(tem 'Perfil do Instagram · @engdesk' "$t")" "bloco do perfil com o @ da conta"
+confere "$(tem '1.234Seguidores' "$t")" "seguidores do perfil"
+confere "$(tem '+21Saldo de seguidores' "$t")" "saldo de seguidores do período (5 − 2 por dia, 7 dias)"
+confere "$(tem '700Alcance' "$t")" "alcance somado dos 7 dias"
+confere "$(tem '49Toques nos links do perfil' "$t")" "toques nos links do perfil"
+confere "$(tem '2Posts no período' "$t")" "posts publicados no período"
+confere "$(tem 'Do perfil à venda' "$t")" "funil do perfil até a venda"
+confere "$(tem 'aria-label="Alcance por dia"' "$r")" "gráfico de alcance por dia"
+confere "$(tem 'href="https://www.instagram.com/reel/abc/" target="_blank" rel="noopener noreferrer"' "$r")" "post abre no Instagram em outra aba"
+confere "$([ "$(grep -o 'Reel do Drive de Projetos\|Post da planta' <<<"$t" | head -1)" = 'Reel do Drive de Projetos' ]; echo $?)" "posts do maior alcance para o menor"
+confere "$(tem '<td>1.000</td><td>2.500</td><td>50</td><td>5</td><td>30</td><td>12</td>' "$r")" "números do reel (alcance, visualizações, curtidas, comentários, salvos, compartilhamentos)"
+confere "$(tem '9,7%' "$t")" "engajamento do reel = interações ÷ alcance"
+confere "$(tem '8,5 s' "$t")" "tempo médio assistido do reel"
+confere "$(tem '<td>15</td><td>4</td><td>8,8%</td>' "$r")" "post de feed com visitas ao perfil, quem seguiu e engajamento"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=hoje")
+confere "$(tem 'Escolha um período de mais de um dia' "$(sem_tags "$r")")" "hoje não desenha o gráfico por dia"
+# Token renovado sozinho quando a última renovação tem mais de 7 dias
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '
+  require "lib/util.php"; require "lib/instagram_sync.php";
+  $c = track_config(); $c["instagram_api"]["renovado_em"] = "2026-01-01 00:00:00"; track_salvar_config($c);
+  $k = ig_api_renovar(ig_api_chave()); echo substr($k["token"], 0, 12), " ", $k["vence_em"] > gmdate("Y-m-d", time() + 50 * 86400) ? "60d" : "curto";')
+confere "$(tem 'IGAARenovado 60d' "$saida")" "token com mais de 7 dias é renovado sozinho, por mais 60 dias ($saida)"
+# Métrica que a conta não aceita: descobre as que valem e segue sem ela
+r=$(ig "$csrf" "IGAASemViews$ZEROS")
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "volta=./?aba=organico&periodo=7d" "$URL/sincronizar.php"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; echo ajuste("ig_metricas");')
+confere "$(tem '\["reach","accounts_engaged","total_interactions","profile_links_taps"\]' "$saida")" "métrica recusada fica de fora e as outras seguem ($saida)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d")
+confere "$(tem '700Alcance' "$(sem_tags "$r")")" "alcance continua depois da métrica recusada"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/instagram-api.php")
+confere "$(tem 'Instagram desconectado do painel' "$r")" "desconectar o Instagram"
+confere "$(grep -q 'IGAA' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "token do Instagram removido sai da configuração"
+
+echo "Instagram pelo token da API Meta"
+usar_meta() { curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=usar_meta" "$URL/instagram-api.php"; }
+r=$(usar_meta)
+confere "$(tem 'Salve primeiro o token na aba API Meta' "$r")" "sem token na API Meta, o botão diz o que falta"
+meta "$csrf" "$LEITURA" 587364236934346 >/dev/null
+r=$(usar_meta)
+confere "$(tem 'não enxerga nenhuma conta do Instagram. Faltam as permissões: instagram_basic, instagram_manage_insights, pages_show_list.' "$r")" "token da API Meta sem Instagram lista as permissões que faltam"
+# Banco do Instagram vazio: os números a seguir só podem vir pelo caminho da Meta
+# shellcheck disable=SC2086
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; track_db()->exec("DELETE FROM ig_dia; DELETE FROM ig_media"); definir_ajuste("ig_perfil", null); definir_ajuste("ig_sync_ok_em", null);')
+IGMETA="TokenInstagram000000000000000000000000000000"
+r=$(meta "$csrf" "$IGMETA" 587364236934346)
+confere "$(tem 'Token conferido e salvo' "$r")" "token da API Meta com as permissões do Instagram é salvo"
+r=$(usar_meta)
+confere "$(tem 'Conta @engdesk conectada pelo token da API Meta: 1.234 seguidores e 2 posts. Os números aparecem' "$r")" "Instagram conectado pelo token da API Meta"
+confere "$(tem 'pela página EngDesk' "$r")" "tela mostra que o acesso é pelo token da API Meta e por qual página"
+confere "$([ "$(grep -c "$IGMETA" "$DADOS/config.php")" = "1" ]; echo $?)" "o token da Meta não é copiado para a configuração do Instagram"
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "volta=./?aba=organico&periodo=7d" "$URL/sincronizar.php"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d")
+t=$(sem_tags "$r")
+confere "$(tem 'Perfil do Instagram · @engdesk' "$t")" "perfil buscado pelo token da API Meta"
+confere "$(tem '700Alcance' "$t")" "alcance buscado pelo token da API Meta"
+confere "$(tem 'Reel do Drive de Projetos' "$t")" "posts buscados pelo token da API Meta"
+confere "$(grep -q 'Última busca no Instagram falhou' <<<"$t"; [ $? -ne 0 ]; echo $?)" "busca pela Meta sem erro"
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/meta-api.php"
+r=$(curl -s -b "$JAR" "$URL/instagram-api.php")
+confere "$(tem 'O token da aba API Meta foi removido' "$r")" "sem o token da API Meta, a aba Instagram avisa"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/instagram-api.php")
+confere "$(tem 'Instagram desconectado do painel' "$r")" "desconectar o Instagram ligado pela Meta"
 
 echo "Proteção contra bloqueio da API"
 # Limite interno, num banco separado: com limite 3 por minuto, a 4ª chamada nem sai
