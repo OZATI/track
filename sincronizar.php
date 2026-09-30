@@ -55,16 +55,34 @@ if ($json) {
 // Botao: no maximo uma busca por minuto em cada API (para todos os usuarios) e uma
 // releitura completa das vendas a cada 10 minutos. Clique a mais so volta para a tela, sem
 // erro: os dados acabaram de ser buscados. O limite por IP so segura abuso.
+// A busca da tela em que o botao esta vai primeiro (foco): no Organico, o Instagram.
 if (dentro_do_limite('sincronizar:' . ip_cliente(), 30, 600)) {
-    if (time() - (int)(ajuste('kiwify_sync_tentativa') ?? 0) >= 60) {
-        $completa = ($_POST['completa'] ?? '') === '1' && time() - (int)(ajuste('kiwify_sync_completa_em') ?? 0) >= 600;
-        kiwify_sincronizar($completa);
+    $buscas = [
+        'kiwify' => function () {
+            if (time() - (int)(ajuste('kiwify_sync_tentativa') ?? 0) >= 60) {
+                $completa = ($_POST['completa'] ?? '') === '1' && time() - (int)(ajuste('kiwify_sync_completa_em') ?? 0) >= 600;
+                kiwify_sincronizar($completa);
+            }
+        },
+        'meta' => function () {
+            if (meta_api_chave() && time() - (int)(ajuste('meta_sync_tentativa') ?? 0) >= 60) {
+                meta_sincronizar();
+            }
+        },
+        'instagram' => function () {
+            if (ig_api_chave() && time() - (int)(ajuste('ig_sync_tentativa') ?? 0) >= 60) {
+                ig_sincronizar();
+            }
+        },
+    ];
+    $foco = (string)($_POST['foco'] ?? '');
+    if (isset($buscas[$foco])) {
+        $buscas = [$foco => $buscas[$foco]] + $buscas;
     }
-    if (meta_api_chave() && time() - (int)(ajuste('meta_sync_tentativa') ?? 0) >= 60) {
-        meta_sincronizar();
+    foreach ($buscas as $buscar) {
+        $buscar();
     }
-    if (ig_api_chave() && time() - (int)(ajuste('ig_sync_tentativa') ?? 0) >= 60) {
-        ig_sincronizar();
-    }
+} else {
+    aviso_definir('Muitas atualizações seguidas: os dados acabaram de ser buscados. Espere alguns minutos para atualizar de novo.', 'erro');
 }
 header('Location: ' . destino_seguro((string)($_POST['volta'] ?? '')));

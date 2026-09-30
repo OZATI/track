@@ -578,6 +578,7 @@ confere "$([ "$saida" = "ssnnnn" ]; echo $?)" "capa só vem do CDN do Instagram 
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=7d")
 t=$(sem_tags "$r")
 confere "$(tem 'Público do Instagram' "$t")" "orgânico com o público do Instagram"
+confere "$(tem '<input type="hidden" name="foco" value="instagram">' "$r")" "no Orgânico, o Atualizar busca o Instagram primeiro"
 confere "$(tem 'Mulheres56,7%' "$(tr -d ' ' <<<"$t" | tr -d '\n')")" "seguidores: 56,7% mulheres (700 de 1.234)"
 confere "$(tem '25-34 anos' "$t")" "faixa de idade principal: 25-34"
 confere "$(tem 'class="barra barra-f"' "$r")" "idade por sexo, com barras de mulheres e homens"

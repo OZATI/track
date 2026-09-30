@@ -141,7 +141,7 @@ function organico_render(PDO $db, string $periodo, string $de, string $ate): voi
     }
     $vencida = ig_sync_vencida() || kiwify_sync_vencida();
     echo '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '><span data-sync-texto>' . e(ucfirst(implode(' · ', $partes))) . '</span>'
-        . botao_atualizar('./?' . http_build_query(['aba' => 'organico', 'periodo' => $periodo]), 'Atualizar agora: busca o Instagram e as vendas na Kiwify') . '</div>';
+        . botao_atualizar('./?' . http_build_query(['aba' => 'organico', 'periodo' => $periodo]), 'Atualizar agora: busca o Instagram e as vendas na Kiwify', 'instagram') . '</div>';
 
     // Numeros
     $pct = fn($a, $b) => $b ? number_format($a * 100 / $b, 1, ',', '.') . '%' : '—';

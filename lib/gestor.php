@@ -469,7 +469,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     }
     $quando = $meta['ok_em'] ? 'gasto da Meta atualizado em ' . data_local($meta['ok_em'], 'd/m H:i') : ($temMeta ? 'primeira busca na Meta ainda não feita' : '');
     echo '<span data-sync-texto>' . e($quando) . '</span>';
-    echo botao_atualizar($link([]), 'Atualizar agora: busca o gasto na Meta e as vendas na Kiwify') . '</div>';
+    echo botao_atualizar($link([]), 'Atualizar agora: busca o gasto na Meta e as vendas na Kiwify', 'meta') . '</div>';
     if (!$temMeta) {
         echo '<p class="aviso-meta">Sem a conta de anúncios conectada, o gestor mostra só as vendas por campanha. Para ver gasto, lucro, CPA e ROI, conecte na aba <a href="meta-api.php">API Meta</a>.</p>';
     } elseif ($meta['adiada']) {

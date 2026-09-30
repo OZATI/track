@@ -651,9 +651,11 @@ function conta_topo(): string
 }
 
 // Botao de atualizar (so o icone, com a dica): busca na hora e volta para $volta
-function botao_atualizar(string $volta, string $dica = 'Atualizar agora: busca as vendas na Kiwify, o gasto na Meta e o Instagram'): string
+// $foco: a busca que vai primeiro (kiwify, meta ou instagram), a da tela em que o botao esta
+function botao_atualizar(string $volta, string $dica = 'Atualizar agora: busca as vendas na Kiwify, o gasto na Meta e o Instagram', string $foco = ''): string
 {
     return '<form method="post" action="sincronizar.php" class="form-atualizar"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
+        . ($foco !== '' ? '<input type="hidden" name="foco" value="' . e($foco) . '">' : '')
         . '<input type="hidden" name="volta" value="' . e($volta) . '"><button type="submit" class="botao-icone" title="' . e($dica) . '" aria-label="Atualizar">'
         . icone('atualizar', 16) . '</button></form>';
 }

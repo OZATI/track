@@ -202,6 +202,10 @@ pagina_inicio('Painel');
 casca_inicio();
 barra_topo($filtro, $dominios, $paginas, $aba);
 echo '<main>';
+// Aviso do botao Atualizar (ex.: limite de atualizacoes seguidas). O gestor mostra o dele.
+if ($aba !== 'gestor' && ($aviso = aviso_pegar())) {
+    echo '<p class="' . ($aviso[1] === 'erro' ? 'erro' : 'aviso-ok') . '">' . e($aviso[0]) . '</p>';
+}
 if (in_array($aba, ['trafego', 'resumo', 'vendas'], true)) {
     barra_vendas($parLink, $aba);
 }
