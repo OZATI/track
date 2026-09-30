@@ -175,12 +175,13 @@ function ig_sync_buscar(array $k): array
             definir_ajuste('ig_insights_erro', null);
         }
     }
-    if (!$semInsights && !$pendente) {
-        $pendente = ig_sync_posts($ctx);
-    }
-    // 4. Publico (sexo, idade, cidades e paises), uma vez por dia
+    // Publico (sexo, idade, cidades e paises), uma vez por dia, antes dos posts: sao poucas
+    // consultas, e os insights dos posts costumam gastar o limite do minuto
     if (!$semInsights && !$pendente && ig_publico_vencido()) {
         $pendente = !ig_sync_publico($ctx);
+    }
+    if (!$semInsights && !$pendente) {
+        $pendente = ig_sync_posts($ctx);
     }
     return ['ok' => true, 'inicio' => $inicio, 'dias' => $dias, 'posts' => $posts, 'pendente' => $pendente];
 }
