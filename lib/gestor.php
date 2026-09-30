@@ -111,7 +111,9 @@ function gestor_metricas(array $r, float $pct): array
     return $r + [
         'imposto' => $imposto,
         'lucro' => $lucro,
-        'roi' => $div($r['fat'] - $imposto, $r['gasto']),
+        // Mesma conta do ROI do Resumo: tudo o que voltou / tudo o que foi investido
+        'roi' => $div($r['fat'], $r['gasto'] + $imposto),
+        'roas' => $div($r['fat'], $r['gasto']),
         'cpa' => $div($r['gasto'], $r['vendas']),
         'cpi' => $div($r['gasto'], $r['checkouts']),
         'cpv' => $div($r['gasto'], $r['visualizacoes']),
@@ -136,10 +138,11 @@ function gestor_colunas(float $pct): array
         'fat' => ['Faturamento', 'Líquido da Kiwify (depois das taxas) das vendas aprovadas, com order bump.', fn($r) => e(reais($r['fat'])), true],
         'lucro' => ['Lucro', 'Faturamento − gasto − imposto da Meta (' . $p . '%).', fn($r) => '<span class="' . $cor($r['lucro']) . '">' . e(reais($r['lucro'])) . '</span>', true],
         'cpa' => ['CPA', 'Custo por venda: gasto ÷ vendas.', fn($r) => $din($r['cpa']), true],
-        'roi' => ['ROI', '(Faturamento − imposto) ÷ gasto. Acima de 1, se paga. Mesma conta da UTMify.', fn($r) => $r['roi'] === null ? 'N/A' : '<span class="' . $cor($r['roi'], 1) . '">' . $num($r['roi']) . '</span>', true],
-        'cpi' => ['CPI', 'Custo por início de checkout: gasto ÷ ICs.', fn($r) => $din($r['cpi']), true],
-        'ic' => ['IC', 'Inícios de checkout (InitiateCheckout) que a Meta contou.', fn($r) => (string)$r['checkouts'], true],
-        'cpv' => ['CPV', 'Custo por visualização da página: gasto ÷ visualizações.', fn($r) => $din($r['cpv']), false],
+        'roi' => ['ROI', 'Faturamento ÷ (gasto + imposto da Meta): quanto voltou para cada real investido. Acima de 1, se paga. É a mesma conta do ROI do Resumo (a UTMify desconta o imposto de outro jeito, então o número dela sai um pouco maior).', fn($r) => $r['roi'] === null ? 'N/A' : '<span class="' . $cor($r['roi'], 1) . '">' . $num($r['roi']) . '</span>', true],
+        'roas' => ['ROAS', 'Faturamento ÷ gasto, sem o imposto. É o retorno sobre o gasto que a Meta mostra.', fn($r) => $r['roas'] === null ? 'N/A' : '<span class="' . $cor($r['roas'], 1) . '">' . $num($r['roas']) . '</span>', false],
+        'cpi' => ['Custo por IC', 'Custo por início de checkout (finalização de compra iniciada): gasto ÷ ICs.', fn($r) => $din($r['cpi']), true],
+        'ic' => ['IC', 'Inícios de checkout (finalização de compra iniciada) que a Meta contou.', fn($r) => (string)$r['checkouts'], true],
+        'cpv' => ['Custo por vis. de página', 'Custo por visualização da página de destino: gasto ÷ visualizações.', fn($r) => $din($r['cpv']), false],
         'cpc' => ['CPC', 'Custo por clique no link: gasto ÷ cliques.', fn($r) => $din($r['cpc']), true],
         'cliques' => ['Cliques', 'Cliques no link do anúncio.', fn($r) => (string)$r['cliques'], false],
         'ctr' => ['CTR', 'Cliques no link ÷ impressões.', fn($r) => $r['ctr'] === null ? 'N/A' : $num($r['ctr']) . '%', true],
@@ -159,14 +162,20 @@ function gestor_colunas(float $pct): array
 // Colunas escolhidas: as do formulario (e salva), as salvas, ou as padrao
 function gestor_colunas_escolhidas(array $todas): array
 {
-    if (isset($_GET['cols']) && is_array($_GET['cols'])) {
-        $escolha = array_values(array_intersect(array_keys($todas), $_GET['cols']));
-        definir_ajuste('gestor_colunas', json_encode($escolha));
-        return $escolha;
+    // Na ordem escolhida (o seletor de colunas manda na ordem da lista da direita)
+    $validas = fn(array $v) => array_values(array_unique(array_filter($v, fn($k) => is_string($k) && isset($todas[$k]))));
+    if (($_GET['cols'] ?? null) === 'padrao') {
+        definir_ajuste('gestor_colunas', null);
+    } elseif (isset($_GET['cols']) && is_array($_GET['cols'])) {
+        $escolha = $validas($_GET['cols']);
+        if ($escolha) {
+            definir_ajuste('gestor_colunas', json_encode($escolha));
+            return $escolha;
+        }
     }
     $salvas = json_decode((string)ajuste('gestor_colunas'), true);
-    if (is_array($salvas) && $salvas) {
-        return array_values(array_intersect(array_keys($todas), $salvas));
+    if (is_array($salvas) && ($salvas = $validas($salvas))) {
+        return $salvas;
     }
     return array_keys(array_filter($todas, fn($c) => $c[3]));
 }
@@ -449,7 +458,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     }
 
     // Filtros do nivel e escolha de colunas
-    echo '<form class="gestor-filtros" method="get" action="./"><input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
+    echo '<div class="gestor-barra"><form class="gestor-filtros" method="get" action="./"><input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
         . '<input type="hidden" name="nivel" value="' . e($nivel) . '">'
         . ($fCamp !== '' ? '<input type="hidden" name="campanha" value="' . e($fCamp) . '">' : '')
         . ($fConj !== '' ? '<input type="hidden" name="conjunto" value="' . e($fConj) . '">' : '')
@@ -458,18 +467,40 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         . '<label>Status<select name="st"><option value="">Qualquer</option><option value="ativos"' . ($stFiltro === 'ativos' ? ' selected' : '') . '>Ativos</option>'
         . '<option value="pausados"' . ($stFiltro === 'pausados' ? ' selected' : '') . '>Pausados</option></select></label>'
         . '<button type="submit" class="discreto neutro">Filtrar</button>'
-        . '<details class="colunas"><summary>Colunas</summary><div>';
-    foreach ($todas as $k => [$tit, $dica]) {
-        echo '<label title="' . e($dica) . '"><input type="checkbox" name="cols[]" value="' . e($k) . '"' . (in_array($k, $colunas, true) ? ' checked' : '') . '> ' . e($tit) . '</label>';
+        . '</form>';
+    // Seletor de colunas (como o da UTMify): a esquerda todas, com busca; a direita as
+    // escolhidas, na ordem da tabela. Sem JavaScript, as caixas da esquerda ja funcionam.
+    echo '<details class="colunas" id="colunas"><summary>Colunas</summary><form class="colunas-painel" method="get" action="./" data-colunas>'
+        . '<input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '"><input type="hidden" name="nivel" value="' . e($nivel) . '">';
+    foreach (array_filter(['q' => $busca, 'st' => $stFiltro, 'campanha' => $fCamp, 'conjunto' => $fConj, 'ordem' => $ordem, 'dir' => $dir]) as $nomeCampo => $valor) {
+        echo '<input type="hidden" name="' . $nomeCampo . '" value="' . e($valor) . '">';
     }
-    echo '<button type="submit">Aplicar</button></div></details></form>';
+    foreach ($sel as $nomeCampo => $ids) {
+        foreach ($ids as $idSel) {
+            echo '<input type="hidden" name="' . $nomeCampo . '[]" value="' . e($idSel) . '">';
+        }
+    }
+    echo '<div class="colunas-cab"><strong>Personalize as colunas</strong><span class="suave">Marque as colunas e arraste para mudar a ordem.</span></div>'
+        . '<div class="colunas-lista"><input type="search" placeholder="Buscar coluna" aria-label="Buscar coluna" data-colunas-busca><div data-colunas-todas>';
+    foreach ($todas as $k => [$tit, $dica]) {
+        echo '<label data-coluna="' . e($k) . '"><input type="checkbox" name="cols[]" value="' . e($k) . '"' . (in_array($k, $colunas, true) ? ' checked' : '') . '>'
+            . '<span><b>' . e($tit) . '</b><small>' . e($dica) . '</small></span></label>';
+    }
+    echo '</div></div><div class="colunas-escolhidas"><div class="colunas-fixa">' . e(['contas' => 'Conta', 'campanhas' => 'Campanha', 'conjuntos' => 'Conjunto', 'anuncios' => 'Anúncio'][$nivel]) . '</div><ol data-colunas-ordem>';
+    foreach ($colunas as $k) {
+        echo '<li draggable="true" data-coluna="' . e($k) . '"><span class="alca" aria-hidden="true">☰</span><span>' . e($todas[$k][0]) . '</span>'
+            . '<button type="button" class="discreto" data-sobe aria-label="Subir">↑</button><button type="button" class="discreto" data-desce aria-label="Descer">↓</button>'
+            . '<button type="button" class="discreto" data-tira aria-label="Tirar">×</button></li>';
+    }
+    echo '</ol></div><div class="colunas-pe"><a href="' . e($link(['cols' => 'padrao'])) . '">Voltar ao padrão</a>'
+        . '<button type="button" class="discreto neutro" data-colunas-cancela>Cancelar</button><button type="submit">Salvar</button></div></form></details></div>';
 
     // Cabecalho: clicar no titulo ordena (de novo, inverte)
     $cab = function (string $col, string $titulo, string $dica = '') use ($ordem, $dir, $link): string {
         $atual = $ordem === $col;
         $novoDir = $atual && $dir === 'desc' ? 'asc' : 'desc';
         $seta = $atual ? ($dir === 'desc' ? ' ↓' : ' ↑') : '';
-        return '<th><a class="ordena' . ($atual ? ' atual' : '') . '" href="' . e($link(['ordem' => $col, 'dir' => $novoDir])) . '">' . e($titulo) . $seta . '</a>'
+        return '<th data-col="' . e($col) . '"' . ($col === 'nome' ? ' class="nome"' : '') . '><a class="ordena' . ($atual ? ' atual' : '') . '" href="' . e($link(['ordem' => $col, 'dir' => $novoDir])) . '">' . e($titulo) . $seta . '</a>'
             . ($dica !== '' ? '&nbsp;' . info($dica) : '') . '</th>';
     };
     $singular = ['contas' => 'Conta', 'campanhas' => 'Campanha', 'conjuntos' => 'Conjunto', 'anuncios' => 'Anúncio'][$nivel];
@@ -492,8 +523,8 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         echo '</form>';
     }
     $volta = $link([]);
-    echo '<div class="tabela gestor"><table><tr>' . ($campoSel ? '<th class="marca"><input type="checkbox" data-sel-todos aria-label="Marcar todos"></th>' : '')
-        . '<th>Status ' . info($pode ? 'Situação na Meta agora. A chave liga ou pausa na Meta, com confirmação; cada mudança fica registrada no histórico abaixo.' : 'Situação na Meta agora: ativo, pausado ou com problema (ex.: reprovado). Para ligar e pausar por aqui, o token da API Meta precisa de ads_management.') . '</th>' . $cab('nome', $singular);
+    echo '<div class="tabela gestor"><table data-larguras="' . e($nivel) . '"><tr>' . ($campoSel ? '<th class="marca" data-col="marca"><input type="checkbox" data-sel-todos aria-label="Marcar todos"></th>' : '')
+        . '<th class="st" data-col="st">Status ' . info($pode ? 'Situação na Meta agora. A chave liga ou pausa na Meta, com confirmação; cada mudança fica registrada no histórico abaixo.' : 'Situação na Meta agora: ativo, pausado ou com problema (ex.: reprovado). Para ligar e pausar por aqui, o token da API Meta precisa de ads_management.') . '</th>' . $cab('nome', $singular);
     foreach ($colunas as $k) {
         echo $cab($k, $todas[$k][0], $todas[$k][1]);
     }
@@ -517,8 +548,8 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         }
         $marcado = $campoSel && in_array($r['id'], $nivel === 'campanhas' ? $selCamp : $selConj, true);
         echo '<tr>' . ($campoSel ? '<td class="marca"><input type="checkbox" form="form-sel" name="' . $campoSel . '[]" value="' . e($r['id']) . '" data-sel' . ($marcado ? ' checked' : '') . ' aria-label="Marcar ' . e($r['nome']) . '"></td>' : '')
-            . '<td>' . ($nivel === 'contas' ? gestor_status($r['obj']) : gestor_chave($r['obj'], $volta, $pode)) . '</td>'
-            . '<td class="quebra">' . $nomeHtml . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
+            . '<td class="st">' . ($nivel === 'contas' ? gestor_status($r['obj']) : gestor_chave($r['obj'], $volta, $pode)) . '</td>'
+            . '<td class="quebra nome">' . $nomeHtml . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
         foreach ($colunas as $k) {
             $delta = '';
             if (isset($deltas[$k]) && $r['antes']) {
