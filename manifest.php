@@ -9,9 +9,12 @@ header('Cache-Control: no-cache');
 $nome = (string)((track_config() ?? [])['app_nome'] ?? 'Painel de vendas');
 $doSite = is_file(__DIR__ . '/../icone-app-512.png');
 $icone = fn(int $t) => $doSite ? '../icone-app-' . $t . '.png' : 'app-' . $t . '.png';
+// Nome embaixo do icone: ate 12 letras; nome maior fica so com a primeira palavra
+// ("Painel de vendas" -> "Painel", "EngDesk Vendas" -> "EngDesk")
+$curto = mb_strlen($nome) <= 12 ? $nome : mb_substr(explode(' ', $nome)[0], 0, 12);
 echo json_encode([
     'name' => $nome,
-    'short_name' => mb_substr($nome, 0, 12),
+    'short_name' => $curto,
     'description' => 'Vendas, anúncios e rastreio, com notificação de cada venda.',
     'lang' => 'pt-BR',
     'start_url' => './?aba=geral',
