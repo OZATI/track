@@ -155,6 +155,36 @@
     atualizar();
   }
 
+  // Celular: listas viram cartoes; cada celula leva o titulo da coluna (data-rotulo)
+  var listas = document.querySelectorAll('.tabela.lista table');
+  for (var li = 0; li < listas.length; li++) {
+    var linhasL = listas[li].rows;
+    if (!linhasL.length) { continue; }
+    var rotulos = [], secundarias = [];
+    for (var hc = 0; hc < linhasL[0].cells.length; hc++) {
+      secundarias.push(linhasL[0].cells[hc].hasAttribute('data-secundaria'));
+      var th = linhasL[0].cells[hc].cloneNode(true);
+      var infos = th.querySelectorAll('.info');
+      for (var ii = 0; ii < infos.length; ii++) { infos[ii].parentNode.removeChild(infos[ii]); }
+      rotulos.push(th.textContent.replace(/\s+/g, ' ').trim());
+    }
+    for (var r = 1; r < linhasL.length; r++) {
+      var col = 0;
+      for (var c = 0; c < linhasL[r].cells.length; c++) {
+        var cel = linhasL[r].cells[c];
+        if (cel.colSpan === 1 && rotulos[col]) { cel.setAttribute('data-rotulo', rotulos[col]); }
+        if (cel.colSpan === 1 && secundarias[col]) { cel.classList.add('secundaria'); }
+        col += cel.colSpan;
+      }
+    }
+  }
+
+  // Menu "Mais" da barra de baixo: fecha ao tocar fora ou ao escolher
+  var navMais = document.querySelector('.nav-mais');
+  if (navMais) {
+    document.addEventListener('click', function (e) { if (navMais.open && !navMais.contains(e.target)) { navMais.open = false; } });
+  }
+
   // Atualizar (so o icone): gira enquanto a busca roda
   var atualizar = document.querySelectorAll('.form-atualizar');
   for (var fa = 0; fa < atualizar.length; fa++) {

@@ -10,7 +10,7 @@ function pagina_inicio(string $titulo): void
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($titulo) ?> · Rastreio</title>
 <link rel="manifest" href="manifest.php">
@@ -40,6 +40,8 @@ code, pre{ font-family:var(--f-mono); font-size:12px; }
 pre{ background:var(--cartao-2); border:1px solid var(--linha); padding:10px 12px; border-radius:var(--r-sm); overflow-x:auto; white-space:pre-wrap; word-break:break-all; }
 select, input, textarea, button{ font:inherit; color:inherit; }
 select, input, textarea{ background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-sm); padding:6px 9px; min-width:160px; }
+/* Caixa de marcar e opcao: sem a largura minima dos campos de texto */
+input[type=checkbox], input[type=radio]{ min-width:0; width:auto; padding:0; accent-color:var(--marca); }
 select:focus, input:focus, textarea:focus{ outline:2px solid rgba(29,111,242,.35); outline-offset:0; border-color:var(--marca); }
 button{ background:var(--marca); color:#fff; border:1px solid var(--marca); border-radius:var(--r-sm); padding:6px 12px; font-weight:500; cursor:pointer; }
 button:hover{ background:var(--marca-hover); }
@@ -223,6 +225,11 @@ a.conta-nome .conta-cfg{ color:var(--suave); font-size:12px; }
 .cfg-previa-icone{ flex:none; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:var(--marca); color:#fff; }
 .cfg-previa b{ display:block; font-size:13px; } .cfg-previa span{ font-size:12px; color:#D1D5DB; }
 .cfg-aparelhos{ margin-top:10px; }
+/* Dentro de cartao, label e coluna e input ocupa a linha: aqui, interruptor e opcao ficam na linha do texto */
+.cartao .cfg-chave, .cartao .cfg-padroes label{ flex-direction:row; margin-bottom:0; color:var(--texto); font-size:13px; }
+.cartao .cfg-padroes label{ align-items:center; }
+.cartao input[type=checkbox], .cartao input[type=radio]{ width:auto; }
+.cfg-previa + .cfg-campo{ margin-top:16px; }
 /* Gestor: chave liga/pausa e caixas de marcar */
 .chave-form{ display:inline-block; margin:0 6px 0 0; vertical-align:middle; }
 .chave{ position:relative; width:34px; height:20px; padding:0; border-radius:10px; border:0; background:var(--linha-forte); cursor:pointer; }
@@ -334,6 +341,70 @@ th.marca, td.marca{ width:34px; text-align:center; }
 @media (max-width:640px){ .topo, .abas{ padding-left:16px; padding-right:16px; } main{ padding:16px; } select{ min-width:130px; } .conta{ margin-left:0; }
   .grade{ grid-template-columns:1fr; }
   .casca{ flex-direction:column; } .lateral{ width:auto; height:auto; flex-direction:row; justify-content:center; position:static; padding:6px; } }
+/* ---------------------------------------------------------------- celular
+   Navegacao de app: barra fixa embaixo (Resumo, Trafego, Gestor, Vendas e Mais), topo
+   compacto e sem grudar, listas em cartoes e a primeira coluna das tabelas fixa. */
+.nav-celular{ display:none; }
+@media (max-width:760px){
+  body{ padding-bottom:calc(64px + env(safe-area-inset-bottom)); }
+  .abas{ display:none; }
+  .topo{ position:static; padding:10px 16px; gap:8px; }
+  .topo .conta{ order:-1; width:100%; justify-content:space-between; margin:0; }
+  .filtros{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); width:100%; gap:8px; }
+  .filtros select{ width:100%; min-width:0; }
+  .lateral{ padding:4px 8px; gap:8px; }
+  .lateral a{ flex-direction:row; width:auto; padding:6px 12px; gap:6px; font-size:12px; }
+  .lateral svg{ width:18px; height:18px; }
+  .nav-celular{ display:flex; position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--cartao); border-top:1px solid var(--linha);
+    padding:4px 4px env(safe-area-inset-bottom); box-shadow:0 -4px 16px rgba(17,24,39,.06); }
+  .nav-celular > a, .nav-mais > summary{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:52px;
+    color:var(--suave); font-size:11px; font-weight:500; text-decoration:none; border-radius:var(--r-md); list-style:none; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .nav-mais{ flex:1; display:flex; }
+  .nav-mais > summary::-webkit-details-marker{ display:none; }
+  .nav-celular > a.atual, .nav-mais.atual > summary, .nav-mais[open] > summary{ color:var(--marca); }
+  .nav-celular > a.atual .ico, .nav-mais.atual > summary .ico{ stroke-width:2.2; }
+  .nav-mais-painel{ position:fixed; left:8px; right:8px; bottom:calc(68px + env(safe-area-inset-bottom)); background:var(--cartao); border:1px solid var(--linha);
+    border-radius:12px; box-shadow:0 12px 32px rgba(17,24,39,.18); padding:6px; display:grid; grid-template-columns:1fr 1fr; gap:2px; max-height:70vh; overflow:auto; }
+  .nav-mais-painel a{ display:flex; align-items:center; gap:10px; padding:12px; border-radius:var(--r-md); color:var(--texto); font-weight:500; text-decoration:none; }
+  .nav-mais-painel a:hover, .nav-mais-painel a:active{ background:var(--hover); }
+  .nav-mais-painel a.atual{ color:var(--marca); background:#EEF4FF; }
+  .nav-mais-painel .ico{ color:var(--suave); } .nav-mais-painel a.atual .ico{ color:var(--marca); }
+  .nav-mais-painel hr{ grid-column:1 / -1; border:0; border-top:1px solid var(--linha); margin:4px 0; }
+  /* Primeira coluna fixa ao rolar a tabela para o lado */
+  .tabela:not(.lista) tr > :first-child{ position:sticky; left:0; z-index:1; }
+  .tabela:not(.lista) td:first-child{ background:var(--cartao); box-shadow:1px 0 0 var(--linha); }
+  .tabela:not(.lista) th:first-child{ background:var(--cartao-2); box-shadow:1px 0 0 var(--linha); }
+  .tabela.gestor tr > :first-child{ position:static; box-shadow:none; }
+  .tabela.gestor .nome{ position:sticky; left:0; z-index:1; background:var(--cartao); box-shadow:1px 0 0 var(--linha); }
+  .tabela.gestor th.nome, .tabela.gestor tr.total td.nome{ background:var(--cartao-2); }
+  .tabela.gestor td.quebra{ min-width:140px; max-width:180px; white-space:normal; }
+  /* Listas (vendas, visitantes, eventos, conferencia): cada linha vira um cartao */
+  .tabela.lista table, .tabela.lista tbody, .tabela.lista tr, .tabela.lista td{ display:block; width:100%; }
+  .tabela.lista tr:first-child{ display:none; }
+  .tabela.lista tr{ padding:10px 0; border-bottom:1px solid var(--linha); }
+  .tabela.lista tr:last-child{ border-bottom:0; }
+  .tabela.lista td{ display:flex; justify-content:space-between; align-items:baseline; gap:12px; border:0; padding:3px 14px; white-space:normal; text-align:right; }
+  .tabela.lista td::before{ content:attr(data-rotulo); flex:none; max-width:45%; color:var(--suave); font-size:12px; text-align:left; }
+  .tabela.lista td:first-child{ font-weight:600; }
+  .tabela.lista td:empty, .tabela.lista td.secundaria{ display:none; }
+  .tabela.lista td[colspan]{ display:block; text-align:left; } .tabela.lista td[colspan]::before{ content:none; }
+  .rosca{ width:min(170px,60%); }
+  /* Gestor: niveis numa linha (rola para o lado) e filtros compactos */
+  .gestor-niveis{ display:flex; max-width:100%; overflow-x:auto; scrollbar-width:none; }
+  .gestor-niveis a{ white-space:nowrap; padding:6px 10px; }
+  .gestor-filtros{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,120px) auto; gap:8px; width:100%; }
+  .gestor-filtros input, .gestor-filtros select{ min-width:0; width:100%; }
+  .gestor-sel{ gap:8px; }
+  /* Funil: titulo quebra em duas linhas e o (i) vai embaixo dele (palavra longa nao invade a vizinha) */
+  .fluxo-cab span{ font-size:10.5px; line-height:1.3; padding:0 1px 8px; overflow-wrap:anywhere; hyphens:auto; }
+  .fluxo-cab .nw{ white-space:normal; }
+  .fluxo-cab .info{ display:flex; margin:3px auto 0; }
+}
+@media (max-width:640px){
+  select, input, textarea{ font-size:16px; }
+  input[type=checkbox], input[type=radio]{ font-size:inherit; }
+}
+@media (display-mode:standalone){ .lateral{ padding-top:max(4px, env(safe-area-inset-top)); } }
 </style>
 </head>
 <body>
@@ -376,6 +447,8 @@ function icone(string $nome, int $tam = 16): string
     $p = [
         'trafego' => '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
         'guia' => '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/><path d="M9 7h6M9 11h4"/>',
+        'resumo' => '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+        'mais' => '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
         'config' => '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
         'conferencia' => '<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>',
         'vendas' => '<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
@@ -599,7 +672,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba)
 // configuracao (API Kiwify e Usuarios) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
-    $abas = ['geral' => ['Resumo', 'trafego'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
+    $abas = ['geral' => ['Resumo', 'resumo'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
         'visitantes' => ['Visitantes', 'visitantes'], 'eventos' => ['Eventos', 'eventos']];
     echo '<nav class="abas" aria-label="Seções do painel UTM"><span class="abas-titulo">UTM · Rastreio de vendas</span>';
     foreach ($abas as $id => [$rotulo, $ico]) {
@@ -615,4 +688,27 @@ function abas_painel(string $aba, array $filtro = []): void
     echo '<a href="meta-api.php" class="' . ($aba === 'meta-api' ? 'atual' : '') . '">' . icone('meta') . 'API Meta</a>';
     echo '<a href="instagram-api.php" class="' . ($aba === 'instagram-api' ? 'atual' : '') . '">' . icone('instagram') . 'API Instagram</a>';
     echo '<a href="usuarios.php" class="' . ($aba === 'usuarios' ? 'atual' : '') . '">' . icone('usuario') . 'Usuários</a></nav>';
+
+    // Celular: barra fixa embaixo com as 4 telas mais usadas; o resto em "Mais"
+    $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1]));
+    $item = fn(string $href, string $id, string $ico, string $rotulo) => '<a href="' . e($href) . '"' . ($aba === $id ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico, 20) . '<span>' . e($rotulo) . '</span></a>';
+    $mais = [['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
+        ['visitantes', $link('visitantes'), 'visitantes', 'Visitantes'], ['eventos', $link('eventos'), 'eventos', 'Eventos']];
+    $config = [['configuracoes', 'configuracoes.php', 'config', 'Configurações'], ['kiwify-api', 'kiwify-api.php', 'chave', 'API Kiwify'],
+        ['meta-api', 'meta-api.php', 'meta', 'API Meta'], ['instagram-api', 'instagram-api.php', 'instagram', 'API Instagram'], ['usuarios', 'usuarios.php', 'usuario', 'Usuários']];
+    if (is_file(__DIR__ . '/../../guia/index.php')) {
+        $config[] = ['guia', '../guia/', 'guia', 'Guia'];
+    }
+    $noMais = in_array($aba, array_column(array_merge($mais, $config), 0), true);
+    echo '<nav class="nav-celular" aria-label="Navegação do painel">' . $item($link('geral'), 'geral', 'resumo', 'Resumo') . $item($link('trafego'), 'trafego', 'trafego', 'Tráfego')
+        . $item($link('gestor'), 'gestor', 'meta', 'Gestor') . $item($link('vendas'), 'vendas', 'vendas', 'Vendas')
+        . '<details class="nav-mais' . ($noMais ? ' atual' : '') . '"><summary>' . icone('mais', 20) . '<span>Mais</span></summary><div class="nav-mais-painel">';
+    foreach ($mais as [$id, $href, $ico, $rot]) {
+        echo $item($href, $id, $ico, $rot);
+    }
+    echo '<hr>';
+    foreach ($config as [$id, $href, $ico, $rot]) {
+        echo $item($href, $id, $ico, $rot);
+    }
+    echo '</div></details></nav>';
 }

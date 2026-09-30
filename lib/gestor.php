@@ -569,7 +569,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     }
     if ($tabela) {
         $t = gestor_metricas(['id' => '', 'obj' => null] + $total, $pct);
-        echo '<tr class="total">' . ($campoSel ? '<td></td>' : '') . '<td></td><td>' . count($tabela) . ' ' . e(mb_strtolower(count($tabela) === 1 ? $singular : $rotuloNivel)) . '</td>';
+        echo '<tr class="total">' . ($campoSel ? '<td></td>' : '') . '<td></td><td class="nome">' . count($tabela) . ' ' . e(mb_strtolower(count($tabela) === 1 ? $singular : $rotuloNivel)) . '</td>';
         foreach ($colunas as $k) {
             echo '<td>' . ($k === 'orcamento' || $k === 'id' ? '' : $todas[$k][2]($t)) . '</td>';
         }

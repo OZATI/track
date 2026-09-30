@@ -401,7 +401,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     echo '<div class="rgrade"><section class="bloco c8">' . titulo('Funil da Meta', 'Do clique no anúncio até a venda aprovada. Cliques, visualizações e inícios de checkout vêm da Meta; vendas, da Kiwify (só as com o ID de uma campanha).')
         . resumo_funil([
             'Cliques' => [(int)$g['cliques'], 'Cliques no link do anúncio (Meta).'],
-            'Visualizações' => [(int)$g['vis'], 'Visualizações da página de destino que a Meta contou (a página carregou).'],
+            "Visuali\u{00AD}zações" => [(int)$g['vis'], 'Visualizações da página de destino que a Meta contou (a página carregou).'],
             'Inícios de checkout' => [(int)$g['ics'], 'InitiateCheckout contados pela Meta (checkout aberto na Kiwify).'],
             'Vendas iniciadas' => [$metaIniciadas, 'Pedidos criados na Kiwify vindos de anúncio, pagos ou não.'],
             'Vendas aprovadas' => [$metaAprovadas, 'Pedidos aprovados vindos de anúncio.'],
