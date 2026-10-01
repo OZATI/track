@@ -81,8 +81,30 @@ function periodo_utc(string $periodo): array
     return [$de->setTimezone($utc)->format('Y-m-d H:i:s'), $ate->setTimezone($utc)->format('Y-m-d H:i:s')];
 }
 
-// IP do visitante. Atras do CDN da Hostinger o REMOTE_ADDR pode ser do CDN; o
-// X-Forwarded-For traz o do visitante. Serve para exibir, nao para seguranca.
+// IP para SEGURANCA (chave dos limites de tentativa): o da conexao. O
+// X-Forwarded-For e escrito por quem faz o pedido; confiar nele deixava trocar de
+// "IP" a cada tentativa e passar pelo limite do login. So vale quando a conexao vem
+// de um proxy listado em 'proxies' na configuracao (ex.: um CDN na frente do
+// painel), e entao conta o ultimo IP antes dos proxies conhecidos.
+function ip_conexao(): string
+{
+    $remoto = (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+    $cfg = track_config();
+    $proxies = is_array($cfg['proxies'] ?? null) ? $cfg['proxies'] : [];
+    if ($proxies && in_array($remoto, $proxies, true)) {
+        $cadeia = array_reverse(array_map('trim', explode(',', (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''))));
+        foreach ($cadeia as $ip) {
+            if (filter_var($ip, FILTER_VALIDATE_IP) && !in_array($ip, $proxies, true)) {
+                return $ip;
+            }
+        }
+    }
+    return $remoto;
+}
+
+// IP do visitante para EXIBIR (aparelho, IP parcial). Atras do CDN da Hostinger o
+// REMOTE_ADDR pode ser do CDN; o X-Forwarded-For traz o do visitante. Nao use para
+// seguranca: quem faz o pedido escreve o X-Forwarded-For (use ip_conexao()).
 function ip_cliente(): string
 {
     $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';

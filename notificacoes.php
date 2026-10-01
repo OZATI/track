@@ -19,7 +19,7 @@ if (!track_config() || !logado()) {
 if (!csrf_valido()) {
     responder_json(403, ['ok' => false, 'erro' => 'Sessão expirada. Recarregue a página.']);
 }
-if (!dentro_do_limite('notificacoes:' . ip_cliente(), 30, 600)) {
+if (!dentro_do_limite('notificacoes:' . ip_conexao(), 30, 600)) {
     responder_json(429, ['ok' => false, 'erro' => 'Muitas tentativas. Espere alguns minutos.']);
 }
 $usuario = (string)usuario_atual();

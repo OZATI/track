@@ -48,7 +48,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (!csrf_valido()) {
         $erros[] = 'Sessão expirada. Recarregue a página.';
-    } elseif (!dentro_do_limite('ig-api-tela:' . ip_cliente(), 20, 600)) {
+    } elseif (!dentro_do_limite('ig-api-tela:' . ip_conexao(), 20, 600)) {
         $erros[] = 'Muitas tentativas. Espere alguns minutos.';
     } elseif ($acao === 'usar_meta') {
         $meta = meta_api_chave();

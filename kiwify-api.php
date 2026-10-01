@@ -17,7 +17,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (!csrf_valido()) {
         $erros[] = 'Sessão expirada. Recarregue a página.';
-    } elseif (!dentro_do_limite('kiwify-api:' . ip_cliente(), 20, 600)) {
+    } elseif (!dentro_do_limite('kiwify-api:' . ip_conexao(), 20, 600)) {
         $erros[] = 'Muitas tentativas. Espere alguns minutos.';
     } elseif ($acao === 'salvar') {
         $clientId = trim((string)($_POST['client_id'] ?? ''));

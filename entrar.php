@@ -24,11 +24,15 @@ const HASH_NINGUEM = '$2y$12$39pYEW3u79i1RX0MJ5vxNOELAIjKU5dsG02WFtbFHXg2Yjov9Y/
 $erro = '';
 $usuario = strtolower(trim((string)($_POST['usuario'] ?? '')));
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    $chave = 'login:' . ip_cliente();
+    // Dois limites: por conexao (5 erros em 15 min) e por usuario (10 em 15 min, de
+    // qualquer lugar). O segundo segura quem troca de IP; o preco e que um ataque
+    // pode travar o login daquele usuario por 15 minutos.
+    $chave = 'login:' . ip_conexao();
+    $chaveConta = 'login-conta:' . hash('sha256', $usuario);
     $hash = track_usuarios()[$usuario] ?? null;
     if (!csrf_valido()) {
         $erro = 'Sessão expirada. Tente de novo.';
-    } elseif (limite_atingido($chave, 5, 900)) {
+    } elseif (limite_atingido($chave, 5, 900) || limite_atingido($chaveConta, 10, 900)) {
         $erro = 'Muitas tentativas. Espere 15 minutos.';
     } elseif (password_verify((string)($_POST['senha'] ?? ''), $hash ?? HASH_NINGUEM) && $hash !== null) {
         session_regenerate_id(true);
@@ -38,6 +42,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         exit;
     } else {
         registrar_tentativa($chave);
+        registrar_tentativa($chaveConta);
         $erro = 'Usuário ou senha incorretos.';
     }
 }

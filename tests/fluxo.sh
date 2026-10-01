@@ -788,6 +788,10 @@ confere "$(grep -q FALHA < <(printf '%s\n' "$saida"); [ $? -ne 0 ] && [ "$n" -eq
 echo "Proteções"
 for i in 1 2 3 4 5 6; do r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" "$URL/entrar.php"); c=$(grep -o '[a-f0-9]\{32\}' < <(printf '%s\n' "$r") | head -1); r=$(curl -s -c "$DADOS/j2" -b "$DADOS/j2" --data "csrf=$c&senha=errada" "$URL/entrar.php"); done
 confere "$(tem 'Muitas tentativas' "$r")" "login bloqueia depois de 5 senhas erradas"
+# Quem faz o pedido escreve o X-Forwarded-For: trocar o valor a cada tentativa nao
+# pode virar outro "IP" e furar o limite (auditoria de 30/09/2026).
+for i in 1 2 3; do r=$(curl -s -c "$DADOS/j3" -b "$DADOS/j3" "$URL/entrar.php"); c=$(grep -o '[a-f0-9]\{32\}' < <(printf '%s\n' "$r") | head -1); r=$(curl -s -c "$DADOS/j3" -b "$DADOS/j3" -H "X-Forwarded-For: 203.0.113.$i" --data "csrf=$c&senha=errada" "$URL/entrar.php"); done
+confere "$(tem 'Muitas tentativas' "$r")" "trocar o X-Forwarded-For não fura o limite do login"
 
 echo "Classificação e webhook"
 # shellcheck disable=SC2086

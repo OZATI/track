@@ -18,7 +18,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (!csrf_valido()) {
         $erros[] = 'Sessão expirada. Recarregue a página.';
-    } elseif (!dentro_do_limite('meta-api-tela:' . ip_cliente(), 20, 600)) {
+    } elseif (!dentro_do_limite('meta-api-tela:' . ip_conexao(), 20, 600)) {
         $erros[] = 'Muitas tentativas. Espere alguns minutos.';
     } elseif ($acao === 'salvar') {
         // Copia da Meta as vezes vem com quebra de linha ou espaco no meio: tira tudo

@@ -23,7 +23,7 @@ $chave = $_GET['chave'] ?? '';
 if (!is_string($chave) || empty($cfg['chave_webhook']) || !hash_equals($cfg['chave_webhook'], $chave)) {
     responder_json(401, ['ok' => false]);
 }
-if (!dentro_do_limite('kiwify:' . ip_cliente(), 300, 60)) {
+if (!dentro_do_limite('kiwify:' . ip_conexao(), 300, 60)) {
     responder_json(429, ['ok' => false]);
 }
 

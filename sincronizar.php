@@ -56,7 +56,7 @@ if ($json) {
 // releitura completa das vendas a cada 10 minutos. Clique a mais so volta para a tela, sem
 // erro: os dados acabaram de ser buscados. O limite por IP so segura abuso.
 // A busca da tela em que o botao esta vai primeiro (foco): no Organico, o Instagram.
-if (dentro_do_limite('sincronizar:' . ip_cliente(), 30, 600)) {
+if (dentro_do_limite('sincronizar:' . ip_conexao(), 30, 600)) {
     $buscas = [
         'kiwify' => function () {
             if (time() - (int)(ajuste('kiwify_sync_tentativa') ?? 0) >= 60) {

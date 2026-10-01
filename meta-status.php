@@ -15,7 +15,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 }
 if (!csrf_valido()) {
     aviso_definir('Sessão expirada. Recarregue a página e tente de novo.', 'erro');
-} elseif (!dentro_do_limite('meta-status:' . ip_cliente(), 20, 600)) {
+} elseif (!dentro_do_limite('meta-status:' . ip_conexao(), 20, 600)) {
     aviso_definir('Muitas alterações seguidas. Espere alguns minutos.', 'erro');
 } else {
     $id = (string)($_POST['id'] ?? '');

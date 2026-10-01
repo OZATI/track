@@ -30,7 +30,7 @@ if (!$cfg) {
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || !$permitida) {
     responder_json(403, ['ok' => false]);
 }
-if (!dentro_do_limite('coleta:' . ip_cliente(), 240, 60)) {
+if (!dentro_do_limite('coleta:' . ip_conexao(), 240, 60)) {
     responder_json(429, ['ok' => false]);
 }
 
