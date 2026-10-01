@@ -793,8 +793,8 @@ echo "Classificação e webhook"
 # shellcheck disable=SC2086
 saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '
   require "lib/util.php"; require "lib/layout.php";
-  echo canal("ig", "social", null, null, "ID MID|120249173963740442")[1], ";", canal("ig", "social")[3], ";", canal("instagram", "social", null, null, "TL 1|120120")[1], ";", canal("organico", "instagram-bio", null, null, "bio")[3];')
-confere "$(tem 'Instagram · anúncio;Instagram (bio);Instagram · anúncio;Instagram (bio)' "$saida")" "ig / social com ID de campanha é anúncio; sem ID, bio ($saida)"
+  echo canal("ig", "social", null, null, "ID MID|120249173963740442")[1], ";", canal("ig", "social")[3], ";", canal("instagram", "social", null, null, "TL 1|120120")[1], ";", canal("organico", "instagram-bio", null, null, "bio")[3], ";", canal("organico", "instagram-stories", null, null, "stories")[3];')
+confere "$(tem 'Instagram · anúncio;Instagram (bio);Instagram · anúncio;Instagram (bio);Instagram (stories)' "$saida")" "ig / social com ID de campanha é anúncio; sem ID, bio; link do Story ($saida)"
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
 confere "$(tem 'Mostrar a URL do webhook' "$r")" "aba API Kiwify mostra a URL do webhook"
 confere "$(tem "kiwify.php?chave=$CHAVE" "$r")" "URL do webhook com a chave certa"

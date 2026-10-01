@@ -516,7 +516,7 @@ function icone(string $nome, int $tam = 16): string
 // Meio organico em portugues (etiquetas da limpeza da pagina: organico / <meio> / ...)
 function rotulo_meio(string $m): string
 {
-    $nomes = ['instagram-bio' => 'Instagram (bio)', 'instagram' => 'Instagram', 'google' => 'Google', 'whatsapp' => 'WhatsApp',
+    $nomes = ['instagram-bio' => 'Instagram (bio)', 'instagram-stories' => 'Instagram (stories)', 'instagram' => 'Instagram', 'google' => 'Google', 'whatsapp' => 'WhatsApp',
         'facebook' => 'Facebook', 'ia' => 'IA (ChatGPT e outros)', 'site' => 'outro site', 'direto' => 'direto', 'email' => 'e-mail', 'youtube' => 'YouTube'];
     return $nomes[$m] ?? $m;
 }
@@ -593,7 +593,7 @@ const CANAIS_DICA = [
     'instagram' => 'Veio de um anúncio pago que apareceu no Instagram (feed, stories, reels, explorar). Condição: o link traz a campanha do anúncio e o posicionamento Instagram (utm_term), ou o Instagram trocou a origem para ig / social mas a campanha tem o ID da Meta.',
     'facebook' => 'Veio de um anúncio pago que apareceu no Facebook, no Messenger ou na Audience Network. Condição: o link traz a campanha do anúncio e o posicionamento Facebook (utm_term).',
     'google' => 'Veio de um anúncio do Google Ads. Condição: o link traz utm_source=google (ou googleads) com meio pago, como cpc.',
-    'organico' => 'Chegou sem anúncio: link da bio, post, story, Direct, WhatsApp, busca do Google, IA ou outro site. Condição: o link diz que é orgânico (ex.: organico / instagram-bio) ou a pessoa veio de um site sem etiqueta de anúncio. O detalhe ao lado diz de onde.',
+    'organico' => 'Chegou sem anúncio: link da bio, post, story, Direct, WhatsApp, busca do Google, IA ou outro site. Condição: o link diz que é orgânico (ex.: organico / instagram-bio, organico / instagram-stories) ou a pessoa veio de um site sem etiqueta de anúncio. O detalhe ao lado diz de onde.',
     'outros' => 'O link tem etiqueta, mas não é de anúncio da Meta, do Google nem orgânica (ex.: e-mail marketing, parceiro, outra ferramenta). O detalhe mostra a origem escrita no link.',
     'meta' => 'Veio de anúncio da Meta (a etiqueta traz a campanha), mas o utm_term, que diz onde o anúncio apareceu, chegou vazio ou com um valor que não é Facebook nem Instagram (ex.: "an", da Audience Network). Por isso não entra em Facebook nem em Instagram. Campanha, conjunto e anúncio continuam valendo no Gestor de anúncios. Para diminuir: o link do anúncio precisa ter utm_term={{placement}}.',
     'compartilhado' => 'Link de anúncio aberto fora da entrega paga (post compartilhado, link copiado, prévia do anúncio): as etiquetas chegaram com {{...}} escrito, sem o que a Meta preencheria. Não dá para ligar a uma campanha.',
