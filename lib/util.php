@@ -53,6 +53,16 @@ function data_local(?string $utc, string $formato = 'd/m H:i:s'): string
     return $d->setTimezone(fuso())->format($formato);
 }
 
+// Caminho da pagina como o painel guarda: minusculas, sem "/index.html" e sem a barra do fim
+// ("/drivedeprojetos/" e "/drivedeprojetos" sao a mesma pagina). A raiz continua "/".
+function pagina_normal(string $caminho): string
+{
+    $p = strtolower($caminho);
+    $p = preg_replace('~/index\.html?$~', '/', $p) ?? $p;
+    $p = $p === '/' ? '/' : rtrim($p, '/');
+    return $p === '' ? '/' : $p;
+}
+
 // Periodos prontos do filtro do topo. Alem deles, o personalizado: "2026-09-25_2026-09-28"
 // (do primeiro ao ultimo dia, os dois inclusive), que vai no endereco como os outros.
 const PERIODOS = ['hoje' => 'Hoje', 'ontem' => 'Ontem', '7d' => 'Últimos 7 dias', '30d' => 'Últimos 30 dias',

@@ -231,6 +231,17 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 10;
             SQL);
     }
+    if ($versao < 11) {
+        // Pagina com e sem a barra do fim era contada como duas ("/drivedeprojetos/" e
+        // "/drivedeprojetos"): os eventos ja gravados passam para o caminho sem barra, como o
+        // coletar.php grava agora (pagina_normal)
+        track_migrar_para($pdo, 11, <<<'SQL'
+            UPDATE eventos SET pagina = substr(pagina, 1, length(pagina) - 10) WHERE pagina LIKE '%/index.html';
+            UPDATE eventos SET pagina = rtrim(pagina, '/') WHERE pagina <> '/' AND pagina LIKE '%/';
+            UPDATE eventos SET pagina = '/' WHERE pagina = '';
+            PRAGMA user_version = 11;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

@@ -188,19 +188,21 @@ function financeiro_render(PDO $db, string $periodo): void
 
     $categorias = array_values(array_unique(array_merge(FIN_CATEGORIAS, array_filter(array_column($gastos, 'categoria')))));
     $valor = $editar ? number_format((int)$editar['valor'] / 100, 2, ',', '.') : '';
-    echo '<form method="post" action="gastos.php" class="cartao fin-form" id="despesa"><h2>' . ($editar ? 'Editar despesa' : 'Nova despesa') . '</h2>'
+    // Na largura toda, como os outros blocos; "Ate" so aparece quando a despesa se repete (painel.js)
+    $repete = $editar['repete'] ?? 'unico';
+    echo '<form method="post" action="gastos.php" class="bloco fin-form" id="despesa" data-despesa><h2>' . ($editar ? 'Editar despesa' : 'Nova despesa') . '</h2>'
         . '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="acao" value="salvar"><input type="hidden" name="volta" value="' . e($volta) . '">'
         . ($editar ? '<input type="hidden" name="id" value="' . (int)$editar['id'] . '">' : '')
-        . '<label>Descrição<input name="descricao" maxlength="120" required value="' . e($editar['descricao'] ?? '') . '" placeholder="Ex.: Hospedagem Hostinger"></label>'
-        . '<div class="fin-linha"><label>Categoria<input name="categoria" maxlength="40" list="fin-categorias" value="' . e($editar['categoria'] ?? '') . '" placeholder="Ex.: Ferramentas"></label>'
-        . '<label>Valor (R$)<input name="valor" inputmode="decimal" required value="' . e($valor) . '" placeholder="0,00"></label></div>'
-        . '<datalist id="fin-categorias">' . implode('', array_map(fn($c) => '<option value="' . e($c) . '">', $categorias)) . '</datalist>'
-        . '<div class="fin-linha"><label>Repete<select name="repete">';
+        . '<div class="fin-campos"><label class="fin-desc"><span>Descrição</span><input name="descricao" maxlength="120" required value="' . e($editar['descricao'] ?? '') . '" placeholder="Ex.: Hospedagem Hostinger"></label>'
+        . '<label><span>Categoria</span><input name="categoria" maxlength="40" list="fin-categorias" value="' . e($editar['categoria'] ?? '') . '" placeholder="Ex.: Ferramentas"></label>'
+        . '<label><span>Valor (R$)</span><input name="valor" inputmode="decimal" required value="' . e($valor) . '" placeholder="0,00"></label>'
+        . '<label><span>Repete</span><select name="repete" data-repete>';
     foreach (FIN_REPETE as $k => $rot) {
-        echo '<option value="' . $k . '"' . (($editar['repete'] ?? 'unico') === $k ? ' selected' : '') . '>' . e($rot) . '</option>';
+        echo '<option value="' . $k . '"' . ($repete === $k ? ' selected' : '') . '>' . e($rot) . '</option>';
     }
-    echo '</select></label><label>' . com_info('Data', 'Dia em que a despesa cai. Nas que se repetem, o primeiro dia (todo mês cai nesse mesmo dia).') . '<input type="date" name="inicio" required value="' . e($editar['inicio'] ?? $hoje) . '"></label>'
-        . '<label>' . com_info('Até (opcional)', 'Só nas que se repetem: o último dia. Em branco, repete sem fim.') . '<input type="date" name="fim" value="' . e((string)($editar['fim'] ?? '')) . '"></label></div>'
+    echo '</select></label><label><span>' . com_info('Data', 'Dia em que a despesa cai. Nas que se repetem, o primeiro dia (todo mês cai nesse mesmo dia).') . '</span><input type="date" name="inicio" required value="' . e($editar['inicio'] ?? $hoje) . '"></label>'
+        . '<label data-ate' . ($repete === 'unico' ? ' hidden' : '') . '><span>' . com_info('Até (opcional)', 'O último dia em que a despesa se repete. Em branco, repete sem fim.') . '</span><input type="date" name="fim" value="' . e((string)($editar['fim'] ?? '')) . '"></label></div>'
+        . '<datalist id="fin-categorias">' . implode('', array_map(fn($c) => '<option value="' . e($c) . '">', $categorias)) . '</datalist>'
         . '<div class="linha-botoes"><button type="submit">' . ($editar ? 'Salvar' : 'Cadastrar') . '</button>'
         . ($editar ? '<a href="' . e($volta) . '">Cancelar</a>' : '') . '</div></form>';
 }

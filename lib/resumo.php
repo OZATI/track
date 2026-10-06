@@ -40,8 +40,6 @@ function resumo_barras(array $itens, callable $texto): string
 // O desenho e um SVG esticado na largura (sem texto dentro); textos ficam no HTML.
 function resumo_funil(array $passos): string
 {
-    static $seq = 0;
-    $seq++;
     $n = max(1, count($passos));
     $vals = array_map(fn($p) => max(0.0, (float)$p[0]), array_values($passos));
     $max = max(1.0, ...$vals);
@@ -79,8 +77,7 @@ function resumo_funil(array $passos): string
         $html .= '<span>' . com_info((string)$rotulo, $dica) . '</span>';
     }
     $html .= '</div><div class="fluxo-corpo"><svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">'
-        . '<defs><linearGradient id="fluxo' . $seq . '" x1="0" x2="1" y1="0" y2="0"><stop offset="0" style="stop-color:var(--marca)"></stop><stop offset="1" style="stop-color:var(--marca-hover)"></stop></linearGradient></defs>'
-        . '<path d="' . $d . ' Z" fill="url(#fluxo' . $seq . ')"></path>' . $linhas . '</svg><div class="fluxo-pct">';
+        . '<path d="' . $d . ' Z" fill="url(#grad-azul-h)"></path>' . $linhas . '</svg><div class="fluxo-pct">';
     foreach ($vals as $v) {
         // Faixa grossa: a % vai dentro, em branco; faixa fina: logo acima dela, pela altura
         $html .= $alt($v) >= 24 ? '<b class="dentro">' . e(resumo_pct($v, $primeiro)) . '</b>'
@@ -464,7 +461,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         foreach ($paginasVsl as $row) {
             $pPath = $row['pagina'];
             $pNome = $pPath;
-            if ($pPath === '/drivedeprojetos/' || $pPath === '/drivedeprojetos/index.html') {
+            if (in_array($pPath, ['/drivedeprojetos', '/drivedeprojetos/', '/drivedeprojetos/index.html'], true)) {
                 $pNome = 'Drive de Projetos (Principal · R$ 67)';
             } elseif (str_contains($pPath, '/vsl')) {
                 $pNome = 'Drive de Projetos (VSL Teste · R$ 97)';

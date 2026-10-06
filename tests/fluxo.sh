@@ -152,12 +152,12 @@ confere "$(tem 'direto (sem origem)' "$r")" "visita sem etiqueta e sem site de o
 confere "$(grep -q 'q=drive' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "parâmetros do site de origem não são guardados (LGPD)"
 confere "$(tem 'Tráfego por página' "$(sem_tags "$r")")" "tabela por página aparece"
 confere "$(tem 'Clicaram no WhatsApp' "$(sem_tags "$r")")" "coluna WhatsApp aparece quando o site já teve clique no WhatsApp"
-r2=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo&dominio=site.test&pagina=/drivedeprojetos/")
+r2=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo&dominio=site.test&pagina=/drivedeprojetos")
 confere "$(grep -q 'Clicaram no WhatsApp' < <(sem_tags "$r2"); [ $? -ne 0 ]; echo $?)" "página que só vende pelo checkout não mostra coluna de WhatsApp"
 # Trocar de aba (link sem filtro) mantém site, página e período; "Todos os sites" limpa
 r3=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos")
 confere "$(tem '<option value="site.test" selected>' "$r3")" "trocar de aba mantém o site escolhido"
-confere "$(tem '<option value="/drivedeprojetos/" selected>' "$r3")" "trocar de aba mantém a página escolhida"
+confere "$(tem '<option value="/drivedeprojetos" selected>' "$r3")" "trocar de aba mantém a página escolhida"
 confere "$(tem '<option value="tudo" selected>' "$r3")" "trocar de aba mantém o período escolhido"
 r3=$(curl -s -b "$JAR" "$URL/configuracoes.php")
 r3=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas")
@@ -194,8 +194,15 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&evento=CliqueChec
 confere "$(grep -q 'Visualização</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "filtro por tipo de evento mostra só os cliques no checkout"
 confere "$(tem 'Clique no checkout</strong>' "$r")" "filtro por tipo de evento mantém o evento escolhido"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test")
-confere "$(tem '<option value="/drivedeprojetos/"' "$r")" "caixa de páginas lista as páginas do domínio escolhido"
-r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test&pagina=/bio/")
+confere "$(tem '<option value="/drivedeprojetos"' "$r")" "caixa de páginas lista as páginas do domínio escolhido"
+# Com e sem a barra do fim (e com /index.html) e a mesma pagina
+curl -s -H "Origin: http://site.test" --data '{"evento":"PageView","url":"http://site.test/drivedeprojetos"}' "$URL/coletar.php" >/dev/null
+curl -s -H "Origin: http://site.test" --data '{"evento":"PageView","url":"http://site.test/drivedeprojetos/index.html"}' "$URL/coletar.php" >/dev/null
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test")
+confere "$([ "$(grep -o '<option value="/drivedeprojetos[^"]*"' < <(printf '%s\n' "$r") | sort -u | wc -l)" -eq 1 ]; echo $?)" "página com e sem a barra do fim (e com /index.html) aparece uma vez só, sem barra"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test&pagina=/drivedeprojetos/")
+confere "$(tem '<option value="/drivedeprojetos" selected>' "$r")" "endereço antigo com a barra cai na mesma página"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test&pagina=/bio")
 confere "$(tem 'WhatsApp' "$r")" "filtro por página mostra os eventos dela"
 confere "$(grep -q 'Clique no checkout</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "filtro por página esconde os eventos das outras"
 curl -s -o /dev/null -b "$JAR" "$URL/index.php?periodo=tudo&dominio=&pagina="

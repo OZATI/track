@@ -52,8 +52,8 @@ if ($hostUrl === '' || $hostUrl !== $hostOrigem) {
     responder_json(400, ['ok' => false]);
 }
 $dominio = preg_replace('/^www\./', '', $hostUrl);
-$pagina = strtolower((string)parse_url($url, PHP_URL_PATH));
-$pagina = $pagina === '' ? '/' : mb_substr($pagina, 0, 200);
+// Uma pagina so com ou sem a barra do fim (pagina_normal, em lib/util.php)
+$pagina = mb_substr(pagina_normal((string)parse_url($url, PHP_URL_PATH)), 0, 200);
 
 $utms = [];
 $recebidas = is_array($corpo['utms'] ?? null) ? $corpo['utms'] : [];

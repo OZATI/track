@@ -39,7 +39,9 @@ if ($dominio !== '') {
     $st->execute([$dominio]);
     $paginas = $st->fetchAll(PDO::FETCH_COLUMN);
 }
-$pagina = in_array($escolhido('pagina'), $paginas, true) ? $escolhido('pagina') : '';
+// Endereco antigo com a barra no fim ("/drivedeprojetos/") cai na mesma pagina
+$pedida = $escolhido('pagina');
+$pagina = $pedida !== '' && in_array(pagina_normal($pedida), $paginas, true) ? pagina_normal($pedida) : '';
 // Produtos: varios de uma vez. O formulario sempre manda produto[] (mesmo vazio, para dar
 // para desmarcar todos); so valem os que ja venderam.
 $produtosConhecidos = produtos_conhecidos($db);

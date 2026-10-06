@@ -33,6 +33,7 @@ function pagina_inicio(string $titulo): void
   --marca:#1D6FF2; --marca-hover:#155FD6;
   --ok:#15803D; --alerta:#B45309; --erro:#B91C1C; --laranja:#C2410C;
   --lateral:#0B1B2E; --realce:#EEF4FF; --fundo-ok:#ECFDF3; --fundo-alerta:#FFF7ED; --fundo-erro:#FEF2F2; --sombra:rgba(17,24,39,.12);
+  --grad-a:#1D6FF2; --grad-b:#60A5FA; --rolagem:#C9CED6; --rolagem-hover:#9CA3AF;
   --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --f-titulo:var(--f-texto); --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
   --r-sm:6px; --r-md:8px; --r-lg:8px;
 }
@@ -52,9 +53,18 @@ function pagina_inicio(string $titulo): void
   --ok:#22C55E; --alerta:#F59E0B; --erro:#F05252; --laranja:#FB923C;
   --lateral:color-mix(in srgb, var(--base), #000 35%); --realce:rgba(59,130,246,.16);
   --fundo-ok:rgba(34,197,94,.14); --fundo-alerta:rgba(245,158,11,.14); --fundo-erro:rgba(240,82,82,.14); --sombra:rgba(0,0,0,.55);
+  --grad-a:#2563EB; --grad-b:#93C5FD; --rolagem:color-mix(in srgb, var(--base), #fff 22%); --rolagem-hover:color-mix(in srgb, var(--base), #fff 38%);
 }
 :root[data-tema=escuro] .lateral{ border-right:1px solid var(--linha); }
 *{ box-sizing:border-box; }
+/* Barras de rolagem finas e suaves, nas cores do tema (no lugar das nativas) */
+*{ scrollbar-width:thin; scrollbar-color:var(--rolagem) transparent; }
+::-webkit-scrollbar{ width:8px; height:8px; }
+::-webkit-scrollbar-track{ background:transparent; }
+::-webkit-scrollbar-thumb{ background:var(--rolagem); border-radius:8px; border:2px solid transparent; background-clip:padding-box; }
+::-webkit-scrollbar-thumb:hover{ background:var(--rolagem-hover); background-clip:padding-box; }
+::-webkit-scrollbar-corner{ background:transparent; }
+.defs-graficos{ position:absolute; width:0; height:0; overflow:hidden; }
 body{ margin:0; font:13px/1.5 var(--f-texto); background:var(--fundo); color:var(--texto); font-feature-settings:"tnum" 1; }
 a{ color:var(--marca); text-decoration:none; } a:hover{ text-decoration:underline; }
 code, pre{ font-family:var(--f-mono); font-size:12px; }
@@ -238,7 +248,7 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .grafico .ref-2{ stroke:var(--ok); stroke-width:1; stroke-dasharray:3 3; opacity:.6; }
 .grafico .linha-roi{ fill:none; stroke:var(--suave); stroke-width:1.5; stroke-linejoin:round; pointer-events:none; }
 .grafico .ponto{ fill:var(--apagado); pointer-events:none; } .grafico .ponto.positivo{ fill:var(--ok); } .grafico .ponto.medio{ fill:var(--laranja); } .grafico .ponto.negativo{ fill:var(--erro); }
-.grafico .dia-graf .barra{ fill:var(--marca); opacity:.75; }
+.grafico .dia-graf .barra{ fill:url(#grad-azul-v); opacity:.9; }
 .leitura{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:9px; font-size:13px; line-height:1.4; }
 .leitura li{ position:relative; padding-left:16px; }
 .leitura li::before{ content:""; position:absolute; left:0; top:6px; width:8px; height:8px; border-radius:50%; background:var(--apagado); }
@@ -270,10 +280,14 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .ao-vivo::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--ok); animation:pulsar 1.6s ease-in-out infinite; }
 @keyframes pulsar{ 50%{ opacity:.35; } }
 @media (prefers-reduced-motion:reduce){ .ao-vivo::before{ animation:none; } }
-/* Financeiro: formulario da despesa e o Apagar na linha */
-.fin-form{ max-width:640px; }
-.fin-linha{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0 12px; }
-.fin-form select{ width:100%; }
+/* Financeiro: formulario da despesa na largura toda (como os outros blocos), campos numa grade */
+.fin-form{ margin-top:16px; }
+.fin-form h2{ margin:0 0 12px; }
+.fin-campos{ display:grid; grid-template-columns:minmax(220px,2fr) repeat(5,minmax(130px,1fr)); gap:12px; align-items:end; margin:0 0 14px; }
+.fin-campos label{ display:flex; flex-direction:column; gap:4px; min-width:0; font-size:12px; color:var(--suave); }
+.fin-campos input, .fin-campos select{ width:100%; min-width:0; }
+.fin-campos [hidden]{ display:none; }
+@media (max-width:1100px){ .fin-campos{ grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); } .fin-campos .fin-desc{ grid-column:1 / -1; } }
 .form-linha{ display:inline; margin:0 0 0 8px; }
 /* Filtro de periodo: as duas datas so aparecem no "De uma data a outra" */
 .datas{ display:contents; } .datas[hidden]{ display:none; } [data-so][hidden]{ display:none !important; }
@@ -400,7 +414,7 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .grafico{ display:block; width:100%; height:auto; margin-top:4px; }
 .grafico text{ font:11px var(--f-texto); fill:var(--suave); }
 .grafico .grade-l{ stroke:var(--linha); stroke-width:1; }
-.grafico .barra{ fill:var(--marca); }
+.grafico .barra{ fill:url(#grad-azul-v); }
 .grafico .barra-f{ fill:#C13584; } .grafico .barra-m{ fill:#1D6FF2; }
 /* Organico: quem segue x quem interage */
 .publico-comp{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; font-size:13px; }
@@ -568,6 +582,10 @@ th.marca, td.marca{ width:34px; text-align:center; }
 </style>
 </head>
 <body>
+<svg class="defs-graficos" aria-hidden="true" focusable="false"><defs>
+<linearGradient id="grad-azul-v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--grad-b)"></stop><stop offset="1" style="stop-color:var(--grad-a)"></stop></linearGradient>
+<linearGradient id="grad-azul-h" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--grad-a)"></stop><stop offset="1" style="stop-color:var(--grad-b)"></stop></linearGradient>
+</defs></svg>
 <?php
 }
 

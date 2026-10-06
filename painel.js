@@ -303,6 +303,12 @@
       e.preventDefault();
     }
   });
+  // Financeiro: "Ate" so aparece na despesa que se repete
+  var despesa = document.querySelector('[data-despesa]');
+  if (despesa) {
+    var rep = despesa.querySelector('[data-repete]'), ate = despesa.querySelector('[data-ate]');
+    if (rep && ate) { rep.addEventListener('change', function () { ate.hidden = rep.value === 'unico'; }); }
+  }
   // Programar orcamento: "Repete" mostra os dias da semana; "Uma vez", a data
   var progs = document.querySelectorAll('[data-programar]');
   for (var pg = 0; pg < progs.length; pg++) {
