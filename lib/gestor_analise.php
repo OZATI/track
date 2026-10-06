@@ -91,9 +91,9 @@ function analise_svg_velas(array $velas): string
         $sobe = $fecha >= $abre;
         $topo = $y(max($abre, $fecha));
         $alt = max(1.5, $y(min($abre, $fecha)) - $topo);
-        $dica = analise_dia($dia) . ' · ROI do dia ' . analise_num($roiDia) . ' · acumulado ' . analise_num($fecha) . ($primeira ? ' (primeiro dia)' : ' (era ' . analise_num($abre) . ')')
-            . ' · gasto ' . reais($m['gasto']) . ' · ' . $m['vendas'] . ' venda' . ($m['vendas'] === 1 ? '' : 's') . ' · lucro ' . reais($m['lucro']);
-        $svg .= '<g class="vela ' . ($sobe ? 'sobe' : 'desce') . '" data-dica="' . e($dica) . '" tabindex="0">'
+        $dica = dica_attr(analise_dia($dia), ['ROI do dia ' . analise_num($roiDia), 'Acumulado ' . analise_num($fecha) . ($primeira ? ' (primeiro dia)' : ' (era ' . analise_num($abre) . ')'),
+            'Gasto ' . reais($m['gasto']) . ' · ' . $m['vendas'] . ' venda' . ($m['vendas'] === 1 ? '' : 's'), 'Lucro ' . reais($m['lucro'])]);
+        $svg .= '<g class="vela ' . ($sobe ? 'sobe' : 'desce') . '"' . $dica . '>'
             . '<rect class="vela-alvo" x="' . round($x - $passo / 2, 1) . '" y="0" width="' . round($passo, 1) . '" height="' . ($A - $baixo) . '"></rect>'
             . '<line x1="' . round($x, 1) . '" x2="' . round($x, 1) . '" y1="' . $y($max) . '" y2="' . $y($min) . '"></line>'
             . '<rect x="' . round($x - $larg / 2, 1) . '" y="' . $topo . '" width="' . round($larg, 1) . '" height="' . round($alt, 1) . '" rx="1"></rect></g>';
@@ -135,8 +135,8 @@ function analise_svg_compradores(array $linhas, float $pct): string
     foreach ($dias as $dia => $m) {
         $x = $esq + $passo * ($i + 0.5);
         $larg = max(3, min(28, $passo * 0.55));
-        $dica = analise_dia($dia) . ' · ' . $m['vendas'] . ' comprador' . ($m['vendas'] === 1 ? '' : 'es') . ' · ROI ' . analise_num($m['roi']) . ' · gasto ' . reais($m['gasto']);
-        $svg .= '<g class="dia-graf" data-dica="' . e($dica) . '" tabindex="0"><rect class="vela-alvo" x="' . round($x - $passo / 2, 1) . '" y="0" width="' . round($passo, 1) . '" height="' . ($A - $baixo) . '"></rect>'
+        $dica = dica_attr(analise_dia($dia), [$m['vendas'] . ' comprador' . ($m['vendas'] === 1 ? '' : 'es'), 'ROI ' . analise_num($m['roi']), 'Gasto ' . reais($m['gasto'])]);
+        $svg .= '<g class="dia-graf"' . $dica . '><rect class="vela-alvo" x="' . round($x - $passo / 2, 1) . '" y="0" width="' . round($passo, 1) . '" height="' . ($A - $baixo) . '"></rect>'
             . ($m['vendas'] ? '<rect class="barra" x="' . round($x - $larg / 2, 1) . '" y="' . $yV($m['vendas']) . '" width="' . round($larg, 1) . '" height="' . round($cima + $h - $yV($m['vendas']), 1) . '" rx="2"></rect>' : '')
             . ($m['roi'] !== null ? '<circle cx="' . round($x, 1) . '" cy="' . $yR($m['roi']) . '" r="3.5" class="ponto ' . cor_roi($m['roi']) . '"></circle>' : '') . '</g>';
         if ($m['roi'] !== null) {

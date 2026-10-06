@@ -174,9 +174,9 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
 confere "$(tem 'R$ 59,49' "$r")" "valor em centavos exibido em reais"
 confere "$(tem 'R$ 67,00' "$r")" "valor com ponto decimal exibido em reais"
 confere "$(tem '<span>Anúncio sem posicionamento</span>' "$r")" "venda de anúncio sem posicionamento fica como tal, não como Facebook ou Instagram"
-confere "$(tem '<span>Anúncio sem posicionamento</span><span class="info" tabindex="0" role="img" aria-label="Veio de anúncio da Meta' "$r")" "anúncio sem posicionamento tem o (i) explicando"
+confere "$(tem '<span>Anúncio sem posicionamento</span><span class="info" tabindex="0" role="button" aria-label="Veio de anúncio da Meta' "$r")" "anúncio sem posicionamento tem o (i) explicando"
 confere "$(tem '<span class="suave">· utm_term ' "$r")" "anúncio sem posicionamento mostra o utm_term que chegou"
-confere "$(tem '<span>Orgânico</span><span class="info"[^>]*>i</span><span class="suave">· WhatsApp</span>' "$r")" "venda orgânica mostra o meio (WhatsApp)"
+confere "$(tem '<span>Orgânico</span><span class="info"[^>]*><svg[^>]*>.*</svg></span><span class="suave">· WhatsApp</span>' "$r")" "venda orgânica mostra o meio (WhatsApp)"
 confere "$(tem 'data-dica="Chegou sem anúncio: link da bio' "$r")" "canal Orgânico tem o (i) dizendo de onde vem e em que condição"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo")
 confere "$(tem '&lt;script&gt;alert(1)&lt;/script&gt;' "$r")" "texto vindo da página é escapado (sem XSS)"
@@ -569,7 +569,7 @@ confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 110,00</td>' "$linha")" "filtr
 confere "$(tem '<span class="positivo">2,08</span>' "$linha")" "ROI só do produto principal (como o Allan filtra na UTMify)"
 confere "$(tem '<summary>Drive de Projetos 2.0</summary>' "$r")" "lista de produtos mostra o escolhido"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
-confere "$(tem 'Faturamento líquidoiR$ 110,00' "$(sem_tags "$r")")" "produto escolhido fica lembrado e vale no Resumo"
+confere "$(tem 'Faturamento líquidoR$ 110,00' "$(sem_tags "$r")")" "produto escolhido fica lembrado e vale no Resumo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&$P2&produto[]=Memorial%20Descritivo")
 confere "$(tem '<summary>2 produtos</summary>' "$r")" "dá para marcar mais de um produto"
 confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "com o order bump marcado, ele volta ao faturamento"
@@ -589,10 +589,10 @@ confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "análise 
 confere "$(tem 'href="./?aba=gestor[^"]*" class="atual"' "$r")" "análise diária deixa a aba Gestor marcada"
 confere "$(tem '<input type="hidden" name="id" value="120120">' "$r")" "trocar o período no topo continua na mesma campanha"
 # Analise diaria, em cima: numeros, graficos, leitura da campanha e quem compra (Meta)
-confere "$(tem 'Compradoresi2' "$(sem_tags "$r")")" "análise: compradores da campanha no período"
-confere "$(tem 'ROI</span><span class="info"[^>]*>i</span></div><b class="positivo">2,58</b>' "$r")" "análise: ROI da campanha com a cor"
+confere "$(tem 'Compradores2' "$(sem_tags "$r")")" "análise: compradores da campanha no período"
+confere "$(tem 'ROI</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="positivo">2,58</b>' "$r")" "análise: ROI da campanha com a cor"
 confere "$(tem 'aria-label="Compradores e ROI por dia"' "$r")" "análise: gráfico de compradores e ROI por dia"
-confere "$(tem 'class="vela sobe" data-dica="[a-záé]* [0-9/]* · ROI do dia 2,58 · acumulado 2,58 (primeiro dia) · gasto R\$ 50,00 · 2 vendas · lucro R\$ 78,92"' "$r")" "análise: gráfico de bolsa com uma vela por dia e o ROI no mouse"
+confere "$(tem 'class="vela sobe" data-dica-titulo="[a-záé]* [0-9/]*" data-dica="ROI do dia 2,58&#10;Acumulado 2,58 (primeiro dia)&#10;Gasto R\$ 50,00 · 2 vendas&#10;Lucro R\$ 78,92"' "$r")" "análise: gráfico de bolsa com uma vela por dia e o ROI no mouse (dica com título)"
 confere "$(tem 'CTR 1,50%: abaixo dos 2% de referência' "$r")" "leitura: CTR abaixo dos 2% (regra do Allan)"
 confere "$(tem 'Custo por IC R\$ 16,67: acima dos 10% do ticket (R\$ 6,32)' "$r")" "leitura: custo por IC contra 10% do ticket do produto principal"
 confere "$(tem 'Mulheres <b>2</b>' "$r")" "quem compra: pizza por sexo com as compras da Meta"
@@ -606,12 +606,12 @@ confere "$(tem 'Campanha não encontrada' "$r")" "campanha que não é da conta 
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
 confere "$(grep -q 'class="canal canal-[a-z]*" title=' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "canal sem dica dupla (title do navegador por cima do (i))"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
-confere "$(tem 'Faturamento brutoiR$ 223,39' "$(sem_tags "$r")")" "Resumo: faturamento bruto"
-confere "$(tem 'Taxas da KiwifyiR$ 21,39' "$(sem_tags "$r")")" "Resumo: taxas da Kiwify à parte"
+confere "$(tem 'Faturamento brutoR$ 223,39' "$(sem_tags "$r")")" "Resumo: faturamento bruto"
+confere "$(tem 'Taxas da KiwifyR$ 21,39' "$(sem_tags "$r")")" "Resumo: taxas da Kiwify à parte"
 confere "$(tem 'Orgânico <b>1</b>' "$r")" "Resumo: gráfico das vendas fora de anúncio por tipo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=financeiro&periodo=tudo")
-confere "$(tem 'EntradasiR$ 202,00' "$(sem_tags "$r")")" "Financeiro: entradas (todas as vendas aprovadas, líquido)"
-confere "$(tem 'AnúnciosiR$ 67,29' "$(sem_tags "$r")")" "Financeiro: anúncios com o imposto da Meta"
+confere "$(tem 'EntradasR$ 202,00' "$(sem_tags "$r")")" "Financeiro: entradas (todas as vendas aprovadas, líquido)"
+confere "$(tem 'AnúnciosR$ 67,29' "$(sem_tags "$r")")" "Financeiro: anúncios com o imposto da Meta"
 confere "$(tem 'Nenhuma despesa cadastrada' "$r")" "Financeiro começa sem despesas"
 confere "$(grep -q 'name="produto\[\]"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro é a empresa toda (sem filtro de produto)"
 gasto() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=$2" "${@:3}" --data-urlencode "volta=./?aba=financeiro&periodo=tudo" "$URL/gastos.php"; curl -s -b "$JAR" "$URL/index.php?aba=financeiro&periodo=tudo"; }
@@ -621,13 +621,13 @@ r=$(gasto "$csrf" salvar --data-urlencode "descricao=Hospedagem" --data-urlencod
 confere "$(tem 'Confira a despesa' "$r")" "valor inválido é recusado"
 r=$(gasto "$csrf" salvar --data-urlencode "descricao=Hospedagem" --data-urlencode "categoria=Hospedagem" --data-urlencode "valor=R\$ 40,00" --data-urlencode "repete=mensal" --data-urlencode "inicio=$HOJE")
 confere "$(tem 'Despesa cadastrada.' "$r")" "cadastrar despesa que se repete todo mês"
-confere "$(tem 'Outras despesasiR$ 40,00' "$(sem_tags "$r")")" "despesa entra nas saídas do período"
-confere "$(tem 'ROI geral</span><span class="info"[^>]*>i</span></div><b class="medio">1,88</b>' "$r")" "ROI geral com as despesas (entradas ÷ saídas), em laranja entre 1 e 2"
-confere "$(tem 'SaldoiR$ 94,71' "$(sem_tags "$r")")" "saldo: entradas − anúncios − despesas"
+confere "$(tem 'Outras despesasR$ 40,00' "$(sem_tags "$r")")" "despesa entra nas saídas do período"
+confere "$(tem 'ROI geral</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="medio">1,88</b>' "$r")" "ROI geral com as despesas (entradas ÷ saídas), em laranja entre 1 e 2"
+confere "$(tem 'SaldoR$ 94,71' "$(sem_tags "$r")")" "saldo: entradas − anúncios − despesas"
 confere "$(tem 'data-confirma="Apagar a despesa &quot;Hospedagem&quot;?"' "$r")" "apagar pede confirmação"
 ID=$(grep -o 'name="id" value="[0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[0-9]*')
 r=$(gasto "$csrf" salvar --data-urlencode "id=$ID" --data-urlencode "descricao=Hospedagem" --data-urlencode "valor=50" --data-urlencode "repete=unico" --data-urlencode "inicio=$HOJE")
-confere "$(tem 'Outras despesasiR$ 50,00' "$(sem_tags "$r")")" "editar a despesa"
+confere "$(tem 'Outras despesasR$ 50,00' "$(sem_tags "$r")")" "editar a despesa"
 r=$(gasto "$csrf" apagar --data-urlencode "id=$ID")
 confere "$(tem 'Despesa apagada.' "$r")" "apagar a despesa"
 confere "$(tem 'Nenhuma despesa cadastrada' "$r")" "despesa apagada some da lista"
@@ -644,13 +644,13 @@ confere "$(tem '<th data-col="orcamento">Orçamento .*<th data-col="gasto">Gasto
 
 echo "Resumo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
-confere "$(tem 'Faturamento líquidoiR$ 202,00' "$(sem_tags "$r")")" "faturamento líquido do período (com order bump)"
-confere "$(tem 'Gasto com anúnciosiR$ 60,00' "$(sem_tags "$r")")" "gasto com anúncios"
-confere "$(tem 'Lucro</span><span class="info"[^>]*>i</span></div><b class="positivo">R$ 134,71</b>' "$r")" "lucro com imposto da Meta"
-confere "$(tem 'ROI geral</span><span class="info"[^>]*>i</span></div><b class="positivo">3,25</b>' "$r")" "ROI geral: (todo o faturamento − imposto) ÷ gasto, como no gestor e na UTMify"
+confere "$(tem 'Faturamento líquidoR$ 202,00' "$(sem_tags "$r")")" "faturamento líquido do período (com order bump)"
+confere "$(tem 'Gasto com anúnciosR$ 60,00' "$(sem_tags "$r")")" "gasto com anúncios"
+confere "$(tem 'Lucro</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="positivo">R$ 134,71</b>' "$r")" "lucro com imposto da Meta"
+confere "$(tem 'ROI geral</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="positivo">3,25</b>' "$r")" "ROI geral: (todo o faturamento − imposto) ÷ gasto, como no gestor e na UTMify"
 confere "$(tem 'ROI rastreado' "$(sem_tags "$r")")" "ROI rastreado ao lado, para comparar"
-confere "$(tem 'Margem</span><span class="info"[^>]*>i</span></div><b class="positivo">69,2%</b>' "$r")" "margem: lucro ÷ (faturamento − imposto)"
-confere "$(tem 'Vendas pendentes</span><span class="info"[^>]*>i</span></div><b class="">R$ 67,00</b>' "$r")" "pendentes no valor cobrado"
+confere "$(tem 'Margem</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="positivo">69,2%</b>' "$r")" "margem: lucro ÷ (faturamento − imposto)"
+confere "$(tem 'Vendas pendentes</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="">R$ 67,00</b>' "$r")" "pendentes no valor cobrado"
 confere "$(tem 'class="rosca"' "$r")" "vendas por pagamento em rosca, como na UTMify"
 confere "$(tem 'aria-label="Vendas por dia da semana"' "$r")" "vendas por dia da semana"
 confere "$(tem 'Qualidade do rastreio' "$(sem_tags "$r")")" "qualidade do rastreio: quanto das vendas o painel explica"
@@ -659,7 +659,7 @@ confere "$(tem 'name="produto\[\]"' "$r")" "filtro de produto (no topo, vários 
 confere "$(tem 'name="canal"' "$r")" "filtro de canal"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&canal=organico")
 confere "$(tem 'Filtro ligado' "$(sem_tags "$r")")" "filtro de canal avisa que o gasto continua o da conta toda"
-confere "$(grep -q 'Faturamento líquidoiR$ 202,00' < <(sem_tags "$r"); [ $? -ne 0 ]; echo $?)" "filtro de canal muda o faturamento"
+confere "$(grep -q 'Faturamento líquidoR$ 202,00' < <(sem_tags "$r"); [ $? -ne 0 ]; echo $?)" "filtro de canal muda o faturamento"
 confere "$(tem 'Funil da Meta' "$(sem_tags "$r")")" "funil da Meta"
 confere "$(tem '<span class="nw">Visuali.*zações&nbsp;' "$r")" "funil com visualizações da página (com hífen invisível para o celular)"
 confere "$(tem 'Funil do site' "$(sem_tags "$r")")" "funil do site"
@@ -667,6 +667,9 @@ confere "$(tem '<div class="fluxo" style="--n:5">' "$r")" "funil da Meta em flux
 confere "$(tem '<b class="dentro">100,0%</b>' "$r")" "primeiro passo do funil com 100% dentro da faixa"
 confere "$(tem 'class="grafico"' "$r")" "gráficos por hora em SVG"
 confere "$(tem 'data-dica="Tudo o que voltou ÷ o gasto com anúncios' "$r")" "número do Resumo tem o (i) com a conta"
+confere "$(tem 'class="info" tabindex="0" role="button" aria-label="Tudo o que voltou' "$r")" "(i) é um botão acessível com a explicação"
+confere "$(grep -q '<title>' < <(printf '%s\n' "${r#*</head>}"); [ $? -ne 0 ]; echo $?)" "gráficos sem dica nativa (title) por cima da nossa"
+confere "$(tem 'data-dica-titulo="[0-9][0-9]h às [0-9][0-9]h" data-dica="[0-9]* venda' "$r")" "vendas por horário: dica com o horário, as vendas e a parte do período"
 
 echo "Orgânico"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=tudo")

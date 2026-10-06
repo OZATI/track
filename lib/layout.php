@@ -81,10 +81,16 @@ button.discreto:hover{ background:var(--cartao-2); }
 button:disabled, button:disabled:hover{ background:var(--cartao-2); color:var(--suave); border-color:var(--linha-forte); cursor:not-allowed; }
 button.discreto.neutro{ color:var(--texto); }
 .ico{ flex:none; } button .ico{ vertical-align:-2px; }
-.info{ display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; margin-left:3px; border:1px solid var(--linha-forte); border-radius:50%; font:600 9px/1 var(--f-texto); color:var(--suave); cursor:help; vertical-align:1px; text-transform:none; }
+.info{ display:inline-flex; flex:none; align-items:center; justify-content:center; width:15px; height:15px; margin-left:4px; color:var(--apagado); cursor:help; vertical-align:-3px; border-radius:50%; }
+.info svg{ width:100%; height:100%; fill:none; stroke:currentColor; stroke-width:1.3; stroke-linecap:round; }
+.info svg .ponto-i{ fill:currentColor; stroke:none; }
 .nw{ white-space:nowrap; }
-.info:hover, .info:focus{ color:var(--marca); border-color:var(--marca); outline:none; }
-.dica{ position:fixed; z-index:50; max-width:300px; background:#111827; color:#fff; font-size:12px; line-height:1.45; padding:7px 10px; border-radius:6px; pointer-events:none; }
+.info:hover, .info:focus-visible, .info[aria-describedby]{ color:var(--marca); outline:none; }
+.info:focus-visible{ box-shadow:0 0 0 2px var(--realce); }
+.dica{ position:fixed; z-index:60; max-width:300px; background:#111827; color:#fff; font-size:12px; line-height:1.45; padding:8px 11px; border-radius:8px; pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+.dica b{ display:block; font-size:12.5px; font-weight:600; margin:0 0 3px; }
+.dica span{ display:block; white-space:pre-line; color:#E5E7EB; }
+:root[data-tema=escuro] .dica{ background:color-mix(in srgb, var(--base), #fff 16%); border:1px solid var(--linha-forte); }
 
 /* Topo: filtros a esquerda, conta a direita */
 .topo{ position:sticky; top:0; z-index:5; background:var(--cartao); border-bottom:1px solid var(--linha); padding:10px 24px; display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
@@ -272,7 +278,7 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .tabela.dias th{ white-space:normal; line-height:1.25; vertical-align:bottom; }
 .tabela.dias th:first-child, .tabela.dias td:first-child{ padding-left:12px; }
 .tabela.dias th:last-child, .tabela.dias td:last-child{ padding-right:12px; }
-.tabela.dias .info{ width:12px; height:12px; font-size:8px; }
+.tabela.dias .info{ width:13px; height:13px; }
 .tabela.dias th .info{ display:flex; margin:3px 0 0 auto; } .tabela.dias th:first-child .info{ margin-left:0; }
 .tabela.dias td.dia{ white-space:nowrap; }
 .tabela.dias .ao-vivo{ display:flex; margin:1px 0 0; font-size:11px; }
@@ -484,7 +490,8 @@ th.marca, td.marca{ width:34px; text-align:center; }
 }
 /* Funil em fluxo (resumo_funil) */
 .fluxo-cab, .fluxo-pct, .fluxo-pe{ display:grid; grid-template-columns:repeat(var(--n),minmax(0,1fr)); text-align:center; }
-.fluxo-cab span{ padding:0 6px 10px; font-size:13px; font-weight:600; color:var(--suave); }
+.fluxo-cab > span{ display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:0 2px; min-width:0; padding:0 6px 10px; font-size:13px; font-weight:600; color:var(--suave); overflow-wrap:anywhere; }
+.fluxo-cab .nw{ display:inline-flex; align-items:center; white-space:nowrap; }
 .fluxo-corpo{ position:relative; height:150px; --escala:1.5px; }
 .fluxo-corpo svg{ position:absolute; inset:0; width:100%; height:100%; }
 .fluxo-corpo line{ stroke:var(--linha-forte); stroke-width:1; }
@@ -754,11 +761,19 @@ function selo_canal(array $c, bool $comDetalhe = true): string
         . ($comDetalhe && $c[3] !== '' ? '<span class="suave">· ' . e($c[3]) . '</span>' : '') . '</span>';
 }
 
-// (i) com a explicacao de um numero ou bloco: aparece ao passar o mouse ou focar pelo
-// teclado (painel.js desenha a caixa por cima de tudo, sem ser cortada pela tabela)
+// (i) com a explicacao de um numero ou bloco, o mesmo icone em SVG em todo o painel. A dica
+// aparece ao passar o mouse ou no foco do teclado; clicar ou tocar fixa ate clicar fora ou Esc
+// (painel.js desenha uma caixa so, por cima de tudo, sem ser cortada pela tabela)
 function info(string $texto): string
 {
-    return '<span class="info" tabindex="0" role="img" aria-label="' . e($texto) . '" data-dica="' . e($texto) . '">i</span>';
+    return '<span class="info" tabindex="0" role="button" aria-label="' . e($texto) . '" data-dica="' . e($texto) . '">'
+        . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.6"></circle><path d="M8 7.3v4"></path><circle cx="8" cy="4.9" r=".55" class="ponto-i"></circle></svg></span>';
+}
+
+// Atributos de uma dica com titulo (primeira linha em negrito) e linhas (graficos)
+function dica_attr(string $titulo, array $linhas): string
+{
+    return ' data-dica-titulo="' . e($titulo) . '" data-dica="' . str_replace("\n", '&#10;', e(implode("\n", array_filter($linhas, fn($l) => $l !== '')))) . '" tabindex="0"';
 }
 
 // Rotulo com o (i) grudado na ultima palavra (nunca cai sozinho na linha de baixo)

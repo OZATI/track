@@ -51,7 +51,7 @@ function organico_svg_idade(array $idade, array $idadeSexo): string
             $topo = min($topo, $A - $baixo - $h);
             if ($n) {
                 $svg .= '<rect x="' . round($x0 + $j * $bl, 1) . '" y="' . round($A - $baixo - $h, 1) . '" width="' . round($bl - 2, 1) . '" height="' . round($h, 1)
-                    . '" class="barra' . ($sexo !== '' ? ' barra-' . strtolower($sexo) : '') . '"><title>' . e($f . ($sexo !== '' ? ' · ' . IG_SEXOS[$sexo] : '') . ': ' . $n) . '</title></rect>';
+                    . '" class="barra' . ($sexo !== '' ? ' barra-' . strtolower($sexo) : '') . '"' . dica_attr($f . ($sexo !== '' ? ' · ' . IG_SEXOS[$sexo] : ''), [(string)$n]) . '></rect>';
             }
         }
         $svg .= '<text x="' . round($x + $larg / 2, 1) . '" y="' . round($topo - 6, 1) . '" text-anchor="middle">' . e(organico_pct_txt(organico_pct($idade[$f], $total))) . '</text>'

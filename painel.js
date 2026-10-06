@@ -75,27 +75,58 @@
       });
   }
 
-  // (i): caixa com a explicacao, fixa na tela (nao e cortada por tabela com rolagem)
-  var caixa = null;
+  // Dicas do (i) e dos graficos: uma caixa so, fixa na tela (nao e cortada por tabela com
+  // rolagem). Mouse: aparece ao passar e some ao sair. Clique ou toque: fixa ate clicar fora
+  // ou apertar Esc (no celular nao existe "passar o mouse"). Teclado: aparece no foco.
+  // data-dica-titulo vira a primeira linha, em negrito; o texto respeita as quebras de linha.
+  var caixa = null, alvoDica = null, fixa = false;
+  function posicionar() {
+    if (!caixa || !alvoDica) { return; }
+    var r = alvoDica.getBoundingClientRect();
+    var larg = caixa.offsetWidth, alt = caixa.offsetHeight;
+    var x = Math.min(Math.max(8, r.left + r.width / 2 - larg / 2), window.innerWidth - larg - 8);
+    var y = r.bottom + 8 + alt > window.innerHeight ? r.top - alt - 8 : r.bottom + 8;
+    caixa.style.left = x + 'px';
+    caixa.style.top = Math.max(8, y) + 'px';
+  }
   function mostrar(alvo) {
     var texto = alvo.getAttribute('data-dica');
     if (!texto) { return; }
-    if (!caixa) { caixa = document.createElement('div'); caixa.className = 'dica'; caixa.setAttribute('role', 'tooltip'); document.body.appendChild(caixa); }
-    caixa.textContent = texto;
+    if (!caixa) { caixa = document.createElement('div'); caixa.className = 'dica'; caixa.id = 'dica-painel'; caixa.setAttribute('role', 'tooltip'); document.body.appendChild(caixa); }
+    caixa.textContent = '';
+    var titulo = alvo.getAttribute('data-dica-titulo');
+    if (titulo) { var b = document.createElement('b'); b.textContent = titulo; caixa.appendChild(b); }
+    var corpo = document.createElement('span'); corpo.textContent = texto; caixa.appendChild(corpo);
+    if (alvoDica && alvoDica !== alvo) { alvoDica.removeAttribute('aria-describedby'); }
+    alvoDica = alvo;
+    alvo.setAttribute('aria-describedby', 'dica-painel');
     caixa.style.display = 'block';
-    var r = alvo.getBoundingClientRect();
-    var larg = caixa.offsetWidth, alt = caixa.offsetHeight;
-    var x = Math.min(Math.max(8, r.left + r.width / 2 - larg / 2), window.innerWidth - larg - 8);
-    var y = r.bottom + 6 + alt > window.innerHeight ? r.top - alt - 6 : r.bottom + 6;
-    caixa.style.left = x + 'px';
-    caixa.style.top = y + 'px';
+    posicionar();
   }
-  function esconder() { if (caixa) { caixa.style.display = 'none'; } }
-  document.addEventListener('mouseover', function (e) { var a = e.target.closest && e.target.closest('[data-dica]'); if (a) { mostrar(a); } });
-  document.addEventListener('mouseout', function (e) { if (e.target.closest && e.target.closest('[data-dica]')) { esconder(); } });
-  document.addEventListener('focusin', function (e) { if (e.target.getAttribute && e.target.getAttribute('data-dica')) { mostrar(e.target); } });
-  document.addEventListener('focusout', esconder);
-  window.addEventListener('scroll', esconder, true);
+  function esconder() {
+    if (caixa) { caixa.style.display = 'none'; }
+    if (alvoDica) { alvoDica.removeAttribute('aria-describedby'); }
+    alvoDica = null;
+    fixa = false;
+  }
+  var comDica = function (el) { return el && el.closest ? el.closest('[data-dica]') : null; };
+  document.addEventListener('pointerover', function (e) { var a = comDica(e.target); if (e.pointerType === 'mouse' && a && !fixa) { mostrar(a); } });
+  document.addEventListener('pointerout', function (e) { var a = comDica(e.target); if (e.pointerType === 'mouse' && a && !fixa && !a.contains(e.relatedTarget)) { esconder(); } });
+  document.addEventListener('focusin', function (e) { var a = comDica(e.target); if (a && !fixa) { mostrar(a); } });
+  document.addEventListener('focusout', function () { if (!fixa) { esconder(); } });
+  // Clique ou toque no (i) ou num grafico fixa a dica; dentro de link, aba ou rotulo, nao navega
+  document.addEventListener('click', function (e) {
+    var a = comDica(e.target);
+    if (a) {
+      if (a.closest('a, button, summary, label')) { e.preventDefault(); e.stopPropagation(); }
+      if (fixa && alvoDica === a) { esconder(); } else { mostrar(a); fixa = true; }
+      return;
+    }
+    if (fixa) { esconder(); }
+  }, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && alvoDica) { esconder(); } });
+  window.addEventListener('scroll', function () { if (fixa) { posicionar(); } else { esconder(); } }, true);
+  window.addEventListener('resize', function () { if (fixa) { posicionar(); } });
 
   // App: o service worker deixa instalar o painel e mostra as notificacoes (sw.php)
   var sw = null;
@@ -246,11 +277,6 @@
     autos[a].addEventListener('change', function () { this.submit(); });
   }
 
-  // (i) dentro de link ou aba: o clique mostra a explicacao em vez de navegar
-  document.addEventListener('click', function (e) {
-    var i = e.target.closest && e.target.closest('.info');
-    if (i && i.closest('a')) { e.preventDefault(); e.stopPropagation(); mostrar(i); }
-  }, true);
 
   // Aparencia: a cor livre mostra a previa enquanto arrasta e grava ao escolher. Mesmo limite
   // de luminosidade do lib/tema.php: base escura, texto claro.

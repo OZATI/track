@@ -122,13 +122,13 @@ function resumo_svg_linhas(array $series, int $ateHora): string
         // Area de leve embaixo da linha, ate o zero (como no grafico da UTMify)
         $zero = round($y(0), 1);
         $svg .= '<polygon fill="' . $cor . '" fill-opacity="0.08" stroke="none" points="' . round($esq, 1) . ',' . $zero . ' ' . implode(' ', $pts) . ' ' . round($esq + $ateHora * $passo, 1) . ',' . $zero . '"></polygon>'
-            . '<polyline fill="none" stroke="' . $cor . '" stroke-width="2" points="' . implode(' ', $pts) . '"><title>' . e($rotulo) . '</title></polyline>';
+            . '<polyline fill="none" stroke="' . $cor . '" stroke-width="2" points="' . implode(' ', $pts) . '"></polyline>';
     }
     return $svg . '</svg>';
 }
 
-// Barras por hora com a % em cima
-function resumo_svg_barras(array $porHora): string
+// Barras por hora com a % em cima. $fatHora: faturamento de cada hora (para a dica)
+function resumo_svg_barras(array $porHora, array $fatHora = []): string
 {
     $L = 1400; $A = 190; $esq = 10; $baixo = 22; $cima = 18;
     $total = array_sum($porHora);
@@ -140,8 +140,10 @@ function resumo_svg_barras(array $porHora): string
         $x = $esq + $h * $larg;
         $alt = $n * ($A - $cima - $baixo) / $max;
         if ($n) {
-            $svg .= '<rect x="' . round($x + 6, 1) . '" y="' . round($A - $baixo - $alt, 1) . '" width="' . round($larg - 12, 1) . '" height="' . round($alt, 1) . '" class="barra"><title>'
-                . sprintf('%02d h', $h) . ': ' . $n . ' venda(s)</title></rect>'
+            $svg .= '<g class="dia-graf"' . dica_attr(sprintf('%02dh às %02dh', $h, ($h + 1) % 24), [$n . ' venda' . ($n === 1 ? '' : 's') . ' · ' . resumo_pct($n, $total) . ' do período',
+                    !empty($fatHora[$h]) ? 'Faturamento ' . reais((int)$fatHora[$h]) : '']) . '>'
+                . '<rect class="vela-alvo" x="' . round($x, 1) . '" y="0" width="' . round($larg, 1) . '" height="' . ($A - $baixo) . '"></rect>'
+                . '<rect x="' . round($x + 6, 1) . '" y="' . round($A - $baixo - $alt, 1) . '" width="' . round($larg - 12, 1) . '" height="' . round($alt, 1) . '" rx="3" class="barra"></rect></g>'
                 . '<text x="' . round($x + $larg / 2, 1) . '" y="' . round($A - $baixo - $alt - 5, 1) . '" text-anchor="middle">' . e(resumo_pct($n, $total)) . '</text>';
         }
         $svg .= '<text x="' . round($x + $larg / 2, 1) . '" y="' . ($A - 6) . '" text-anchor="middle">' . sprintf('%02d', $h) . '</text>';
@@ -190,7 +192,7 @@ function resumo_rosca(array $partes, array $cores, string $centro): string
         }
         $p = $n * 100 / $total;
         $svg .= '<circle cx="21" cy="21" r="15.915" fill="none" stroke="' . e($cores[$rot] ?? '#9CA3AF') . '" stroke-width="6" stroke-dasharray="' . round($p, 3) . ' ' . round(100 - $p, 3)
-            . '" stroke-dashoffset="' . round($ini, 3) . '"><title>' . e($rot . ': ' . $n) . '</title></circle>';
+            . '" stroke-dashoffset="' . round($ini, 3) . '"' . dica_attr((string)$rot, [$n . ' · ' . number_format($p, 0) . '%']) . '></circle>';
         $ini -= $p;
     }
     $svg .= '<text x="21" y="19.5" class="rosca-rot">' . e($centro) . '</text><text x="21" y="26" class="rosca-num">' . $total . '</text></svg>';
@@ -218,8 +220,9 @@ function resumo_svg_colunas(array $itens, string $nome): string
         $x = $esq + $i * $larg;
         $alt = $n * ($A - $cima - $baixo) / $max;
         if ($n) {
-            $svg .= '<rect x="' . round($x + $larg * .22, 1) . '" y="' . round($A - $baixo - $alt, 1) . '" width="' . round($larg * .56, 1) . '" height="' . round($alt, 1) . '" class="barra"><title>'
-                . e($rot) . ': ' . $n . ' venda(s)</title></rect>'
+            $svg .= '<g class="dia-graf"' . dica_attr((string)$rot, [$n . ' venda' . ($n === 1 ? '' : 's') . ' · ' . resumo_pct($n, $total) . ' do período']) . '>'
+                . '<rect class="vela-alvo" x="' . round($x, 1) . '" y="0" width="' . round($larg, 1) . '" height="' . ($A - $baixo) . '"></rect>'
+                . '<rect x="' . round($x + $larg * .22, 1) . '" y="' . round($A - $baixo - $alt, 1) . '" width="' . round($larg * .56, 1) . '" height="' . round($alt, 1) . '" rx="3" class="barra"></rect></g>'
                 . '<text x="' . round($x + $larg / 2, 1) . '" y="' . round($A - $baixo - $alt - 6, 1) . '" text-anchor="middle">' . e(resumo_pct($n, $total)) . '</text>';
         }
         $svg .= '<text x="' . round($x + $larg / 2, 1) . '" y="' . ($A - 6) . '" text-anchor="middle">' . e($rot) . '</text>';
@@ -508,7 +511,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         $acL[$h] = $f - $gg - (int)round($gg * $pct / 100);
     }
     echo '<section class="bloco">' . titulo('Vendas por horário', 'Percentual das vendas aprovadas em cada hora do dia (hora da aprovação, no horário de Brasília).')
-        . resumo_svg_barras($porHora) . '</section>';
+        . resumo_svg_barras($porHora, $fatHora) . '</section>';
     echo '<section class="bloco">' . titulo('Faturamento × investimento × lucro por hora (acumulado)', 'Soma hora a hora ao longo do dia' . ($hoje ? '' : ' (os dias do período somados pela hora)') . '. Investimento = gasto na Meta; lucro já desconta o imposto.')
         . '<p class="legenda-grafico"><i style="background:#D97706"></i>Investimento <i style="background:#1D6FF2"></i>Faturamento <i style="background:#16A34A"></i>Lucro</p>'
         . resumo_svg_linhas([['Faturamento', '#1D6FF2', $acF], ['Investimento', '#D97706', $acG], ['Lucro', '#16A34A', $acL]], $ateHora) . '</section>';

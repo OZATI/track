@@ -41,8 +41,8 @@ function organico_svg_dias(array $porDia, string $unidade = 'venda(s)', string $
         $alt = $v * ($A - $cima - $baixo) / $max;
         $rot = (new DateTime($dia))->format('d/m');
         if ($v) {
-            $svg .= '<rect x="' . round($x + $larg * .15, 1) . '" y="' . round($A - $baixo - $alt, 1) . '" width="' . round($larg * .7, 1) . '" height="' . round($alt, 1) . '" class="barra"><title>'
-                . $rot . ': ' . number_format($v, 0, ',', '.') . ' ' . e($unidade) . '</title></rect>'
+            $svg .= '<rect x="' . round($x + $larg * .15, 1) . '" y="' . round($A - $baixo - $alt, 1) . '" width="' . round($larg * .7, 1) . '" height="' . round($alt, 1) . '" class="barra"'
+                . dica_attr($rot, [number_format($v, 0, ',', '.') . ' ' . $unidade]) . '></rect>'
                 . '<text x="' . round($x + $larg / 2, 1) . '" y="' . round($A - $baixo - $alt - 5, 1) . '" text-anchor="middle">' . number_format($v, 0, ',', '.') . '</text>';
         }
         if ($i % $passoRotulo === 0) {
