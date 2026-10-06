@@ -82,6 +82,11 @@ abas_painel('configuracoes');
         <?= e(implode(', ', array_map(fn($a) => ($a['aparelho'] ?: 'aparelho') . ' (desde ' . data_local($a['criado_em'], 'd/m') . ')', $aparelhos))) ?></p>
       <?php endif; ?>
     </section>
+
+    <section class="cartao">
+      <h2><?= com_info('Aparência', 'Claro, escuro ou qualquer cor de fundo (até o preto puro, #000000). O resto das cores se ajusta à escolhida. Vale só para o seu usuário, em todos os aparelhos; também abre pela paleta no topo.') ?></h2>
+      <?= tema_form('configuracoes.php') ?>
+    </section>
   </div>
 
   <form method="post" action="configuracoes.php" class="cfg-grade">

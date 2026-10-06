@@ -252,6 +252,32 @@
     if (i && i.closest('a')) { e.preventDefault(); e.stopPropagation(); mostrar(i); }
   }, true);
 
+  // Aparencia: a cor livre mostra a previa enquanto arrasta e grava ao escolher. Mesmo limite
+  // de luminosidade do lib/tema.php: base escura, texto claro.
+  function luminosidade(hex) {
+    var c = [1, 3, 5].map(function (i) {
+      var v = parseInt(hex.substr(i, 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  var cores = document.querySelectorAll('[data-tema-cor]');
+  for (var tc = 0; tc < cores.length; tc++) {
+    cores[tc].addEventListener('input', function () {
+      var raiz = document.documentElement;
+      raiz.style.setProperty('--base', this.value);
+      raiz.setAttribute('data-base', '');
+      raiz.setAttribute('data-tema', luminosidade(this.value) < 0.4 ? 'escuro' : 'claro');
+      var hex = this.closest('form').querySelector('[data-tema-hex]');
+      if (hex) { hex.textContent = this.value.toUpperCase(); }
+    });
+    cores[tc].addEventListener('change', function () { this.form.submit(); });
+  }
+  var menuTema = document.querySelector('.tema-menu');
+  if (menuTema) {
+    document.addEventListener('click', function (e) { if (menuTema.open && !menuTema.contains(e.target)) { menuTema.open = false; } });
+  }
+
   // Pergunta antes: ligar ou pausar na Meta (gestor) e apagar despesa (financeiro)
   document.addEventListener('submit', function (e) {
     var f = e.target;

@@ -895,6 +895,27 @@ confere "$(grep -q 'O webhook não está chegando' < <(printf '%s\n' "$r"); [ $?
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
 confere "$(tem 'O webhook não está chegando' "$r")" "vendas recentes só pela API: aviso de webhook parado"
 
+echo "Aparência (claro, escuro, pretão ou outra cor)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem '<html lang="pt-BR" data-tema="claro">' "$r")" "começa no tema claro de sempre"
+confere "$(tem 'class="tema-menu"' "$r")" "paleta da aparência no topo"
+tema() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" "${@:2}" --data-urlencode "volta=./?aba=geral" "$URL/tema.php"; curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo"; }
+r=$(tema "" --data-urlencode "pronto=pretao")
+confere "$(tem 'data-tema="claro">' "$r")" "trocar a aparência sem o token do formulário não muda nada"
+r=$(tema "$csrf" --data-urlencode "pronto=pretao")
+confere "$(tem '<html lang="pt-BR" data-tema="escuro" data-base style="--base:#000000">' "$r")" "Pretão: painel todo em #000000, com texto claro"
+confere "$(tem 'class="tema-pronto atual" aria-pressed="true"><span class="tema-previa" style="--p:#000000"' "$r")" "o tema escolhido aparece marcado"
+r=$(tema "$csrf" --data-urlencode "cor=#ffe9c7")
+confere "$(tem 'data-tema="claro" data-base style="--base:#FFE9C7"' "$r")" "outra cor clara: fundo nela e texto escuro"
+r=$(tema "$csrf" --data-urlencode "cor=#123456")
+confere "$(tem 'data-tema="escuro" data-base style="--base:#123456"' "$r")" "outra cor escura: o texto fica claro sozinho"
+r=$(tema "$csrf" --data-urlencode "cor=vermelho")
+confere "$(tem 'Cor inválida' "$r")" "cor que não é #RRGGBB é recusada"
+r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
+confere "$(tem 'Aparência' "$(sem_tags "$r")")" "aparência também em Configurações"
+r=$(tema "$csrf" --data-urlencode "pronto=claro")
+confere "$(tem '<html lang="pt-BR" data-tema="claro">' "$r")" "voltar ao claro"
+
 echo "Avisos do PHP"
 # Aviso escondido (variavel que nao existe, indice faltando) nao quebra a tela, mas na
 # hospedagem pode aparecer para quem usa: nenhum pode sobrar depois de passar por todas as telas

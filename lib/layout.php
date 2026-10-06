@@ -1,20 +1,22 @@
 <?php
 // HTML comum do painel. Sem framework; CSS aqui, JS em painel.js (a CSP so aceita script do proprio painel).
 
+require_once __DIR__ . '/tema.php';
+
 function pagina_inicio(string $titulo): void
 {
     header('Content-Type: text/html; charset=utf-8');
     header('X-Robots-Tag: noindex, nofollow');
     header('Cache-Control: no-store');
     ?><!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR"<?= tema_atributos() ?>>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($titulo) ?> · Rastreio</title>
 <link rel="manifest" href="manifest.php">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="<?= e(tema_atual()) ?>">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="<?= e((string)((track_config() ?? [])['app_nome'] ?? 'Painel')) ?>">
 <link rel="apple-touch-icon" href="<?= is_file(__DIR__ . '/../../apple-touch-icon.png') ? '../apple-touch-icon.png' : 'app-192.png' ?>">
@@ -30,9 +32,28 @@ function pagina_inicio(string $titulo): void
   --texto:#111827; --suave:#6B7280; --apagado:#9CA3AF; --linha:#E5E7EB; --linha-forte:#D1D5DB;
   --marca:#1D6FF2; --marca-hover:#155FD6;
   --ok:#15803D; --alerta:#B45309; --erro:#B91C1C; --laranja:#C2410C;
+  --lateral:#0B1B2E; --realce:#EEF4FF; --fundo-ok:#ECFDF3; --fundo-alerta:#FFF7ED; --fundo-erro:#FEF2F2; --sombra:rgba(17,24,39,.12);
   --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --f-titulo:var(--f-texto); --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
   --r-sm:6px; --r-md:8px; --r-lg:8px;
 }
+/* Aparencia (lib/tema.php): a cor base escolhida vira o fundo e o resto sai dela. Base escura:
+   texto claro, cartoes e linhas um pouco mais claros que o fundo, cores de estado mais vivas
+   (no escuro, o verde e o vermelho da planilha precisam de mais brilho para contrastar). */
+:root[data-tema=claro][data-base]{
+  --fundo:var(--base); --cartao:color-mix(in srgb, var(--base), #fff 75%); --cartao-2:color-mix(in srgb, var(--base), #000 3%);
+  --hover:color-mix(in srgb, var(--base), #fff 45%); --linha:color-mix(in srgb, var(--base), #000 9%); --linha-forte:color-mix(in srgb, var(--base), #000 16%);
+}
+:root[data-tema=escuro]{
+  color-scheme:dark;
+  --fundo:var(--base); --cartao:color-mix(in srgb, var(--base), #fff 5%); --cartao-2:color-mix(in srgb, var(--base), #fff 9%);
+  --hover:color-mix(in srgb, var(--base), #fff 7%); --linha:color-mix(in srgb, var(--base), #fff 13%); --linha-forte:color-mix(in srgb, var(--base), #fff 22%);
+  --texto:#E5E7EB; --suave:#9CA3AF; --apagado:#6B7280;
+  --marca:#3B82F6; --marca-hover:#2563EB;
+  --ok:#22C55E; --alerta:#F59E0B; --erro:#F05252; --laranja:#FB923C;
+  --lateral:color-mix(in srgb, var(--base), #000 35%); --realce:rgba(59,130,246,.16);
+  --fundo-ok:rgba(34,197,94,.14); --fundo-alerta:rgba(245,158,11,.14); --fundo-erro:rgba(240,82,82,.14); --sombra:rgba(0,0,0,.55);
+}
+:root[data-tema=escuro] .lateral{ border-right:1px solid var(--linha); }
 *{ box-sizing:border-box; }
 body{ margin:0; font:13px/1.5 var(--f-texto); background:var(--fundo); color:var(--texto); font-feature-settings:"tnum" 1; }
 a{ color:var(--marca); text-decoration:none; } a:hover{ text-decoration:underline; }
@@ -94,8 +115,8 @@ tr:hover td{ background:var(--hover); }
 tr:last-child td{ border-bottom:0; }
 td.quebra{ white-space:normal; min-width:220px; }
 .selo{ display:inline-block; padding:0 6px; border-radius:4px; font-size:12px; font-weight:500; line-height:20px; }
-.selo.ok{ color:var(--ok); background:#ECFDF3; } .selo.alerta{ color:var(--alerta); background:#FFF7ED; }
-.selo.erro{ color:var(--erro); background:#FEF2F2; } .selo.neutro{ color:var(--suave); background:var(--cartao-2); }
+.selo.ok{ color:var(--ok); background:var(--fundo-ok); } .selo.alerta{ color:var(--alerta); background:var(--fundo-alerta); }
+.selo.erro{ color:var(--erro); background:var(--fundo-erro); } .selo.neutro{ color:var(--suave); background:var(--cartao-2); }
 
 /* Caixas de formulario */
 .cartao{ background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); padding:16px 18px; margin-bottom:16px; max-width:600px; }
@@ -116,7 +137,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 /* Barra lateral CMS | UTM */
 .casca{ display:flex; min-height:100vh; }
 .conteudo{ flex:1; min-width:0; }
-.lateral{ width:64px; flex:none; background:#0B1B2E; display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px 0; position:sticky; top:0; height:100vh; }
+.lateral{ width:64px; flex:none; background:var(--lateral); display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px 0; position:sticky; top:0; height:100vh; }
 .lateral a{ width:48px; padding:8px 0 6px; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center; gap:3px; color:#9CA3AF; font-size:10.5px; font-weight:500; }
 .lateral a:hover{ background:rgba(255,255,255,.06); color:#fff; text-decoration:none; }
 .lateral a.atual{ background:rgba(255,255,255,.1); color:#fff; }
@@ -154,7 +175,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 .colunas{ position:relative; }
 .colunas summary{ list-style:none; cursor:pointer; padding:6px 12px; border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); color:var(--texto); }
 .colunas summary::-webkit-details-marker{ display:none; }
-.colunas-painel{ position:absolute; z-index:20; left:0; top:calc(100% + 6px); width:min(780px, calc(100vw - 32px)); max-height:72vh; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto minmax(0,1fr) auto; gap:12px 18px; padding:16px 18px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px rgba(17,24,39,.12); }
+.colunas-painel{ position:absolute; z-index:20; left:0; top:calc(100% + 6px); width:min(780px, calc(100vw - 32px)); max-height:72vh; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto minmax(0,1fr) auto; gap:12px 18px; padding:16px 18px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); }
 .colunas-cab{ grid-column:1 / -1; display:flex; flex-direction:column; gap:2px; }
 .colunas-cab strong{ font-size:15px; }
 .colunas-lista, .colunas-escolhidas{ min-height:0; overflow:auto; }
@@ -232,7 +253,7 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .multi > summary::-webkit-details-marker{ display:none; }
 .multi > summary::after{ content:""; position:absolute; right:10px; top:50%; width:6px; height:6px; border-right:1.5px solid var(--suave); border-bottom:1.5px solid var(--suave); transform:translateY(-70%) rotate(45deg); }
 .multi[open] > summary{ border-color:var(--marca); }
-.multi-painel{ position:absolute; z-index:25; left:0; top:calc(100% + 4px); min-width:100%; width:max-content; max-width:min(360px, calc(100vw - 32px)); max-height:60vh; overflow:auto; padding:6px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px rgba(17,24,39,.12); color:var(--texto); font-size:13px; }
+.multi-painel{ position:absolute; z-index:25; left:0; top:calc(100% + 4px); min-width:100%; width:max-content; max-width:min(360px, calc(100vw - 32px)); max-height:60vh; overflow:auto; padding:6px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); color:var(--texto); font-size:13px; }
 .multi-painel label{ display:flex; flex-direction:row; align-items:center; gap:8px; padding:6px 8px; border-radius:var(--r-sm); color:var(--texto); font-size:13px; cursor:pointer; }
 .multi-painel label:hover{ background:var(--hover); }
 .multi-painel .multi-pe{ display:flex; justify-content:space-between; gap:8px; padding:6px 4px 2px; border-top:1px solid var(--linha); margin-top:4px; }
@@ -277,6 +298,25 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .botao-icone.girando svg{ animation:girar .8s linear infinite; }
 @keyframes girar{ to{ transform:rotate(360deg); } }
 @media (prefers-reduced-motion:reduce){ .botao-icone.girando svg{ animation:none; } }
+/* Aparencia: a paleta no topo abre os temas prontos e a cor livre (como na UTMify) */
+.tema-menu{ position:relative; }
+.tema-menu > summary{ list-style:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:var(--r-sm); color:var(--suave); }
+.tema-menu > summary::-webkit-details-marker{ display:none; }
+.tema-menu > summary:hover, .tema-menu[open] > summary{ background:var(--hover); color:var(--marca); }
+.tema-painel{ position:absolute; z-index:40; right:0; top:calc(100% + 6px); width:300px; padding:14px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); }
+.tema-painel h3{ margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--suave); }
+.tema-prontos{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0 0 12px; }
+.tema-pronto{ display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px 6px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-md); font-weight:500; }
+.tema-pronto:hover{ background:var(--hover); border-color:var(--marca); }
+.tema-pronto.atual{ border:2px solid var(--marca); padding:7px 5px; }
+.tema-previa{ display:grid; grid-template-columns:30% 1fr; grid-template-rows:repeat(3,1fr); gap:3px; width:64px; height:42px; padding:5px; border-radius:6px; background:var(--p); border:1px solid rgba(127,127,127,.3); }
+.tema-previa i{ grid-column:2; border-radius:2px; background:color-mix(in srgb, var(--p), #000 12%); }
+.tema-previa[data-escuro="1"] i{ background:color-mix(in srgb, var(--p), #fff 22%); }
+.tema-previa i:first-child{ grid-row:1 / -1; grid-column:1; }
+.tema-livre{ display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--suave); }
+.tema-livre > span:last-child{ display:flex; align-items:center; gap:8px; }
+.tema-livre input[type=color]{ width:44px; min-width:0; height:32px; padding:2px; cursor:pointer; }
+.cartao .tema-form{ max-width:340px; }
 /* Link do nome no topo: Configuracoes */
 a.conta-nome{ display:inline-flex; align-items:center; gap:6px; color:var(--texto); text-decoration:none; padding:4px 8px; border-radius:var(--r-sm); }
 a.conta-nome:hover{ background:var(--hover); text-decoration:none; }
@@ -298,7 +338,7 @@ a.conta-nome .conta-cfg{ color:var(--suave); font-size:12px; }
 .cfg-chave input:focus-visible + i{ outline:2px solid var(--marca); outline-offset:2px; }
 .cfg-padroes{ display:flex; flex-direction:column; gap:8px; max-width:420px; margin:0 0 6px; }
 .cfg-padroes label{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:10px 12px; border:1px solid var(--linha); border-radius:var(--r-sm); cursor:pointer; }
-.cfg-padroes label:has(input:checked){ border-color:var(--marca); background:#EEF4FF; }
+.cfg-padroes label:has(input:checked){ border-color:var(--marca); background:var(--realce); }
 .cfg-previa{ display:flex; gap:10px; align-items:flex-start; max-width:380px; padding:10px 12px; border-radius:12px; background:#111827; color:#fff; }
 .cfg-previa-icone{ flex:none; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:var(--marca); color:#fff; }
 .cfg-previa b{ display:block; font-size:13px; } .cfg-previa span{ font-size:12px; color:#D1D5DB; }
@@ -453,10 +493,10 @@ th.marca, td.marca{ width:34px; text-align:center; }
   .nav-celular > a.atual, .nav-mais.atual > summary, .nav-mais[open] > summary{ color:var(--marca); }
   .nav-celular > a.atual .ico, .nav-mais.atual > summary .ico{ stroke-width:2.2; }
   .nav-mais-painel{ position:fixed; left:8px; right:8px; bottom:calc(68px + env(safe-area-inset-bottom)); background:var(--cartao); border:1px solid var(--linha);
-    border-radius:12px; box-shadow:0 12px 32px rgba(17,24,39,.18); padding:6px; display:grid; grid-template-columns:1fr 1fr; gap:2px; max-height:70vh; overflow:auto; }
+    border-radius:12px; box-shadow:0 12px 32px var(--sombra); padding:6px; display:grid; grid-template-columns:1fr 1fr; gap:2px; max-height:70vh; overflow:auto; }
   .nav-mais-painel a{ display:flex; align-items:center; gap:10px; padding:12px; border-radius:var(--r-md); color:var(--texto); font-weight:500; text-decoration:none; }
   .nav-mais-painel a:hover, .nav-mais-painel a:active{ background:var(--hover); }
-  .nav-mais-painel a.atual{ color:var(--marca); background:#EEF4FF; }
+  .nav-mais-painel a.atual{ color:var(--marca); background:var(--realce); }
   .nav-mais-painel .ico{ color:var(--suave); } .nav-mais-painel a.atual .ico{ color:var(--marca); }
   .nav-mais-painel hr{ grid-column:1 / -1; border:0; border-top:1px solid var(--linha); margin:4px 0; }
   /* Primeira coluna fixa ao rolar a tabela para o lado */
@@ -560,6 +600,7 @@ function icone(string $nome, int $tam = 16): string
         'anuncio' => '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
         'carteira' => '<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 9h-6a3 3 0 0 0 0 6h6z"/><path d="M15.5 12h.01"/>',
         'calendario' => '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
+        'paleta' => '<path d="M12 22a10 10 0 1 1 10-10c0 2.2-1.8 3.5-4 3.5h-1.6a1.9 1.9 0 0 0-1.4 3.2A2 2 0 0 1 12 22z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="10.5" cy="6.5" r="1"/><circle cx="15.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/>',
     ];
     return '<svg class="ico" width="' . $tam . '" height="' . $tam . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$nome] ?? '') . '</svg>';
 }
@@ -701,8 +742,12 @@ function com_icone_canal(array $c, string $texto): string
 // Conta de quem esta no painel e o Sair, no canto direito do topo (como no CMS)
 function conta_topo(): string
 {
-    // O nome leva a Configuracoes (instalar o app e as notificacoes)
-    return '<div class="conta"><a class="conta-nome" href="configuracoes.php" title="Configurações: instalar o app e notificações">' . icone('config', 15) . '<span>' . e((string)usuario_atual()) . '</span><span class="conta-cfg">Configurações</span></a>'
+    // A paleta abre a aparencia (claro, escuro, pretao ou outra cor); o nome leva a
+    // Configuracoes (instalar o app e as notificacoes)
+    $aqui = destino_seguro((string)($_SERVER['REQUEST_URI'] ?? ''));
+    $volta = $aqui === './' ? './' : $aqui;
+    return '<div class="conta"><details class="tema-menu"><summary title="Aparência: claro, escuro ou outra cor de fundo" aria-label="Aparência">' . icone('paleta', 18) . '</summary>'
+        . '<div class="tema-painel"><h3>Aparência</h3>' . tema_form($volta) . '</div></details><a class="conta-nome" href="configuracoes.php" title="Configurações: instalar o app e notificações">' . icone('config', 15) . '<span>' . e((string)usuario_atual()) . '</span><span class="conta-cfg">Configurações</span></a>'
         . '<form method="post" action="sair.php" id="form-sair"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
         . '<button type="submit" class="discreto neutro" title="Encerrar a sessão neste navegador">' . icone('sair', 14) . ' Sair</button></form></div>';
 }

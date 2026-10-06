@@ -357,7 +357,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         . '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '><span data-sync-texto>' . e(ucfirst($quando)) . '</span>'
         . botao_atualizar('./?' . http_build_query(array_filter(['aba' => 'geral', 'periodo' => $periodo, 'canal' => $fCanal]))) . '</div></div>'
         . '<form class="resumo-filtros" method="get" action="./" data-auto><input type="hidden" name="aba" value="geral"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
-        . '<label>' . com_info('Fonte de tráfego', 'Canal da venda, pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto... O produto se escolhe no topo e vale para todas as telas.') . '<select name="canal">' . $opcoes($canaisNome, $fCanal, 'Qualquer') . '</select></label>'
+        . '<label><span>' . com_info('Fonte de tráfego', 'Canal da venda, pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto... O produto se escolhe no topo e vale para todas as telas.') . '</span><select name="canal">' . $opcoes($canaisNome, $fCanal, 'Qualquer') . '</select></label>'
         . '<noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript></form>';
     if ($fProduto !== '' || $fCanal !== '') {
         echo '<p class="suave resumo-aviso">Filtro ligado: faturamento, vendas e lucro contam só ' . e(trim(($fProduto !== '' ? $fProduto : '') . ($fProduto !== '' && $fCanal !== '' ? ' · ' : '') . ($fCanal !== '' ? $canaisNome[$fCanal] : '')))
