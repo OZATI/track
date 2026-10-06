@@ -26,6 +26,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && preg_match('~^/graph/(\d+)$
     if (strpos($token, 'TokenGerencia') !== 0) {
         $erro(403, 200, '(#200) Requires ads_management permission to manage the object');
     }
+    if (isset($_POST['daily_budget'])) {
+        if (!ctype_digit((string)$_POST['daily_budget']) || (int)$_POST['daily_budget'] < 100) {
+            $erro(400, 100, '(#100) Invalid parameter');
+        }
+        echo json_encode(['success' => true]);
+        exit;
+    }
     if (!in_array($_POST['status'] ?? '', ['ACTIVE', 'PAUSED'], true)) {
         $erro(400, 100, '(#100) Invalid parameter');
     }

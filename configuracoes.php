@@ -6,6 +6,7 @@
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/layout.php';
 require_once __DIR__ . '/lib/push.php';
+require_once __DIR__ . '/lib/orcamento.php';
 
 exigir_login();
 $usuario = (string)usuario_atual();
@@ -29,6 +30,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             track_salvar_config($cfg);
         }
         $aviso = 'Configurações salvas.';
+    } elseif (($_POST['acao'] ?? '') === 'teto') {
+        // Teto do orcamento pelo painel: vale para todos (e da conta, nao do usuario)
+        $teto = fin_centavos((string)($_POST['teto'] ?? ''));
+        if ($teto === null || $teto < ORC_MINIMO) {
+            $erros[] = 'Teto inválido. Use um valor em reais, como 300,00.';
+        } else {
+            definir_ajuste('orcamento_teto', (string)$teto);
+            $aviso = 'Teto do orçamento salvo: ' . reais($teto) . ' por dia.';
+        }
     }
 }
 
@@ -82,6 +92,14 @@ abas_painel('configuracoes');
         <?= e(implode(', ', array_map(fn($a) => ($a['aparelho'] ?: 'aparelho') . ' (desde ' . data_local($a['criado_em'], 'd/m') . ')', $aparelhos))) ?></p>
       <?php endif; ?>
     </section>
+
+    <form method="post" action="configuracoes.php" class="cartao">
+      <h2><?= com_info('Orçamento pelo painel', 'O maior orçamento diário que alguém pode pôr numa campanha ou conjunto pelo painel, na hora ou numa programação. Vale para todos os usuários. Para mudar o orçamento por aqui, o token da API Meta precisa de ads_management.') ?></h2>
+      <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="teto">
+      <label class="cfg-campo"><span>Teto por dia (R$)</span><input name="teto" inputmode="decimal" value="<?= e(number_format(orc_teto() / 100, 2, ',', '.')) ?>"></label>
+      <p class="suave"><?= gestor_pode_editar() ? 'O token da API Meta pode mudar o orçamento.' : 'O token da API Meta só lê: gere um com ads_management na aba API Meta para mudar o orçamento por aqui.' ?></p>
+      <button type="submit">Salvar teto</button>
+    </form>
 
     <section class="cartao">
       <h2><?= com_info('Aparência', 'Claro, escuro ou qualquer cor de fundo (até o preto puro, #000000). O resto das cores se ajusta à escolhida. Vale só para o seu usuário, em todos os aparelhos; também abre pela paleta no topo.') ?></h2>

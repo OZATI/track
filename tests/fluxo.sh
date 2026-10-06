@@ -469,6 +469,76 @@ confere "$(tem '<strong>cv 05</strong>' "$r")" "anúncios só das campanhas marc
 confere "$(grep -q '<strong>cv free</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "anúncio de campanha não marcada fica de fora"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&conjuntos[]=444444")
 confere "$(tem '<strong>cv free</strong>' "$r")" "anúncios só dos conjuntos marcados"
+
+echo "Orçamento pelo painel (mudar agora e programar)"
+# shellcheck disable=SC2086
+HOJE=$("$PHP" $PHP_FLAGS -r 'date_default_timezone_set("America/Sao_Paulo"); echo date("Y-m-d");')
+# shellcheck disable=SC2086
+AMANHA=$("$PHP" $PHP_FLAGS -r 'date_default_timezone_set("America/Sao_Paulo"); echo date("Y-m-d", strtotime("+1 day"));')
+# shellcheck disable=SC2086
+HM=$("$PHP" $PHP_FLAGS -r 'date_default_timezone_set("America/Sao_Paulo"); echo date("H:i");')
+orc() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=$2" "${@:3}" --data-urlencode "volta=./?aba=campanha&id=120120&periodo=tudo" "$URL/meta-orcamento.php"; curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo"; }
+meta "$csrf" "$LEITURA" 587364236934346 >/dev/null
+r=$(orc "$csrf" mudar --data-urlencode "objeto=120120" --data-urlencode "valor=48,00")
+confere "$(tem 'O token da API Meta só lê. Para mudar o orçamento pelo painel' "$r")" "token só de leitura: o orçamento não muda"
+confere "$(tem '<button type="submit" disabled>Mudar na Meta</button>' "$r")" "token só de leitura: o formulário do orçamento aparece desligado"
+meta "$csrf" "TokenGerencia00000000000000000000000000000000" 587364236934346 >/dev/null
+r=$(orc "" mudar --data-urlencode "objeto=120120" --data-urlencode "valor=48,00")
+confere "$(tem 'Sessão expirada' "$r")" "mudar orçamento sem o token do formulário é recusado"
+r=$(orc "$csrf" mudar --data-urlencode "objeto=120120" --data-urlencode "valor=48,00")
+confere "$(tem 'Orçamento de &quot;TL 1&quot; mudou de R$ 40,00 para R$ 48,00 por dia na Meta.' "$r")" "mudar o orçamento da campanha na Meta, na hora"
+confere "$(tem 'data-atual="4800"' "$r")" "o orçamento novo já aparece no painel"
+confere "$(tem 'data-orcamento' "$r")" "mudar o orçamento pede confirmação na tela (com a variação e o aviso de 20%)"
+r=$(orc "$csrf" mudar --data-urlencode "objeto=120120" --data-urlencode "valor=500")
+confere "$(tem 'o teto de R$ 300,00 por dia' "$r")" "acima do teto (R$ 300,00 por dia) é recusado"
+r=$(orc "$csrf" mudar --data-urlencode "objeto=999999" --data-urlencode "valor=50")
+confere "$(tem 'Não encontrei essa campanha ou conjunto' "$r")" "campanha que não é da conta não muda"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem 'orçamento R$ 40,00 → R$ 48,00' "$(sem_tags "$r")")" "histórico do gestor mostra a mudança de orçamento em reais"
+r=$(orc "$csrf" programar --data-urlencode "objeto=120120" --data-urlencode "tipo=diaria" --data-urlencode "hora=08:00" --data-urlencode "valor=55")
+confere "$(tem 'Marque pelo menos um dia da semana' "$r")" "programação que repete precisa de um dia da semana"
+r=$(orc "$csrf" programar --data-urlencode "objeto=120120" --data-urlencode "tipo=unica" --data-urlencode "data=2020-01-01" --data-urlencode "hora=08:00" --data-urlencode "valor=55")
+confere "$(tem 'Essa data e hora já passou' "$r")" "programação para o passado é recusada"
+dias=(); for d in 1 2 3 4 5 6 7; do dias+=(--data-urlencode "dias[]=$d"); done
+r=$(orc "$csrf" programar --data-urlencode "objeto=120120" --data-urlencode "tipo=diaria" --data-urlencode "hora=$HM" "${dias[@]}" --data-urlencode "valor=55")
+confere "$(tem "Programado: todo dia às $HM, R\$ 55,00 em &quot;TL 1&quot;." "$r")" "programar o orçamento todo dia num horário"
+confere "$(tem 'ainda não rodou' "$r")" "programação aparece na lista, ainda sem rodar"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS cron.php --hora=3 "--agora=$HOJE $HM")
+confere "$(tem 'orcamento: 1' "$saida")" "tarefa agendada aplica a programação no horário ($saida)"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS cron.php --hora=3 "--agora=$HOJE $HM")
+confere "$(tem 'orcamento: 0' "$saida")" "programação que repete roda uma vez por dia"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
+confere "$(tem 'programação (kenio)' "$r")" "mudança da programação fica no histórico com quem programou"
+confere "$(tem 'R$ 48,00 → R$ 55,00' "$r")" "programação levou o orçamento de R$ 48,00 para R$ 55,00"
+ids=$(grep -o 'name="acao" value="apagar"><input type="hidden" name="id" value="[0-9]*"' < <(printf '%s\n' "$r") | grep -o '[0-9]*"$' | tr -d '"')
+for i in $ids; do orc "$csrf" apagar --data-urlencode "id=$i" >/dev/null; done
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
+confere "$(tem 'Nenhuma programação' "$r")" "apagar a programação"
+r=$(orc "$csrf" programar --data-urlencode "objeto=120120" --data-urlencode "tipo=diaria" --data-urlencode "hora=00:00" "${dias[@]}" --data-urlencode "valor=60")
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS cron.php --hora=3 "--agora=$AMANHA 00:45")
+confere "$(tem 'orcamento: 0' "$saida")" "tarefa parada: mais de 30 minutos depois do horário, não muda fora de hora"
+ids=$(grep -o 'name="acao" value="apagar"><input type="hidden" name="id" value="[0-9]*"' < <(printf '%s\n' "$r") | grep -o '[0-9]*"$' | tr -d '"')
+for i in $ids; do orc "$csrf" apagar --data-urlencode "id=$i" >/dev/null; done
+r=$(orc "$csrf" programar --data-urlencode "objeto=120120" --data-urlencode "tipo=unica" --data-urlencode "data=$AMANHA" --data-urlencode "hora=09:00" --data-urlencode "valor=40")
+confere "$(tem 'Programado: em [0-9/]* às 09:00, R\$ 40,00' "$r")" "programar uma vez, numa data e hora"
+# shellcheck disable=SC2086
+saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS cron.php --hora=3 "--agora=$AMANHA 09:02")
+confere "$(tem 'orcamento: 1' "$saida")" "programação de uma vez roda na data e hora ($saida)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
+confere "$(tem 'encerrada' "$r")" "programação de uma vez fica encerrada depois de rodar"
+ids=$(grep -o 'name="acao" value="apagar"><input type="hidden" name="id" value="[0-9]*"' < <(printf '%s\n' "$r") | grep -o '[0-9]*"$' | tr -d '"')
+for i in $ids; do orc "$csrf" apagar --data-urlencode "id=$i" >/dev/null; done
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=teto" --data-urlencode "teto=600,00" "$URL/configuracoes.php")
+confere "$(tem 'Teto do orçamento salvo: R$ 600,00 por dia.' "$r")" "teto do orçamento muda em Configurações"
+r=$(orc "$csrf" mudar --data-urlencode "objeto=120120" --data-urlencode "valor=500")
+confere "$(tem 'mudou de R$ 40,00 para R$ 500,00' "$r")" "com o teto maior, o valor passa"
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=teto" --data-urlencode "teto=300" "$URL/configuracoes.php"
+# A tarefa agendada rodou aqui so para o teste: as Configuracoes, mais adiante, conferem o aviso de tarefa parada
+# shellcheck disable=SC2086
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; definir_ajuste("cron_ultimo", null);')
 meta "$csrf" "$LEITURA" 587364236934346 >/dev/null
 
 echo "Filtros do topo, análise diária e Financeiro"

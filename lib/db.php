@@ -208,6 +208,29 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 9;
             SQL);
     }
+    if ($versao < 10) {
+        // Orcamento pelo painel: programacoes de mudar o orcamento diario de uma campanha ou
+        // conjunto, todo dia num horario (nos dias da semana marcados) ou uma vez numa data e
+        // hora. A tarefa agendada (cron.php) executa; cada mudanca fica em meta_alteracoes.
+        track_migrar_para($pdo, 10, <<<'SQL'
+            CREATE TABLE IF NOT EXISTS meta_programacoes (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                objeto_id   TEXT NOT NULL,
+                tipo        TEXT NOT NULL,
+                hora        TEXT,
+                dias        TEXT,
+                quando      TEXT,
+                valor       INTEGER NOT NULL,
+                ativo       INTEGER NOT NULL DEFAULT 1,
+                criado_por  TEXT,
+                criado_em   TEXT NOT NULL,
+                executada_em TEXT,
+                resultado   TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_prog_objeto ON meta_programacoes (objeto_id);
+            PRAGMA user_version = 10;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

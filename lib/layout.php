@@ -244,6 +244,18 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .leitura li::before{ content:""; position:absolute; left:0; top:6px; width:8px; height:8px; border-radius:50%; background:var(--apagado); }
 .leitura li.ok::before{ background:var(--ok); } .leitura li.alerta::before{ background:var(--laranja); } .leitura li.erro::before{ background:var(--erro); } .leitura li.neutro::before{ background:var(--marca); }
 .analise-sub{ margin:6px 0 0; font-size:12px; }
+/* Orcamento na analise diaria: mudar agora e programar lado a lado */
+.orcamento h3{ font-size:13px; margin:16px 0 8px; }
+.orc-grade{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px 24px; }
+.orc-form{ display:flex; flex-direction:column; gap:8px; padding:12px 14px; border:1px solid var(--linha); border-radius:var(--r-md); background:var(--cartao-2); }
+.orc-form h3{ margin:0 0 2px; }
+.orc-form label{ display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--suave); }
+.orc-form select, .orc-form input:not([type=checkbox]):not([type=radio]){ width:100%; min-width:0; }
+.orc-form button{ align-self:flex-start; }
+.orc-linha{ display:flex; flex-wrap:wrap; gap:8px 12px; }
+.orc-linha > label:not(.orc-op){ flex:1 1 120px; }
+.orc-dias{ display:flex; flex-wrap:wrap; gap:4px 12px; }
+.orc-form label.orc-op{ flex-direction:row; align-items:center; gap:5px; color:var(--texto); font-size:13px; }
 /* Analise diaria: justa, para as 17 colunas da planilha caberem na tela sem rolar para o lado */
 .tabela.dias table{ font-size:12px; }
 .tabela.dias th, .tabela.dias td{ padding:6px 5px; }
@@ -264,7 +276,7 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .fin-form select{ width:100%; }
 .form-linha{ display:inline; margin:0 0 0 8px; }
 /* Filtro de periodo: as duas datas so aparecem no "De uma data a outra" */
-.datas{ display:contents; } .datas[hidden]{ display:none; }
+.datas{ display:contents; } .datas[hidden]{ display:none; } [data-so][hidden]{ display:none !important; }
 .topo input[type=date]{ min-width:0; }
 /* Filtro de produto do topo: varios de uma vez, numa lista que abre como um select */
 .multi{ position:relative; }

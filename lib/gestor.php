@@ -677,13 +677,13 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     // Historico: quem ligou ou pausou o que, pelo painel
     $hist = gestor_historico(10);
     if ($hist) {
-        echo '<section class="bloco">' . titulo('Alterações feitas pelo painel', 'As últimas vezes que alguém ligou ou pausou algo na Meta por aqui, com o resultado. Mudanças feitas direto no Gerenciador de Anúncios não aparecem.')
+        echo '<section class="bloco">' . titulo('Alterações feitas pelo painel', 'As últimas vezes que alguém ligou, pausou ou mudou o orçamento na Meta por aqui (na hora ou por programação), com o resultado. Mudanças feitas direto no Gerenciador de Anúncios não aparecem.')
             . '<div class="tabela"><table><tr><th>' . com_info('Quando', 'Quando a mudança foi feita (horário de Brasília).') . '</th><th>' . com_info('Quem', 'Usuário do admin que fez a mudança.') . '</th><th>' . com_info('O quê', 'Campanha, conjunto ou anúncio.') . '</th><th>' . com_info('Mudança', 'De que status para qual.') . '</th><th>' . com_info('Resultado', 'Feito: a Meta aceitou. Recusado: a Meta não deixou, com o motivo.') . '</th></tr>';
         $nomeSt = ['ACTIVE' => 'ligado', 'PAUSED' => 'pausado'];
         foreach ($hist as $h) {
             echo '<tr><td>' . e(data_local($h['em'], 'd/m H:i')) . '</td><td>' . e($h['usuario']) . '</td>'
                 . '<td class="quebra">' . e(ucfirst(GESTOR_NIVEL_META[$h['nivel']] ?? $h['nivel'])) . ' <strong>' . e((string)$h['nome']) . '</strong></td>'
-                . '<td>' . e(($nomeSt[$h['de']] ?? '—') . ' → ' . ($nomeSt[$h['para']] ?? $h['para'])) . '</td>'
+                . '<td>' . e(orc_rotulo($h['para']) !== null ? 'orçamento ' . orc_rotulo($h['de']) . ' → ' . orc_rotulo($h['para']) : ($nomeSt[$h['de']] ?? '—') . ' → ' . ($nomeSt[$h['para']] ?? $h['para'])) . '</td>'
                 . '<td>' . ($h['ok'] ? '<span class="selo ok">Feito</span>' : '<span class="selo erro">Recusado</span> <span class="suave">' . e((string)$h['erro']) . '</span>') . '</td></tr>';
         }
         echo '</table></div></section>';

@@ -10,6 +10,7 @@
 // Campanha com orcamento nos conjuntos (sem orcamento proprio): a soma dos conjuntos no dia.
 
 require_once __DIR__ . '/gestor_analise.php';
+require_once __DIR__ . '/orcamento.php';
 
 // Colunas da aba CAMPANHAS da planilha, na ordem dela: chave do gestor => titulo curto
 const GESTOR_DIAS_COLUNAS = ['orcamento' => 'Orçamento', 'gasto' => 'Gastos', 'vendas' => 'Vendas', 'fat' => 'Faturamento', 'lucro' => 'Lucro',
@@ -188,4 +189,7 @@ function gestor_dias_render(PDO $db, string $periodo): void
     echo '</table></div>';
     echo '<p class="suave legenda">As colunas da aba CAMPANHAS da planilha, na mesma ordem. CPI = custo por início de checkout; IC = inícios de checkout; CPV = custo por visualização de página. ROI: vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima. '
         . 'O orçamento de cada dia é o que o painel viu na Meta naquele dia; antes de o painel começar a guardar, fica em branco.</p>';
+
+    // Orcamento: mudar agora e programar (lib/orcamento.php)
+    echo orc_bloco($id, $volta);
 }

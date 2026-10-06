@@ -278,13 +278,44 @@
     document.addEventListener('click', function (e) { if (menuTema.open && !menuTema.contains(e.target)) { menuTema.open = false; } });
   }
 
-  // Pergunta antes: ligar ou pausar na Meta (gestor) e apagar despesa (financeiro)
+  // Pergunta antes: ligar ou pausar na Meta (gestor), apagar despesa (financeiro) e mudar o
+  // orcamento (com a variacao; mais de 20% de uma vez pode reiniciar o aprendizado da Meta)
+  function reais(c) { return 'R$ ' + (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function centavos(t) {
+    t = String(t).replace(/[^\d,.]/g, '');
+    if (t.indexOf(',') !== -1) { t = t.replace(/\./g, '').replace(',', '.'); } else if (/\.\d{3}$/.test(t)) { t = t.replace(/\./g, ''); }
+    var v = Math.round(parseFloat(t) * 100);
+    return isNaN(v) ? null : v;
+  }
   document.addEventListener('submit', function (e) {
     var f = e.target;
+    if (f && f.hasAttribute && f.hasAttribute('data-orcamento')) {
+      var op = f.elements.objeto.options[f.elements.objeto.selectedIndex];
+      var atual = parseInt(op.getAttribute('data-atual'), 10), novo = centavos(f.elements.valor.value);
+      if (novo === null) { return; }
+      var pct = atual ? Math.round((novo - atual) * 100 / atual) : 0;
+      var msg = 'Mudar o orçamento de ' + reais(atual) + ' para ' + reais(novo) + ' por dia (' + (pct > 0 ? '+' : '') + pct + '%) na Meta?';
+      if (Math.abs(pct) > 20) { msg += '\n\nMais de 20% de uma vez: a Meta pode reiniciar o aprendizado da campanha.'; }
+      if (!window.confirm(msg)) { e.preventDefault(); }
+      return;
+    }
     if (f && f.hasAttribute && f.hasAttribute('data-confirma') && !window.confirm(f.getAttribute('data-confirma') || 'Confirmar?')) {
       e.preventDefault();
     }
   });
+  // Programar orcamento: "Repete" mostra os dias da semana; "Uma vez", a data
+  var progs = document.querySelectorAll('[data-programar]');
+  for (var pg = 0; pg < progs.length; pg++) {
+    (function (f) {
+      var mostrar = function () {
+        var tipo = f.querySelector('input[name=tipo]:checked');
+        var partes = f.querySelectorAll('[data-so]');
+        for (var i = 0; i < partes.length; i++) { partes[i].hidden = !tipo || partes[i].getAttribute('data-so') !== tipo.value; }
+      };
+      f.addEventListener('change', mostrar);
+      mostrar();
+    })(progs[pg]);
+  }
   // Gestor: marcar todos e contar os marcados
   var todos = document.querySelector('[data-sel-todos]');
   var conta = document.querySelector('[data-sel-conta]');

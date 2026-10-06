@@ -15,6 +15,7 @@ require_once __DIR__ . '/lib/kiwify_sync.php';
 require_once __DIR__ . '/lib/meta_sync.php';
 require_once __DIR__ . '/lib/instagram_sync.php';
 require_once __DIR__ . '/lib/push.php';
+require_once __DIR__ . '/lib/orcamento.php';
 
 if (!track_config()) {
     fwrite(STDERR, "Painel ainda nao instalado.\n");
@@ -38,5 +39,18 @@ foreach ([['kiwify', 'kiwify_sync_vencida', 'kiwify_sincronizar'], ['meta', 'met
         $feito[] = $nome . ':erro';
     }
 }
+// Programacoes de orcamento (lib/orcamento.php): antes dos relatorios, para o relatorio ja sair
+// com o orcamento novo. Teste: php cron.php --agora="2026-10-07 08:05" (horario de Brasilia)
+$agora = null;
+foreach ($argv as $a) {
+    if (preg_match('/^--agora=(.+)$/', $a, $m)) {
+        $agora = new DateTime($m[1], fuso());
+    }
+}
+try {
+    $orcamentos = orc_executar_vencidas($agora);
+} catch (Throwable $e) {
+    $orcamentos = 'erro';
+}
 $enviados = relatorio_enviar_se_hora($forcada);
-echo agora_utc(), ' ', implode(' ', $feito) ?: 'nada vencido', ' | relatorio: ', $enviados, "\n";
+echo agora_utc(), ' ', implode(' ', $feito) ?: 'nada vencido', ' | orcamento: ', $orcamentos, ' | relatorio: ', $enviados, "\n";
