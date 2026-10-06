@@ -545,6 +545,13 @@ confere "$(tem 'Nenhuma despesa cadastrada' "$r")" "despesa apagada some da list
 oc=$(RAIZ_PHP="$(cygpath -m "$RAIZ" 2>/dev/null || echo "$RAIZ")" "$PHP" $PHP_FLAGS -r 'require getenv("RAIZ_PHP") . "/lib/financeiro.php"; echo implode(",", fin_ocorrencias(["inicio" => "2026-01-31", "fim" => null, "repete" => "mensal"], "2026-01-01", "2026-04-30")), "|", fin_centavos("R$ 1.234,56"), "|", fin_centavos("40");')
 confere "$([ "$oc" = "2026-01-31,2026-02-28,2026-03-31,2026-04-30|123456|4000" ]; echo $?)" "despesa do dia 31 cai no último dia dos meses curtos; valores em reais ($oc)"
 
+# Rastreio da VSL (veio da copia do engdesk, commit 65b7a78): a pagina manda os eventos pelo window.trk
+confere "$(grep -q 'window.trk = function' "$RAIZ/t.js"; echo $?)" "t.js aceita os eventos da VSL (window.trk e a fila trkQueue)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
+confere "$(tem '<th data-col="orcamento">Orçamento .*<th data-col="gasto">Gastos .*<th data-col="visualizacoes">Vis. de página .*<th data-col="margem">Margem' "$(tr -d '
+' < <(printf '%s
+' "$r"))")" "análise diária com as colunas da planilha, na ordem dela"
+
 echo "Resumo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'Faturamento líquidoiR$ 202,00' "$(sem_tags "$r")")" "faturamento líquido do período (com order bump)"

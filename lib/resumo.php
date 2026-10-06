@@ -437,6 +437,63 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
             : '<p class="suave">Nenhuma venda fora de anúncio no período.</p>')
         . '<a class="rc-link" href="' . e($fora) . '">Ver cada uma e o motivo</a></section></div>';
 
+    // Funil da VSL (quando houver interações com a VSL no período)
+    $paginasVsl = consulta($db, "SELECT DISTINCT pagina FROM eventos WHERE nome LIKE 'VSL_%' AND em >= ? AND em < ? ORDER BY pagina", [$de, $ate]);
+    $totalVslPlay = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_Play' AND em >= ? AND em < ?", [$de, $ate]);
+
+    if ($totalVslPlay > 0) {
+        if (count($paginasVsl) > 1) {
+            $vsl50 = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_50' AND em >= ? AND em < ?", [$de, $ate]);
+            $vslPitch = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_Pitch' AND em >= ? AND em < ?", [$de, $ate]);
+            $vslCk = (int)valor($db, "SELECT COUNT(DISTINCT e.visitante) FROM eventos e
+                                      JOIN eventos v ON v.visitante = e.visitante AND v.nome = 'VSL_Play' AND v.em >= ? AND v.em < ?
+                                      WHERE e.nome = 'CliqueCheckout' AND e.em >= ? AND e.em < ?", [$de, $ate, $de, $ate]);
+            $vslAprov = (int)valor($db, "SELECT COUNT(DISTINCT vd.visitante) FROM vendas vd
+                                         JOIN eventos e ON e.visitante = vd.visitante AND e.nome = 'VSL_Play' AND e.em >= ? AND e.em < ?
+                                         WHERE vd.aprovada_em IS NOT NULL AND vd.aprovada_em >= ? AND vd.aprovada_em < ?", [$de, $ate, $dia1 . ' 00:00:00', $dia2 . ' 23:59:59']);
+            echo '<div class="rgrade"><section class="bloco c12">' . titulo('Funil da VSL — Geral (Todas as Páginas)', 'Retenção do vídeo e conversão em vendas acumulada de todas as páginas com VSL.')
+                . resumo_funil([
+                    'Deu play / som' => [$totalVslPlay, 'Visitantes únicos que iniciaram ou ativaram o som da VSL.'],
+                    'Metade (50%)' => [$vsl50, 'Visitantes únicos que assistiram pelo menos 50% do vídeo.'],
+                    'Oferta (Pitch)' => [$vslPitch, 'Visitantes únicos que assistiram até o momento da oferta.'],
+                    'Clicou no checkout' => [$vslCk, 'Visitantes que assistiram à VSL e clicaram no botão de compra.'],
+                    'Comprou (aprovada)' => [$vslAprov, 'Vendas aprovadas de visitantes que assistiram à VSL.'],
+                ]) . '</section></div>';
+        }
+
+        foreach ($paginasVsl as $row) {
+            $pPath = $row['pagina'];
+            $pNome = $pPath;
+            if ($pPath === '/drivedeprojetos/' || $pPath === '/drivedeprojetos/index.html') {
+                $pNome = 'Drive de Projetos (Principal · R$ 67)';
+            } elseif (str_contains($pPath, '/vsl')) {
+                $pNome = 'Drive de Projetos (VSL Teste · R$ 97)';
+            }
+
+            $pPlay = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_Play' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $de, $ate]);
+            if ($pPlay === 0) continue;
+
+            $p50 = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_50' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $de, $ate]);
+            $pPitch = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_Pitch' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $de, $ate]);
+            $pCk = (int)valor($db, "SELECT COUNT(DISTINCT e.visitante) FROM eventos e
+                                    JOIN eventos v ON v.visitante = e.visitante AND v.nome = 'VSL_Play' AND v.pagina = ? AND v.em >= ? AND v.em < ?
+                                    WHERE e.nome = 'CliqueCheckout' AND e.pagina = ? AND e.em >= ? AND e.em < ?", [$pPath, $de, $ate, $pPath, $de, $ate]);
+            $pAprov = (int)valor($db, "SELECT COUNT(DISTINCT vd.visitante) FROM vendas vd
+                                       JOIN eventos e ON e.visitante = vd.visitante AND e.nome = 'VSL_Play' AND e.pagina = ? AND e.em >= ? AND e.em < ?
+                                       WHERE vd.aprovada_em IS NOT NULL AND vd.aprovada_em >= ? AND vd.aprovada_em < ?", [$pPath, $de, $ate, $dia1 . ' 00:00:00', $dia2 . ' 23:59:59']);
+
+            $tituloFunil = (count($paginasVsl) > 1 ? 'Funil da VSL: ' . $pNome : 'Funil da VSL (' . $pNome . ')');
+            echo '<div class="rgrade"><section class="bloco c12">' . titulo($tituloFunil, 'Métricas de retenção da VSL e conversão exclusiva na página ' . $pPath)
+                . resumo_funil([
+                    'Deu play / som' => [$pPlay, 'Visitantes que iniciaram ou ativaram o som da VSL nesta página.'],
+                    'Metade (50%)' => [$p50, 'Assistiram pelo menos 50% do vídeo nesta página.'],
+                    'Oferta (Pitch)' => [$pPitch, 'Assistiram até a oferta (pitch) nesta página.'],
+                    'Clicou no checkout' => [$pCk, 'Clicaram no checkout nesta página após assistir.'],
+                    'Comprou (aprovada)' => [$pAprov, 'Vendas aprovadas de quem assistiu à VSL nesta página.'],
+                ]) . '</section></div>';
+        }
+    }
+
     // Graficos por hora
     $hoje = $periodo === 'hoje';
     $ateHora = $hoje ? (int)(new DateTime('now', $tz))->format('G') : 23;

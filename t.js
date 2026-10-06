@@ -107,4 +107,15 @@
 
   enviar('PageView');
   marcarTodos();
+
+  // Permite que scripts do site enviem eventos customizados para o painel (ex.: VSL_Play, VSL_50)
+  window.trk = function (evento, detalhe, endereco) {
+    enviar(evento, detalhe, endereco);
+  };
+  if (window.trkQueue && Array.isArray(window.trkQueue)) {
+    while (window.trkQueue.length) {
+      var item = window.trkQueue.shift();
+      enviar(item.evento, item.detalhe, item.endereco);
+    }
+  }
 })();

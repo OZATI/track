@@ -204,6 +204,16 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .tabela.gestor td.dia, .tabela.gestor th.dia{ text-align:left; }
 .tabela.gestor tr.total td.dia{ font-weight:600; }
 .tabela.gestor tr.ao-vivo-linha td{ background:var(--hover); }
+/* Analise diaria: justa, para as 17 colunas da planilha caberem na tela sem rolar para o lado */
+.tabela.dias table{ font-size:12px; }
+.tabela.dias th, .tabela.dias td{ padding:6px 5px; }
+.tabela.dias th{ white-space:normal; line-height:1.25; vertical-align:bottom; }
+.tabela.dias th:first-child, .tabela.dias td:first-child{ padding-left:12px; }
+.tabela.dias th:last-child, .tabela.dias td:last-child{ padding-right:12px; }
+.tabela.dias .info{ width:12px; height:12px; font-size:8px; }
+.tabela.dias th .info{ display:flex; margin:3px 0 0 auto; } .tabela.dias th:first-child .info{ margin-left:0; }
+.tabela.dias td.dia{ white-space:nowrap; }
+.tabela.dias .ao-vivo{ display:flex; margin:1px 0 0; font-size:11px; }
 .ao-vivo{ display:inline-flex; align-items:center; gap:5px; margin-left:6px; color:var(--ok); font-size:12px; font-weight:600; }
 .ao-vivo::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--ok); animation:pulsar 1.6s ease-in-out infinite; }
 @keyframes pulsar{ 50%{ opacity:.35; } }
@@ -350,7 +360,7 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .resumo-aviso{ margin:10px 0 0; font-size:13px; }
 .rgrade{ display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; margin:0 0 12px; }
 .rgrade > *{ min-width:0; margin:0 !important; }
-.rgrade .c2{ grid-column:span 2; } .rgrade .c3{ grid-column:span 3; } .rgrade .c4{ grid-column:span 4; } .rgrade .c6{ grid-column:span 6; } .rgrade .c8{ grid-column:span 8; } .rgrade .r2{ grid-row:span 2; }
+.rgrade .c2{ grid-column:span 2; } .rgrade .c3{ grid-column:span 3; } .rgrade .c4{ grid-column:span 4; } .rgrade .c6{ grid-column:span 6; } .rgrade .c8{ grid-column:span 8; } .rgrade .c12{ grid-column:1 / -1; } .rgrade .r2{ grid-row:span 2; }
 .rc{ display:flex; flex-direction:column; gap:6px; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); }
 .rc-cab{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; color:var(--suave); font-size:13px; font-weight:500; }
 .rc > b{ font-size:24px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

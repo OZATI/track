@@ -150,10 +150,21 @@ function barra_vendas(array $parLink, string $aba): void
     }
 }
 
-// Nome do evento em portugues (o t.js manda PageView, CliqueCheckout, WhatsApp e Botao)
+// Nome do evento em portugues (o t.js manda PageView, CliqueCheckout, WhatsApp e Botao, e VSL)
 function nome_evento(string $n): string
 {
-    return ['PageView' => 'Visualização', 'CliqueCheckout' => 'Clique no checkout', 'WhatsApp' => 'Clique no WhatsApp', 'Botao' => 'Clique em botão'][$n] ?? $n;
+    return [
+        'PageView' => 'Visualização',
+        'CliqueCheckout' => 'Clique no checkout',
+        'WhatsApp' => 'Clique no WhatsApp',
+        'Botao' => 'Clique em botão',
+        'VSL_Play' => 'VSL: Início / Som',
+        'VSL_25' => 'VSL: 25% assistido',
+        'VSL_50' => 'VSL: 50% assistido',
+        'VSL_75' => 'VSL: 75% assistido',
+        'VSL_Pitch' => 'VSL: Chegou na Oferta (Pitch)',
+        'VSL_100' => 'VSL: 100% concluído',
+    ][$n] ?? $n;
 }
 
 // O (i) de cada tipo de evento: o que e e quando acontece
@@ -164,6 +175,12 @@ function dica_evento(string $n): string
         'CliqueCheckout' => 'Clique no botão de compra (classe js-checkout). O link vai para a Kiwify com as etiquetas e o sck, que liga a venda ao visitante.',
         'WhatsApp' => 'Clique no botão ou link do WhatsApp.',
         'Botao' => 'Clique em botão marcado com data-botao que não leva ao checkout (ex.: ver planos, perguntas, rolar até a oferta).',
+        'VSL_Play' => 'Visitante clicou no vídeo para ativar o som ou iniciou a reprodução ativa da VSL.',
+        'VSL_25' => 'Visitante assistiu pelo menos 25% do vídeo da VSL.',
+        'VSL_50' => 'Visitante assistiu pelo menos 50% do vídeo da VSL.',
+        'VSL_75' => 'Visitante assistiu pelo menos 75% do vídeo da VSL.',
+        'VSL_Pitch' => 'Visitante assistiu até o momento em que a oferta e o preço foram revelados.',
+        'VSL_100' => 'Visitante assistiu a VSL até o final.',
     ][$n] ?? 'Evento enviado pela página com o nome ' . $n . '.';
 }
 

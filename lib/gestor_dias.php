@@ -1,12 +1,18 @@
 <?php
 // Analise diaria de uma campanha (o botao "Analise diaria" que aparece ao passar o mouse na
 // campanha do gestor): a campanha dia a dia, como a aba CAMPANHAS da planilha (uma linha por
-// dia), com as mesmas colunas e as mesmas contas do gestor. A ultima linha e hoje, ao vivo: o
-// que ja entrou ate a ultima busca na Meta e na Kiwify.
+// dia), com as colunas dela, na ordem dela, e as mesmas contas do gestor. A tabela e justa: as
+// 17 colunas cabem na tela sem rolar para o lado (pedido do Allan). A ultima linha e hoje, ao
+// vivo: o que ja entrou ate a ultima busca na Meta e na Kiwify.
 //
 // O orcamento de cada dia vem de meta_orcamento_dia, que o painel grava a cada busca na Meta (a
 // Meta so informa o orcamento de agora). Dia de antes do painel guardar fica sem orcamento.
 // Campanha com orcamento nos conjuntos (sem orcamento proprio): a soma dos conjuntos no dia.
+
+// Colunas da aba CAMPANHAS da planilha, na ordem dela: chave do gestor => titulo curto
+const GESTOR_DIAS_COLUNAS = ['orcamento' => 'Orçamento', 'gasto' => 'Gastos', 'vendas' => 'Vendas', 'fat' => 'Faturamento', 'lucro' => 'Lucro',
+    'cpa' => 'CPA', 'roi' => 'ROI', 'cpi' => 'CPI', 'ic' => 'IC', 'cpv' => 'CPV', 'cpc' => 'CPC', 'cliques' => 'Cliques', 'ctr' => 'CTR',
+    'impressoes' => 'Impressões', 'cpm' => 'CPM', 'visualizacoes' => 'Vis. de página', 'margem' => 'Margem'];
 
 // Primeiro dia com gasto ou venda da campanha (para "Tudo"), ou null
 function gestor_dias_inicio(PDO $db, string $id): ?string
@@ -102,7 +108,16 @@ function gestor_dias_render(PDO $db, string $periodo): void
     $orcamentos = $obj ? gestor_dias_orcamentos($db, $obj, $conjuntos, $dia1, $dia2) : [];
     $linhas = $dia1 <= $dia2 ? gestor_dias_linhas($db, $id, $dia1, $dia2) : [];
     $todas = gestor_colunas($pct);
-    $colunas = gestor_colunas_escolhidas($todas);
+    $colunas = array_keys(GESTOR_DIAS_COLUNAS);
+    // Orcamento numa linha so (o "Diario" vai no title): a tabela tem que caber na tela
+    $todas['orcamento'][2] = function (array $r): string {
+        $o = $r['obj'];
+        if (!$o || (!$o['orcamento_diario'] && !$o['orcamento_total'])) {
+            return '<span class="suave">—</span>';
+        }
+        return $o['orcamento_diario'] ? '<span title="Diário">' . e(reais((int)$o['orcamento_diario'])) . '</span>'
+            : '<span title="Total da campanha">' . e(reais((int)$o['orcamento_total'])) . ' <small class="suave">total</small></span>';
+    };
 
     // Cabecalho: voltar, nome, status (a chave liga e pausa), orcamento de agora, atualizar
     $volta = './?' . http_build_query(['aba' => 'campanha', 'id' => $id, 'periodo' => $periodo]);
@@ -124,9 +139,11 @@ function gestor_dias_render(PDO $db, string $periodo): void
         . '<a href="' . e('./?' . http_build_query(['aba' => 'gestor', 'periodo' => $periodo, 'nivel' => 'conjuntos', 'campanha' => $id])) . '">Ver os conjuntos</a></p></section>';
 
     // Tabela: total do periodo em cima, os dias em ordem e hoje (ao vivo) por ultimo
-    echo '<div class="tabela gestor dias"><table data-larguras="dias"><tr><th class="nome dia">' . com_info('Dia', 'Dia da semana e data (horário de Brasília). O gasto da Meta é do dia inteiro; as vendas, do dia em que chegaram.') . '</th>';
+    echo '<div class="tabela gestor dias"><table><tr><th class="nome dia">' . com_info('Data', 'Dia da semana e data (horário de Brasília). O gasto da Meta é do dia inteiro; as vendas, do dia em que chegaram.') . '</th>';
     foreach ($colunas as $k) {
-        echo '<th data-col="' . e($k) . '">' . com_info($todas[$k][0], $todas[$k][1]) . '</th>';
+        // Sem o com_info (que gruda o (i) na palavra): aqui o (i) desce para a linha de baixo
+        // quando falta espaco, e a coluna fica da largura do numero
+        echo '<th data-col="' . e($k) . '">' . e(GESTOR_DIAS_COLUNAS[$k]) . ' ' . info($todas[$k][0] . ': ' . $todas[$k][1]) . '</th>';
     }
     echo '</tr>';
     $total = gestor_linha_nova();
@@ -150,7 +167,7 @@ function gestor_dias_render(PDO $db, string $periodo): void
         $orc = $orcamentos[$dia] ?? ($aoVivo ? $obj : null);
         $r = gestor_metricas(['id' => $id, 'obj' => $orc] + $l, $pct);
         echo '<tr' . ($aoVivo ? ' class="ao-vivo-linha"' : '') . '><td class="nome dia"><span class="suave">' . $semana[(int)$d->format('N')] . '</span> ' . e($d->format('d/m'))
-            . ($aoVivo ? ' <span class="ao-vivo" title="O dia ainda não acabou: os números mudam a cada busca na Meta e na Kiwify">ao vivo</span>' : '') . '</td>';
+            . ($aoVivo ? '<span class="ao-vivo" title="O dia ainda não acabou: os números mudam a cada busca na Meta e na Kiwify">ao vivo</span>' : '') . '</td>';
         foreach ($colunas as $k) {
             echo '<td>' . $todas[$k][2]($r) . '</td>';
         }
@@ -160,6 +177,6 @@ function gestor_dias_render(PDO $db, string $periodo): void
         echo '<tr><td colspan="' . (1 + count($colunas)) . '" class="suave">Nenhum dia no período.</td></tr>';
     }
     echo '</table></div>';
-    echo '<p class="suave legenda">As colunas são as mesmas do gestor (escolha em Colunas, lá). ROI: vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima. '
+    echo '<p class="suave legenda">As colunas da aba CAMPANHAS da planilha, na mesma ordem. CPI = custo por início de checkout; IC = inícios de checkout; CPV = custo por visualização de página. ROI: vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima. '
         . 'O orçamento de cada dia é o que o painel viu na Meta naquele dia; antes de o painel começar a guardar, fica em branco.</p>';
 }
