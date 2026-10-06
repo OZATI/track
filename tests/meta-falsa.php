@@ -91,6 +91,17 @@ if (isset($listas[$rota])) {
     echo json_encode(['data' => $listas[$rota], 'paging' => ['cursors' => ['before' => 'a', 'after' => 'b']]]);
     exit;
 }
+// Analise diaria: compras da campanha TL 1 por idade e sexo (a FREE nao vendeu)
+if (preg_match('~^/graph/(\d+)/insights$~', $rota, $m) && ($_GET['breakdowns'] ?? '') === 'age,gender') {
+    $compra = fn(int $n) => [['action_type' => 'offsite_conversion.fb_pixel_purchase', 'value' => (string)$n], ['action_type' => 'omni_purchase', 'value' => (string)$n]];
+    echo json_encode(['data' => $m[1] === '120120' ? [
+        ['age' => '25-34', 'gender' => 'female', 'spend' => '20.00', 'actions' => $compra(2)],
+        ['age' => '25-34', 'gender' => 'male', 'spend' => '15.00', 'actions' => $compra(1)],
+        ['age' => '35-44', 'gender' => 'female', 'spend' => '10.00'],
+        ['age' => '45-54', 'gender' => 'unknown', 'spend' => '5.00'],
+    ] : [['age' => '25-34', 'gender' => 'male', 'spend' => '10.00']]]);
+    exit;
+}
 if ($rota === '/graph/act_587364236934346/insights') {
     if (($_GET['breakdowns'] ?? '') === 'hourly_stats_aggregated_by_advertiser_time_zone') {
         // Gasto da conta por hora de hoje

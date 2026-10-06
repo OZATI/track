@@ -9,6 +9,8 @@
 // Meta so informa o orcamento de agora). Dia de antes do painel guardar fica sem orcamento.
 // Campanha com orcamento nos conjuntos (sem orcamento proprio): a soma dos conjuntos no dia.
 
+require_once __DIR__ . '/gestor_analise.php';
+
 // Colunas da aba CAMPANHAS da planilha, na ordem dela: chave do gestor => titulo curto
 const GESTOR_DIAS_COLUNAS = ['orcamento' => 'Orçamento', 'gasto' => 'Gastos', 'vendas' => 'Vendas', 'fat' => 'Faturamento', 'lucro' => 'Lucro',
     'cpa' => 'CPA', 'roi' => 'ROI', 'cpi' => 'CPI', 'ic' => 'IC', 'cpv' => 'CPV', 'cpc' => 'CPC', 'cliques' => 'Cliques', 'ctr' => 'CTR',
@@ -137,6 +139,9 @@ function gestor_dias_render(PDO $db, string $periodo): void
         . '<p class="suave">' . e(($dia1 === $dia2 ? (new DateTime($dia1))->format('d/m/Y') : (new DateTime($dia1))->format('d/m') . ' a ' . (new DateTime($dia2))->format('d/m/Y')))
         . ' · um dia por linha, como na planilha de campanhas. Muda o período no topo. '
         . '<a href="' . e('./?' . http_build_query(['aba' => 'gestor', 'periodo' => $periodo, 'nivel' => 'conjuntos', 'campanha' => $id])) . '">Ver os conjuntos</a></p></section>';
+
+    // Em cima: numeros, graficos, leitura da campanha e quem compra (lib/gestor_analise.php)
+    gestor_analise_render($db, $id, $obj, $linhas, $pct, $dia1, $dia2);
 
     // Tabela: total do periodo em cima, os dias em ordem e hoje (ao vivo) por ultimo
     echo '<div class="tabela gestor dias"><table><tr><th class="nome dia">' . com_info('Data', 'Dia da semana e data (horário de Brasília). O gasto da Meta é do dia inteiro; as vendas, do dia em que chegaram.') . '</th>';

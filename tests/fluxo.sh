@@ -511,6 +511,19 @@ confere "$(tem 'class="ao-vivo"' "$r")" "análise diária: hoje aparece ao vivo"
 confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "análise diária: gasto, vendas e faturamento do dia"
 confere "$(tem 'href="./?aba=gestor[^"]*" class="atual"' "$r")" "análise diária deixa a aba Gestor marcada"
 confere "$(tem '<input type="hidden" name="id" value="120120">' "$r")" "trocar o período no topo continua na mesma campanha"
+# Analise diaria, em cima: numeros, graficos, leitura da campanha e quem compra (Meta)
+confere "$(tem 'Compradoresi2' "$(sem_tags "$r")")" "análise: compradores da campanha no período"
+confere "$(tem 'ROI</span><span class="info"[^>]*>i</span></div><b class="positivo">2,58</b>' "$r")" "análise: ROI da campanha com a cor"
+confere "$(tem 'aria-label="Compradores e ROI por dia"' "$r")" "análise: gráfico de compradores e ROI por dia"
+confere "$(tem 'class="vela sobe" data-dica="[a-záé]* [0-9/]* · ROI do dia 2,58 · acumulado 2,58 (primeiro dia) · gasto R\$ 50,00 · 2 vendas · lucro R\$ 78,92"' "$r")" "análise: gráfico de bolsa com uma vela por dia e o ROI no mouse"
+confere "$(tem 'CTR 1,50%: abaixo dos 2% de referência' "$r")" "leitura: CTR abaixo dos 2% (regra do Allan)"
+confere "$(tem 'Custo por IC R\$ 16,67: acima dos 10% do ticket (R\$ 6,32)' "$r")" "leitura: custo por IC contra 10% do ticket do produto principal"
+confere "$(tem 'Mulheres <b>2</b>' "$r")" "quem compra: pizza por sexo com as compras da Meta"
+confere "$(tem 'Homens <b>1</b>' "$r")" "quem compra: homens"
+confere "$(tem '25-34 anos' "$r")" "quem compra: por idade"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=555555&periodo=tudo")
+confere "$(tem 'A Meta não registrou compras desta campanha' "$r")" "quem compra: campanha sem compra na Meta avisa em vez de pizza vazia"
+confere "$(tem 'class="vela desce"' "$r")" "vela vermelha quando o ROI cai (FREE, sem venda)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=987654321&periodo=tudo")
 confere "$(tem 'Campanha não encontrada' "$r")" "campanha que não é da conta não abre"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")

@@ -195,6 +195,19 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 8;
             SQL);
     }
+    if ($versao < 9) {
+        // Analise diaria: quem compra pela Meta (sexo e idade) de cada campanha e periodo,
+        // guardado por algumas horas para nao consultar a Meta a cada vez que a tela abre.
+        // So totais por grupo, sem dado de pessoa.
+        track_migrar_para($pdo, 9, <<<'SQL'
+            CREATE TABLE IF NOT EXISTS meta_publico (
+                chave      TEXT PRIMARY KEY,
+                dados      TEXT NOT NULL,
+                buscado_em TEXT NOT NULL
+            );
+            PRAGMA user_version = 9;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

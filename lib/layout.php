@@ -225,6 +225,25 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .tabela.gestor td.dia, .tabela.gestor th.dia{ text-align:left; }
 .tabela.gestor tr.total td.dia{ font-weight:600; }
 .tabela.gestor tr.ao-vivo-linha td{ background:var(--hover); }
+/* Analise diaria, em cima: graficos (velas como as de bolsa, compradores e ROI) e a leitura */
+.rgrade.analise .rc{ min-height:0; }
+.grafico.velas, .grafico.compradores{ margin-top:6px; }
+.grafico .vela-alvo{ fill:transparent; cursor:help; }
+.grafico .vela:hover .vela-alvo, .grafico .dia-graf:hover .vela-alvo, .grafico .vela:focus .vela-alvo, .grafico .dia-graf:focus .vela-alvo{ fill:var(--hover); }
+.grafico .vela:focus, .grafico .dia-graf:focus{ outline:none; }
+.grafico .vela.sobe rect:not(.vela-alvo){ fill:var(--ok); } .grafico .vela.desce rect:not(.vela-alvo){ fill:var(--erro); }
+.grafico .vela.sobe line{ stroke:var(--ok); } .grafico .vela.desce line{ stroke:var(--erro); }
+.grafico .vela line{ stroke-width:1.2; }
+.grafico .ref-1{ stroke:var(--erro); stroke-width:1; stroke-dasharray:3 3; opacity:.6; }
+.grafico .ref-2{ stroke:var(--ok); stroke-width:1; stroke-dasharray:3 3; opacity:.6; }
+.grafico .linha-roi{ fill:none; stroke:var(--suave); stroke-width:1.5; stroke-linejoin:round; pointer-events:none; }
+.grafico .ponto{ fill:var(--apagado); pointer-events:none; } .grafico .ponto.positivo{ fill:var(--ok); } .grafico .ponto.medio{ fill:var(--laranja); } .grafico .ponto.negativo{ fill:var(--erro); }
+.grafico .dia-graf .barra{ fill:var(--marca); opacity:.75; }
+.leitura{ list-style:none; margin:4px 0 0; padding:0; display:flex; flex-direction:column; gap:9px; font-size:13px; line-height:1.4; }
+.leitura li{ position:relative; padding-left:16px; }
+.leitura li::before{ content:""; position:absolute; left:0; top:6px; width:8px; height:8px; border-radius:50%; background:var(--apagado); }
+.leitura li.ok::before{ background:var(--ok); } .leitura li.alerta::before{ background:var(--laranja); } .leitura li.erro::before{ background:var(--erro); } .leitura li.neutro::before{ background:var(--marca); }
+.analise-sub{ margin:6px 0 0; font-size:12px; }
 /* Analise diaria: justa, para as 17 colunas da planilha caberem na tela sem rolar para o lado */
 .tabela.dias table{ font-size:12px; }
 .tabela.dias th, .tabela.dias td{ padding:6px 5px; }
