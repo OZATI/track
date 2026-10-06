@@ -1,8 +1,10 @@
 <?php
-// Analise diaria, parte de cima (pedido do Allan de 06/10/2026): os numeros da campanha no
-// periodo, o grafico de compradores e ROI por dia, a leitura da campanha (dicas com as regras
-// que o Allan usa para otimizar), o grafico de bolsa do ROI desde o inicio da campanha (uma vela
-// por dia; o ROI aparece ao passar o mouse) e quem compra por sexo e idade (dados da Meta).
+// Analise diaria, embaixo da tabela (pedido do Allan de 06/10/2026): os numeros do periodo, o
+// grafico de compradores e ROI por dia, a leitura (dicas com as regras que o Allan usa para
+// otimizar), o grafico de bolsa do ROI desde o inicio (uma vela por dia; o ROI aparece ao passar
+// o mouse) e quem compra por sexo e idade (dados da Meta). Vale para campanha, conjunto
+// (publico: alcance, frequencia, CPM contra a conta) e anuncio (criativo: hook rate, hold rate e
+// a retencao do video no lugar de quem compra).
 //
 // Vela de um dia: abre no ROI acumulado da campanha ate o dia anterior e fecha no acumulado ate
 // o fim do dia (como o preco de uma acao); o pavio vai ate o ROI do proprio dia, o que puxou o
@@ -27,9 +29,9 @@ function analise_num(?float $v, int $casas = 2): string
 
 // Primeiro dia do "desde o inicio": o primeiro gasto ou venda da campanha, mas nao antes do que o
 // painel ainda guarda (vendas mais antigas que a retencao ja foram apagadas) nem de 1 ano atras
-function analise_inicio(PDO $db, string $id): ?string
+function analise_inicio(PDO $db, string $id, string $nivel = 'campanha'): ?string
 {
-    $primeiro = gestor_dias_inicio($db, $id);
+    $primeiro = gestor_dias_inicio($db, $id, $nivel);
     if ($primeiro === null) {
         return null;
     }
@@ -155,8 +157,9 @@ function analise_svg_compradores(array $linhas, float $pct): string
 
 // Ticket do produto principal: valor cobrado medio das vendas aprovadas sem order bump, da
 // campanha no periodo (ou de todas as vendas dos ultimos 30 dias, se a campanha nao vendeu)
-function analise_ticket(PDO $db, string $id, string $dia1, string $dia2): ?float
+function analise_ticket(PDO $db, string $id, string $dia1, string $dia2, string $nivel = 'campanha'): ?float
 {
+    $utm = GESTOR_DIAS_NIVEIS[$nivel][2];
     $tz = fuso();
     $utc = new DateTimeZone('UTC');
     $de = (new DateTime($dia1, $tz))->setTimezone($utc)->format('Y-m-d H:i:s');
@@ -165,17 +168,20 @@ function analise_ticket(PDO $db, string $id, string $dia1, string $dia2): ?float
         $v = array_values(array_filter($vendas, fn($x) => aprovada($x) && !eh_bump($x) && venda_no_filtro($x)));
         return $v ? array_sum(array_map(fn($x) => (int)$x['valor'], $v)) / count($v) : null;
     };
-    $daCampanha = array_filter(consulta($db, 'SELECT * FROM vendas WHERE recebida_em >= ? AND recebida_em < ? AND utm_campaign LIKE ?', [$de, $ate, '%|' . $id]),
-        fn($v) => gestor_id_utm($v['utm_campaign']) === $id);
+    $daCampanha = array_filter(consulta($db, "SELECT * FROM vendas WHERE recebida_em >= ? AND recebida_em < ? AND $utm LIKE ?", [$de, $ate, '%|' . $id]),
+        fn($v) => gestor_id_utm($v[$utm]) === $id);
     return $medio($daCampanha) ?? $medio(consulta($db, 'SELECT * FROM vendas WHERE recebida_em >= ?', [gmdate('Y-m-d H:i:s', time() - 30 * 86400)]));
 }
 
 // Leitura da campanha: [[classe (ok, alerta, erro, neutro), texto]], com as regras do Allan
 // (reuniao de 30/09): custo por IC ate 10% do ticket e aceitavel; CTR bom e de 2% para cima;
 // campanha barata que nao vende pode ser "ponto de contato"; subir orcamento aos poucos.
-function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float $pct, string $dia1, string $dia2): array
+function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float $pct, string $dia1, string $dia2, string $nivel = 'campanha', ?array $alcance = null): array
 {
     $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
+    [, , $utm, $nome, $art] = GESTOR_DIAS_NIVEIS[$nivel];
+    $quem = $art . ' ' . $nome; // "a campanha", "o conjunto", "o anúncio"
+    $candidata = $art === 'a' ? 'candidata' : 'candidato';
     $soma = function (array $ls) use ($pct): array {
         $t = gestor_linha_nova();
         foreach ($ls as $l) {
@@ -190,12 +196,12 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
     $t = $soma($linhas);
     $dicas = [];
     if ($t['gasto'] === 0) {
-        return [['neutro', 'Sem gasto no período: escolha outro período no topo para ler a campanha.']];
+        return [['neutro', 'Sem gasto no período: escolha outro período no topo para ler ' . $quem . '.']];
     }
     // 1. ROI do periodo (arredondado como aparece na tela: "2,00" ja e verde)
     $roi = $t['roi'] === null ? null : round($t['roi'], 2);
     $dicas[] = [$roi === null ? 'neutro' : ['negativo' => 'erro', 'medio' => 'alerta', 'positivo' => 'ok'][cor_roi($roi)],
-        'ROI do período ' . analise_num($roi) . ($roi === null ? '.' : ($roi >= 2 ? ': de 2 para cima, a campanha se paga com folga.' : ($roi >= 1 ? ': se paga, mas com margem curta (entre 1 e 2).' : ': abaixo de 1, não se pagou no período.')))];
+        'ROI do período ' . analise_num($roi) . ($roi === null ? '.' : ($roi >= 2 ? ': de 2 para cima, ' . $quem . ' se paga com folga.' : ($roi >= 1 ? ': se paga, mas com margem curta (entre 1 e 2).' : ': abaixo de 1, não se pagou no período.')))];
     // Dias fechados (hoje ainda esta pela metade), do mais antigo para o mais novo
     $fechados = array_filter($linhas, fn($dia) => $dia < $hoje, ARRAY_FILTER_USE_KEY);
     $comGasto = array_filter($fechados, fn($l) => $l['gasto'] > 0);
@@ -208,7 +214,7 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
         }
     }
     // 3. Custo por IC contra 10% do ticket
-    $ticket = analise_ticket($db, $id, $dia1, $dia2);
+    $ticket = analise_ticket($db, $id, $dia1, $dia2, $nivel);
     $limite = $ticket ? $ticket / 10 : null;
     if ($t['cpi'] !== null && $limite) {
         $barato = $t['cpi'] <= $limite;
@@ -218,6 +224,33 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
     // 4. CTR contra os 2% de referencia
     if ($t['ctr'] !== null) {
         $dicas[] = [$t['ctr'] >= 2 ? 'ok' : 'alerta', 'CTR ' . analise_num($t['ctr']) . '%' . ($t['ctr'] >= 2 ? ': gancho bom (2% ou mais).' : ': abaixo dos 2% de referência. Gancho fraco: vale testar outro criativo.')];
+    }
+    // Publico (conjunto): frequencia acima de 3 e CPM contra a media da conta no periodo
+    if ($nivel === 'conjunto') {
+        if ($alcance && $alcance['frequencia'] > 3) {
+            $dicas[] = ['alerta', 'Frequência ' . analise_num($alcance['frequencia']) . ': cada pessoa viu mais de 3 vezes. O público está cansando: renove o criativo ou abra o público.'];
+        } elseif ($alcance) {
+            $dicas[] = ['ok', 'Frequência ' . analise_num($alcance['frequencia']) . ' (alcance de ' . number_format($alcance['alcance'], 0, ',', '.') . ' pessoas): o público ainda não cansou.'];
+        }
+        $conta = consulta($db, 'SELECT SUM(gasto) AS g, SUM(impressoes) AS i FROM meta_gasto WHERE dia >= ? AND dia <= ?', [$dia1, $dia2])[0];
+        $cpmConta = (int)$conta['i'] ? (int)$conta['g'] * 1000 / (int)$conta['i'] : null;
+        if ($t['cpm'] !== null && $cpmConta && abs($t['cpm'] - $cpmConta) >= $cpmConta * 0.2) {
+            $caro = $t['cpm'] > $cpmConta;
+            $dicas[] = [$caro ? 'alerta' : 'ok', 'CPM ' . reais((int)round($t['cpm'])) . ': ' . abs((int)round(($t['cpm'] - $cpmConta) * 100 / $cpmConta)) . '% ' . ($caro ? 'acima' : 'abaixo') . ' da média da conta (' . reais((int)round($cpmConta)) . ')'
+                . ($caro ? '. Público caro ou disputado: vale testar outro.' : ', público barato de alcançar.')];
+        }
+    }
+    // Criativo (anuncio): o gancho do video (3 s ÷ impressoes) e clique que nao vira checkout
+    if ($nivel === 'anuncio') {
+        if ($t['hook'] !== null) {
+            $dicas[] = [$t['hook'] >= 30 ? 'ok' : 'alerta', 'Hook rate ' . analise_num($t['hook'], 1) . '%' . ($t['hook'] >= 30 ? ': o começo do vídeo segura (30% ou mais).' : ': abaixo de 30%, pouca gente para no vídeo. Teste outro começo (os 3 primeiros segundos).')];
+        }
+        if ($t['hold'] !== null) {
+            $dicas[] = ['neutro', 'Hold rate ' . analise_num($t['hold'], 1) . '%: dos que pararam, quantos assistiram 15 segundos.' . ($t['ret100'] !== null ? ' ' . analise_num($t['ret100'], 1) . '% de quem deu play viu até o fim.' : '')];
+        }
+        if ($t['cliques'] >= 30 && $t['checkouts'] * 100 < $t['cliques'] * 2) {
+            $dicas[] = ['erro', $t['cliques'] . ' cliques e ' . $t['checkouts'] . ' IC: o anúncio traz gente, mas a página não leva ao checkout. Confira a página (velocidade, oferta e o botão).'];
+        }
     }
     // 5. Dias seguidos sem se pagar (dos mais recentes para tras)
     $seguidos = 0;
@@ -232,19 +265,19 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
         $barato = $t['cpi'] !== null && $limite && $t['cpi'] <= $limite;
         $dicas[] = $barato
             ? ['alerta', 'ROI abaixo de 1 há ' . $seguidos . ' dias, mas o custo por IC está barato: pode ser um ponto de contato (o clique que vende depois, em outra campanha). Olhe antes de pausar.']
-            : ['erro', 'ROI abaixo de 1 há ' . $seguidos . ' dias e o custo por IC não está barato: candidata a pausar.'];
+            : ['erro', 'ROI abaixo de 1 há ' . $seguidos . ' dias e o custo por IC não está barato: ' . $candidata . ' a pausar.'];
     }
     // 6. Escalar: ROI de 2 para cima nos 3 ultimos dias com gasto
     $orc = $obj['orcamento_diario'] ?? null;
-    if (count($comGasto) >= 3 && ($r3 = $soma(array_slice($comGasto, -3, 3, true))['roi']) !== null && $r3 >= 2) {
-        $dicas[] = ['ok', 'ROI de ' . analise_num($r3) . ' nos últimos 3 dias: candidata a escalar.'
+    if ($nivel !== 'anuncio' && count($comGasto) >= 3 && ($r3 = $soma(array_slice($comGasto, -3, 3, true))['roi']) !== null && $r3 >= 2) {
+        $dicas[] = ['ok', 'ROI de ' . analise_num($r3) . ' nos últimos 3 dias: ' . $candidata . ' a escalar.'
             . ($orc ? ' Suba no máximo 20% por vez (de ' . reais((int)$orc) . ' para ' . reais((int)round($orc * 1.2)) . ') para não reiniciar o aprendizado da Meta.' : ' Suba o orçamento aos poucos (até 20% por vez) para não reiniciar o aprendizado da Meta.')];
     }
     // 7. Melhores horarios: as vendas aprovadas da campanha nos ultimos 30 dias, por hora
     $horas = array_fill(0, 24, 0);
     $tz = fuso();
-    foreach (consulta($db, 'SELECT * FROM vendas WHERE recebida_em >= ? AND utm_campaign LIKE ?', [gmdate('Y-m-d H:i:s', time() - 30 * 86400), '%|' . $id]) as $v) {
-        if (gestor_id_utm($v['utm_campaign']) === $id && aprovada($v) && !eh_bump($v) && venda_no_filtro($v)) {
+    foreach (consulta($db, "SELECT * FROM vendas WHERE recebida_em >= ? AND $utm LIKE ?", [gmdate('Y-m-d H:i:s', time() - 30 * 86400), '%|' . $id]) as $v) {
+        if (gestor_id_utm($v[$utm]) === $id && aprovada($v) && !eh_bump($v) && venda_no_filtro($v)) {
             $horas[(int)(new DateTime($v['aprovada_em'] ?: $v['recebida_em'], new DateTimeZone('UTC')))->setTimezone($tz)->format('G')]++;
         }
     }
@@ -295,8 +328,26 @@ function analise_publico_html(array $p): string
     return $html . ($p['buscado_em'] ? '<small class="rc-rodape">Dados da Meta de ' . e(data_local($p['buscado_em'], 'd/m H:i')) . '</small>' : '');
 }
 
-function gestor_analise_render(PDO $db, string $id, ?array $obj, array $linhas, float $pct, string $dia1, string $dia2): void
+// Retencao do video do anuncio no periodo: quem deu play e quem chegou a 25, 50, 75 e 100%
+function analise_retencao_html(array $t): string
 {
+    if (!$t['plays']) {
+        return '<p class="suave">Sem vídeo neste anúncio no período (ou a Meta ainda não mandou a retenção: chega na busca completa, uma vez por dia).</p>';
+    }
+    $passos = [['Play', $t['plays']], ['3 segundos', $t['video_3s']], ['25%', $t['p25']], ['50%', $t['p50']], ['75%', $t['p75']], ['100%', $t['p100']]];
+    $html = '<ul class="retencao">';
+    foreach ($passos as [$rot, $n]) {
+        $pctV = $n * 100 / $t['plays'];
+        $html .= '<li' . dica_attr($rot, [number_format($n, 0, ',', '.') . ' pessoa' . ($n === 1 ? '' : 's'), analise_num($pctV, 1) . '% de quem deu play']) . '><span>' . e($rot) . '</span>'
+            . '<span class="ret-barra"><i style="width:' . round(min(100, $pctV), 1) . '%"></i></span><b>' . analise_num($pctV, 0) . '%</b></li>';
+    }
+    return $html . '</ul><small class="rc-rodape">ThruPlay: ' . number_format($t['thruplay'], 0, ',', '.') . ' (hold rate ' . analise_num($t['hold'], 1) . '%)</small>';
+}
+
+function gestor_analise_render(PDO $db, string $id, ?array $obj, array $linhas, float $pct, string $dia1, string $dia2, string $nivel = 'campanha', ?array $alcance = null): void
+{
+    [, , , $nome, $art] = GESTOR_DIAS_NIVEIS[$nivel];
+    $doNivel = ($art === 'a' ? 'da ' : 'do ') . $nome; // "da campanha", "do conjunto", "do anúncio"
     $total = gestor_linha_nova();
     foreach ($linhas as $l) {
         foreach ($total as $c => $v) {
@@ -305,41 +356,56 @@ function gestor_analise_render(PDO $db, string $id, ?array $obj, array $linhas, 
             }
         }
     }
+    $total['alcance'] = $alcance['alcance'] ?? 0;
     $t = gestor_metricas(['id' => '', 'obj' => null] + $total, $pct);
-    $ticket = analise_ticket($db, $id, $dia1, $dia2);
+    $ticket = analise_ticket($db, $id, $dia1, $dia2, $nivel);
     $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
 
-    // Numeros do periodo
-    echo '<div class="rgrade analise">'
-        . resumo_cartao((string)$t['vendas'], 'Compradores', 'Vendas aprovadas da campanha no período (order bump não conta como outro comprador). O filtro de produto do topo vale aqui.', '', $t['pend'] ? $t['pend'] . ' Pix pendente' . ($t['pend'] === 1 ? '' : 's') : '', 'c2')
-        . resumo_cartao(analise_num($t['roi']), 'ROI', '(Faturamento − imposto da Meta) ÷ gasto, como na UTMify. Vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima.', cor_roi($t['roi']), '', 'c2')
-        . resumo_cartao(reais($t['lucro']), 'Lucro', 'Faturamento líquido − gasto − imposto da Meta.', $t['lucro'] < 0 ? 'negativo' : ($t['lucro'] > 0 ? 'positivo' : ''), '', 'c2')
-        . resumo_cartao(reais($t['gasto']), 'Gasto', 'Quanto a Meta cobrou no período, sem o imposto.', '', 'faturou ' . reais($t['fat']), 'c2')
-        . resumo_cartao($t['cpa'] === null ? 'N/A' : reais((int)round($t['cpa'])), 'CPA', 'Gasto ÷ compradores.', '', '', 'c2')
-        . resumo_cartao($t['cpi'] === null ? 'N/A' : reais((int)round($t['cpi'])), 'Custo por IC', 'Gasto ÷ inícios de checkout. A regra do Allan: até 10% do ticket é aceitável.', $t['cpi'] !== null && $ticket ? ($t['cpi'] <= $ticket / 10 ? 'positivo' : 'medio') : '', $ticket ? '10% do ticket: ' . reais((int)round($ticket / 10)) : '', 'c2')
-        . '</div>';
+    // Numeros do periodo: os 6 que importam em cada nivel
+    $c = [
+        'compradores' => resumo_cartao((string)$t['vendas'], 'Compradores', 'Vendas aprovadas ' . $doNivel . ' no período (order bump não conta como outro comprador). O filtro de produto do topo vale aqui.', '', $t['pend'] ? $t['pend'] . ' Pix pendente' . ($t['pend'] === 1 ? '' : 's') : '', 'c2'),
+        'roi' => resumo_cartao(analise_num($t['roi']), 'ROI', '(Faturamento − imposto da Meta) ÷ gasto, como na UTMify. Vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima.', cor_roi($t['roi']), '', 'c2'),
+        'lucro' => resumo_cartao(reais($t['lucro']), 'Lucro', 'Faturamento líquido − gasto − imposto da Meta.', $t['lucro'] < 0 ? 'negativo' : ($t['lucro'] > 0 ? 'positivo' : ''), '', 'c2'),
+        'gasto' => resumo_cartao(reais($t['gasto']), 'Gasto', 'Quanto a Meta cobrou no período, sem o imposto.', '', 'faturou ' . reais($t['fat']), 'c2'),
+        'cpa' => resumo_cartao($t['cpa'] === null ? 'N/A' : reais((int)round($t['cpa'])), 'CPA', 'Gasto ÷ compradores.', '', '', 'c2'),
+        'cpi' => resumo_cartao($t['cpi'] === null ? 'N/A' : reais((int)round($t['cpi'])), 'Custo por IC', 'Gasto ÷ inícios de checkout. A regra do Allan: até 10% do ticket é aceitável.', $t['cpi'] !== null && $ticket ? ($t['cpi'] <= $ticket / 10 ? 'positivo' : 'medio') : '', $ticket ? '10% do ticket: ' . reais((int)round($ticket / 10)) : '', 'c2'),
+        'alcance' => resumo_cartao($alcance ? number_format($alcance['alcance'], 0, ',', '.') : 'N/A', 'Alcance', 'Pessoas diferentes que viram os anúncios do conjunto no período, da Meta (atualiza a cada 3 horas).', '', $alcance ? number_format($alcance['impressoes'], 0, ',', '.') . ' impressões' : 'a Meta não mandou', 'c2'),
+        'frequencia' => resumo_cartao($alcance ? analise_num($alcance['frequencia']) : 'N/A', 'Frequência', 'Impressões ÷ alcance: quantas vezes cada pessoa viu, em média. Acima de 3, o público está cansando.', $alcance && $alcance['frequencia'] > 3 ? 'medio' : '', '', 'c2'),
+        'cpm' => resumo_cartao($t['cpm'] === null ? 'N/A' : reais((int)round($t['cpm'])), 'CPM', 'Custo por mil impressões: quanto custa alcançar este público.', '', '', 'c2'),
+        'ctr' => resumo_cartao($t['ctr'] === null ? 'N/A' : analise_num($t['ctr']) . '%', 'CTR', 'Cliques no link ÷ impressões. A régua do Allan: de 2% para cima.', $t['ctr'] === null ? '' : ($t['ctr'] >= 2 ? 'positivo' : 'medio'), '', 'c2'),
+        'hook' => resumo_cartao($t['hook'] === null ? 'N/A' : analise_num($t['hook'], 1) . '%', 'Hook rate', 'Visualizações de 3 segundos ÷ impressões: quantos pararam no vídeo. De 30% para cima, o começo segura.', $t['hook'] === null ? '' : ($t['hook'] >= 30 ? 'positivo' : 'medio'), $t['video_3s'] ? number_format($t['video_3s'], 0, ',', '.') . ' vis. de 3 s' : '', 'c2'),
+        'hold' => resumo_cartao($t['hold'] === null ? 'N/A' : analise_num($t['hold'], 1) . '%', 'Hold rate', 'ThruPlay ÷ visualizações de 3 segundos: dos que pararam, quantos assistiram 15 segundos (ou o vídeo inteiro, se for mais curto).', '', $t['thruplay'] ? number_format($t['thruplay'], 0, ',', '.') . ' ThruPlay' : '', 'c2'),
+        'cpc' => resumo_cartao($t['cpc'] === null ? 'N/A' : reais((int)round($t['cpc'])), 'CPC', 'Custo por clique no link: gasto ÷ cliques.', '', $t['cliques'] . ' clique' . ($t['cliques'] === 1 ? '' : 's'), 'c2'),
+    ];
+    $cartoes = ['campanha' => ['compradores', 'roi', 'lucro', 'gasto', 'cpa', 'cpi'], 'conjunto' => ['roi', 'cpa', 'alcance', 'frequencia', 'cpm', 'ctr'],
+        'anuncio' => ['hook', 'hold', 'ctr', 'cpc', 'cpi', 'roi']][$nivel];
+    echo '<div class="rgrade analise">' . implode('', array_map(fn($k) => $c[$k], $cartoes)) . '</div>';
 
     // Compradores e ROI por dia + leitura da campanha
     $leitura = '<ul class="leitura">';
-    foreach (analise_leitura($db, $id, $linhas, $obj, $pct, $dia1, $dia2) as [$classe, $texto]) {
+    foreach (analise_leitura($db, $id, $linhas, $obj, $pct, $dia1, $dia2, $nivel, $alcance) as [$classe, $texto]) {
         $leitura .= '<li class="' . e($classe) . '">' . e($texto) . '</li>';
     }
     $leitura .= '</ul>';
     echo '<div class="rgrade analise"><section class="rc c8"><div class="rc-cab"><span>Compradores e ROI por dia</span>'
         . info('Barras: quantas pessoas compraram em cada dia do período. Pontos e linha: o ROI do dia (vermelho abaixo de 1, laranja até 2, verde de 2 para cima). As linhas tracejadas marcam o ROI 1 e o 2. Passe o mouse no dia para ver os números.') . '</div>'
         . analise_svg_compradores($linhas, $pct) . '</section>'
-        . '<section class="rc c4"><div class="rc-cab"><span>Leitura da campanha</span>'
+        . '<section class="rc c4"><div class="rc-cab"><span>Leitura ' . e($doNivel) . '</span>'
         . info('Dicas a partir dos números do período, com as regras de otimização do Allan: custo por IC até 10% do ticket, CTR de 2% para cima, ponto de contato antes de pausar e subir o orçamento até 20% por vez. São sugestões: a decisão continua sua.') . '</div>' . $leitura . '</section></div>';
 
-    // Grafico de bolsa desde o inicio + quem compra
-    $inicio = analise_inicio($db, $id);
-    $velas = $inicio ? analise_velas(gestor_dias_linhas($db, $id, $inicio, $hoje), $pct) : [];
-    $publico = meta_publico_campanha($id, $dia1, min($dia2, $hoje));
+    // Grafico de bolsa desde o inicio + quem compra (no anuncio, a retencao do video)
+    $inicio = analise_inicio($db, $id, $nivel);
+    $velas = $inicio ? analise_velas(gestor_dias_linhas($db, $id, $inicio, $hoje, $nivel), $pct) : [];
+    $publico = $nivel === 'anuncio' ? null : meta_publico_campanha($id, $dia1, min($dia2, $hoje));
     $dias = max(7, (int)((track_config() ?? [])['dias_retencao'] ?? 90));
     echo '<div class="rgrade analise"><section class="rc c8"><div class="rc-cab"><span>ROI desde o início' . ($inicio ? ' <span class="suave">(desde ' . e((new DateTime($inicio))->format('d/m/Y')) . ')</span>' : '') . '</span>'
         . info('Como o gráfico de uma ação: cada vela é um dia. Ela abre no ROI acumulado da campanha até o dia anterior e fecha no acumulado até o fim do dia; o pavio vai até o ROI do próprio dia, o que puxou o acumulado. A primeira vela abre no 1, o ponto em que a campanha se paga. Verde: o acumulado subiu; vermelho: caiu. Dia sem gasto nem venda fica sem vela. Passe o mouse para ver o ROI. Começa no primeiro dia da campanha que o painel ainda guarda (as vendas ficam ' . $dias . ' dias).') . '</div>'
         . analise_svg_velas($velas) . '</section>'
-        . '<section class="rc c4"><div class="rc-cab"><span>Quem compra</span>'
-        . info('Compras que a Meta atribui a esta campanha no período, por sexo e idade. A Kiwify não pergunta o sexo do comprador, então a fonte é a Meta (evento Purchase do pixel): o total pode ser diferente das vendas da Kiwify. Atualiza a cada 3 horas.') . '</div>'
-        . analise_publico_html($publico) . '</section></div>';
+        . ($publico === null
+            ? '<section class="rc c4"><div class="rc-cab"><span>Retenção do vídeo</span>'
+                . info('De quem deu play no vídeo do anúncio no período, quantos ficaram 3 segundos e quantos chegaram a 25, 50, 75 e 100% do vídeo (dados da Meta). Onde a barra cai mais é o trecho que perde gente.') . '</div>'
+                . analise_retencao_html($t) . '</section>'
+            : '<section class="rc c4"><div class="rc-cab"><span>Quem compra</span>'
+                . info('Compras que a Meta atribui ' . ($art === 'a' ? 'a esta campanha' : 'a este conjunto') . ' no período, por sexo e idade. A Kiwify não pergunta o sexo do comprador, então a fonte é a Meta (evento Purchase do pixel): o total pode ser diferente das vendas da Kiwify. Atualiza a cada 3 horas.') . '</div>'
+                . analise_publico_html($publico) . '</section>') . '</div>';
 }

@@ -12,6 +12,44 @@ require_once __DIR__ . '/meta_sync.php';
 const META_SEXOS = ['female' => 'Mulheres', 'male' => 'Homens', 'unknown' => 'Não informado'];
 const META_COMPRA = ['offsite_conversion.fb_pixel_purchase', 'purchase', 'omni_purchase'];
 
+// Alcance de um conjunto ou campanha no periodo inteiro (o alcance nao soma de um dia para o
+// outro: a mesma pessoa conta em cada dia). Guardado em meta_publico como o quem compra.
+// ['alcance', 'impressoes', 'frequencia', 'buscado_em'] ou null (sem token ou a Meta nao respondeu)
+function meta_alcance_periodo(string $id, string $dia1, string $dia2): ?array
+{
+    static $memo = [];
+    $chave = 'alcance|' . $id . '|' . $dia1 . '|' . $dia2;
+    if (array_key_exists($chave, $memo)) {
+        return $memo[$chave];
+    }
+    $db = track_db();
+    $st = $db->prepare('SELECT * FROM meta_publico WHERE chave = ?');
+    $st->execute([$chave]);
+    $guardado = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
+    $validade = $dia2 >= $hoje ? 3 * 3600 : 24 * 3600;
+    $ler = function (?array $g): ?array {
+        $d = $g ? json_decode($g['dados'], true) : null;
+        return is_array($d) && $d['alcance'] > 0 ? $d + ['frequencia' => $d['impressoes'] / $d['alcance'], 'buscado_em' => $g['buscado_em']] : null;
+    };
+    if ($guardado && time() - strtotime($guardado['buscado_em'] . ' UTC') < $validade) {
+        return $memo[$chave] = $ler($guardado);
+    }
+    $k = meta_api_chave();
+    $r = $k ? meta_listar('/' . $id . '/insights', [
+        'time_range' => json_encode(['since' => $dia1, 'until' => min($dia2, $hoje)]),
+        'fields' => 'reach,impressions',
+        'limit' => '5',
+    ], $k['token']) : ['ok' => false];
+    if (!$r['ok'] || !$r['itens']) {
+        return $memo[$chave] = $ler($guardado);
+    }
+    $agora = agora_utc();
+    $dados = ['alcance' => (int)($r['itens'][0]['reach'] ?? 0), 'impressoes' => (int)($r['itens'][0]['impressions'] ?? 0)];
+    $db->prepare('INSERT OR REPLACE INTO meta_publico (chave, dados, buscado_em) VALUES (?, ?, ?)')->execute([$chave, json_encode($dados), $agora]);
+    return $memo[$chave] = $ler(['dados' => json_encode($dados), 'buscado_em' => $agora]);
+}
+
 // [ok, erro, linhas [[idade, sexo, compras, gasto em centavos]], buscado_em]
 function meta_publico_campanha(string $id, string $dia1, string $dia2): array
 {

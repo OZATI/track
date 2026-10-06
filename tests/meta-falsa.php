@@ -98,10 +98,15 @@ if (isset($listas[$rota])) {
     echo json_encode(['data' => $listas[$rota], 'paging' => ['cursors' => ['before' => 'a', 'after' => 'b']]]);
     exit;
 }
-// Analise diaria: compras da campanha TL 1 por idade e sexo (a FREE nao vendeu)
+// Analise diaria de publico: alcance do periodo inteiro do conjunto 5 e da TL 1
+if (preg_match('~^/graph/(\d+)/insights$~', $rota, $m) && ($_GET['fields'] ?? '') === 'reach,impressions') {
+    echo json_encode(['data' => in_array($m[1], ['111111', '120120'], true) ? [['reach' => '2000', 'impressions' => '4000']] : []]);
+    exit;
+}
+// Analise diaria: compras da campanha TL 1 (e do conjunto 5 dela) por idade e sexo (a FREE nao vendeu)
 if (preg_match('~^/graph/(\d+)/insights$~', $rota, $m) && ($_GET['breakdowns'] ?? '') === 'age,gender') {
     $compra = fn(int $n) => [['action_type' => 'offsite_conversion.fb_pixel_purchase', 'value' => (string)$n], ['action_type' => 'omni_purchase', 'value' => (string)$n]];
-    echo json_encode(['data' => $m[1] === '120120' ? [
+    echo json_encode(['data' => in_array($m[1], ['120120', '111111'], true) ? [
         ['age' => '25-34', 'gender' => 'female', 'spend' => '20.00', 'actions' => $compra(2)],
         ['age' => '25-34', 'gender' => 'male', 'spend' => '15.00', 'actions' => $compra(1)],
         ['age' => '35-44', 'gender' => 'female', 'spend' => '10.00'],
@@ -119,13 +124,25 @@ if ($rota === '/graph/act_587364236934346/insights') {
         ]]);
         exit;
     }
-    if (($_GET['level'] ?? '') === 'ad') {
-        // Gasto de hoje por anuncio (dia no fuso da conta)
+    // Alcance de hoje por conjunto e por campanha
+    if (in_array($_GET['level'] ?? '', ['adset', 'campaign'], true)) {
         $hoje = (new DateTime('now', new DateTimeZone('America/Sao_Paulo')))->format('Y-m-d');
+        $campo = $_GET['level'] === 'adset' ? 'adset_id' : 'campaign_id';
+        echo json_encode(['data' => [
+            [$campo => $_GET['level'] === 'adset' ? '111111' : '120120', 'reach' => '2500', 'impressions' => '4000', 'date_start' => $hoje, 'date_stop' => $hoje],
+        ]]);
+        exit;
+    }
+    if (($_GET['level'] ?? '') === 'ad') {
+        // Gasto de hoje por anuncio (dia no fuso da conta); o cv 05 e um video
+        $hoje = (new DateTime('now', new DateTimeZone('America/Sao_Paulo')))->format('Y-m-d');
+        $vv = fn(int $n) => [['action_type' => 'video_view', 'value' => (string)$n]];
         echo json_encode(['data' => [
             ['ad_id' => '222222', 'adset_id' => '111111', 'campaign_id' => '120120', 'spend' => '50.00', 'impressions' => '4000', 'inline_link_clicks' => '60',
                 'actions' => [['action_type' => 'offsite_conversion.fb_pixel_initiate_checkout', 'value' => '3'], ['action_type' => 'omni_initiated_checkout', 'value' => '3'],
-                    ['action_type' => 'landing_page_view', 'value' => '50']],
+                    ['action_type' => 'landing_page_view', 'value' => '50'], ['action_type' => 'video_view', 'value' => '1000']],
+                'video_play_actions' => $vv(2000), 'video_thruplay_watched_actions' => $vv(250), 'video_p25_watched_actions' => $vv(1200),
+                'video_p50_watched_actions' => $vv(800), 'video_p75_watched_actions' => $vv(500), 'video_p100_watched_actions' => $vv(300),
                 'date_start' => $hoje, 'date_stop' => $hoje],
             ['ad_id' => '333333', 'adset_id' => '444444', 'campaign_id' => '555555', 'spend' => '10.00', 'impressions' => '900', 'inline_link_clicks' => '4',
                 'date_start' => $hoje, 'date_stop' => $hoje],

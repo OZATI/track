@@ -242,6 +242,30 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 11;
             SQL);
     }
+    if ($versao < 12) {
+        // Analise diaria de conjunto (publico) e de anuncio (criativo): o video de cada anuncio
+        // por dia (play, 3 s, ThruPlay e retencao 25/50/75/100%) e o alcance de cada conjunto e
+        // campanha por dia (o alcance nao soma de um dia para o outro). A proxima busca na Meta
+        // e a completa (88 dias), para o historico encher sozinho.
+        track_migrar_para($pdo, 12, <<<'SQL'
+            ALTER TABLE meta_gasto ADD COLUMN plays INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE meta_gasto ADD COLUMN video_3s INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE meta_gasto ADD COLUMN thruplay INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE meta_gasto ADD COLUMN p25 INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE meta_gasto ADD COLUMN p50 INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE meta_gasto ADD COLUMN p75 INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE meta_gasto ADD COLUMN p100 INTEGER NOT NULL DEFAULT 0;
+            CREATE TABLE IF NOT EXISTS meta_alcance (
+                dia        TEXT NOT NULL,
+                objeto_id  TEXT NOT NULL,
+                alcance    INTEGER NOT NULL DEFAULT 0,
+                impressoes INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (dia, objeto_id)
+            );
+            DELETE FROM ajustes WHERE chave = 'meta_sync_completa_em';
+            PRAGMA user_version = 12;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

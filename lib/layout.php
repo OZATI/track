@@ -365,6 +365,13 @@ summary.campanha-orc:hover .ico{ color:var(--marca); }
 .leitura li::before{ content:""; position:absolute; left:0; top:6px; width:8px; height:8px; border-radius:50%; background:var(--apagado); }
 .leitura li.ok::before{ background:var(--ok); } .leitura li.alerta::before{ background:var(--laranja); } .leitura li.erro::before{ background:var(--erro); } .leitura li.neutro::before{ background:var(--marca); }
 .analise-sub{ margin:6px 0 0; font-size:12px; }
+/* Retencao do video (analise do anuncio): barras com o gradiente, de quem deu play ate o fim */
+.retencao{ list-style:none; margin:4px 0 8px; padding:0; display:flex; flex-direction:column; gap:9px; }
+.retencao li{ display:grid; grid-template-columns:78px 1fr 44px; align-items:center; gap:10px; font-size:13px; cursor:default; }
+.retencao li > span:first-child{ color:var(--suave); }
+.retencao b{ text-align:right; font-weight:600; }
+.ret-barra{ height:12px; border-radius:6px; background:var(--cartao-2); overflow:hidden; }
+.ret-barra i{ display:block; height:100%; border-radius:6px; background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); }
 /* Orcamento na analise diaria: mudar agora e programar lado a lado */
 .orcamento h3{ font-size:13px; margin:16px 0 8px; }
 .orc-novo > summary{ list-style:none; display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:var(--r-sm); background:var(--marca); color:#fff; font-size:13px; font-weight:500; cursor:pointer; }

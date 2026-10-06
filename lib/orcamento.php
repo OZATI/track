@@ -218,10 +218,17 @@ function orc_executar_vencidas(?DateTime $agora = null): int
 // passar o mouse; no toque, sempre) que abre o campo ali mesmo, com salvar e cancelar. Salvar
 // pede a confirmacao com a variacao e o aviso de 20% (painel.js) e muda na Meta na hora
 // (meta-orcamento.php, acao=mudar). Campanha com orcamento nos conjuntos: o campo escolhe o
-// conjunto. Token so de leitura ou orcamento total: so o valor.
+// conjunto. Conjunto: o orcamento dele (ou "na campanha"). Anuncio nao tem orcamento. Token so
+// de leitura ou orcamento total: so o valor.
 function orc_inline(array $obj, string $volta): string
 {
-    $alvos = orc_alvos((string)$obj['id']);
+    if ($obj['nivel'] === 'ad') {
+        return '';
+    }
+    $alvos = $obj['nivel'] === 'campaign' ? orc_alvos((string)$obj['id']) : array_filter([orc_objeto((string)$obj['id'])]);
+    if ($obj['nivel'] === 'adset' && !$obj['orcamento_diario'] && !$obj['orcamento_total']) {
+        return '<span class="campanha-orc suave" tabindex="0" data-dica="O orçamento deste conjunto é o da campanha (orçamento da campanha, CBO): muda na análise diária da campanha.">orçamento na campanha</span>';
+    }
     if ($obj['orcamento_diario']) {
         $txt = '<b>' . e(reais((int)$obj['orcamento_diario'])) . '</b> <small>por dia</small>';
     } elseif ($obj['orcamento_total']) {
@@ -253,18 +260,19 @@ function orc_inline(array $obj, string $volta): string
         . '<button type="button" class="discreto neutro orc-cancelar" data-orc-fecha aria-label="Cancelar" title="Cancelar">' . icone('fechar', 16) . '</button></form></details>';
 }
 
-// Bloco "Programar orcamento" da analise diaria da campanha (embaixo): o botao que abre o
-// formulario, as programacoes e o historico das mudancas da campanha e dos conjuntos dela. Mudar
-// na hora fica no lapis do cabecalho (orc_inline).
-function orc_bloco(string $campanha, string $volta): string
+// Bloco "Programar orcamento" da analise diaria da campanha ou do conjunto (embaixo): o botao
+// que abre o formulario, as programacoes e o historico das mudancas da campanha e dos conjuntos
+// dela (no conjunto, so as dele). Mudar na hora fica no lapis do cabecalho (orc_inline).
+function orc_bloco(string $campanha, string $volta, string $nivel = 'campanha'): string
 {
     $pode = gestor_pode_editar();
-    $alvos = orc_alvos($campanha);
+    $alvos = $nivel === 'campanha' ? orc_alvos($campanha) : array_values(array_filter([orc_objeto($campanha)]));
     $teto = orc_teto();
     $csrf = '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="volta" value="' . e($volta . '#orcamento') . '">';
     $html = '<section class="bloco orcamento" id="orcamento">' . titulo('Programar orçamento', 'Muda o orçamento diário na Meta sozinho: todo dia num horário (nos dias marcados) ou uma vez numa data e hora. Para mudar agora, use o lápis ao lado do orçamento, no alto da página. Teto de ' . reais($teto) . ' por dia, que muda em Configurações. Subir ou descer mais de 20% de uma vez pode reiniciar o aprendizado da Meta. Cada mudança fica no histórico e a programação avisa no celular.');
     if (!$alvos) {
-        return $html . '<p class="suave">Esta campanha não tem orçamento diário no painel (orçamento total, ou nada buscado ainda). Atualize o gestor ou mude no Gerenciador de Anúncios da Meta.</p></section>';
+        return $html . '<p class="suave">' . ($nivel === 'campanha' ? 'Esta campanha não tem orçamento diário no painel (orçamento total, ou nada buscado ainda). Atualize o gestor ou mude no Gerenciador de Anúncios da Meta.'
+            : 'Este conjunto não tem orçamento próprio: o orçamento é o da campanha (programe na análise diária da campanha).') . '</p></section>';
     }
     if (!$pode) {
         $html .= '<p class="aviso-meta">O token da API Meta só lê: para mudar e programar o orçamento por aqui, gere um token com <b>ads_management</b> na aba <a href="meta-api.php">API Meta</a>.</p>';

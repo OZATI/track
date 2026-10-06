@@ -28,6 +28,9 @@ const GESTOR_NIVEIS_DICA = [
     'anuncios' => 'Cada anúncio: o criativo que a pessoa viu. Ligado pelo ID no utm_content.',
 ];
 
+// Campos do video no meta_gasto (somam de um dia para o outro)
+const GESTOR_VIDEO = ['plays', 'video_3s', 'thruplay', 'p25', 'p50', 'p75', 'p100'];
+
 const GESTOR_NIVEIS = [
     'contas' => ['Contas', null, null, 'conta'],
     'campanhas' => ['Campanhas', 'campanha_id', 'utm_campaign', 'campaign'],
@@ -127,6 +130,26 @@ function gestor_metricas(array $r, float $pct): array
         'ctr' => $div($r['cliques'] * 100, $r['impressoes']),
         'cpm' => $div($r['gasto'] * 1000, $r['impressoes']),
         'margem' => margem_pct($r['fat'], $lucro, $imposto),
+    ] + gestor_metricas_video($r);
+}
+
+// Video e alcance: hook rate = 3 s ÷ impressoes; hold rate = ThruPlay ÷ 3 s; retencao = quem
+// chegou a 25/50/75/100% ÷ quem deu play; frequencia = impressoes ÷ alcance (so por dia ou com
+// o alcance do periodo, da Meta). Anuncio sem video fica sem esses numeros (N/A), nao com 0%.
+function gestor_metricas_video(array $r): array
+{
+    $plays = (int)($r['plays'] ?? 0);
+    $tres = (int)($r['video_3s'] ?? 0);
+    $video = $plays + $tres > 0;
+    $pct = fn(int $a, int $b) => $video && $b ? $a * 100 / $b : null;
+    return [
+        'hook' => $pct($tres, (int)$r['impressoes']),
+        'hold' => $pct((int)($r['thruplay'] ?? 0), $tres),
+        'ret25' => $pct((int)($r['p25'] ?? 0), $plays),
+        'ret50' => $pct((int)($r['p50'] ?? 0), $plays),
+        'ret75' => $pct((int)($r['p75'] ?? 0), $plays),
+        'ret100' => $pct((int)($r['p100'] ?? 0), $plays),
+        'frequencia' => !empty($r['alcance']) ? $r['impressoes'] / $r['alcance'] : null,
     ];
 }
 
@@ -158,6 +181,14 @@ function gestor_colunas(float $pct): array
         'cpm' => ['CPM', 'Custo por mil impressões.', fn($r) => $din($r['cpm']), false],
         'visualizacoes' => ['Vis. de pág.', 'Visualizações da página de destino que a Meta contou (a página carregou).', fn($r) => (string)$r['visualizacoes'], false],
         'margem' => ['Margem', 'Lucro ÷ (faturamento − imposto da Meta), como na UTMify e na planilha: quanto de cada real que voltou sobrou.', fn($r) => $r['margem'] === null ? 'N/A' : '<span class="' . $cor($r['margem']) . '">' . $num($r['margem'], 1) . '%</span>', true],
+        'hook' => ['Hook rate', 'Visualizações de 3 segundos ÷ impressões: quantos pararam no vídeo. De 30% para cima, o começo do vídeo segura. Anúncio sem vídeo fica N/A.', fn($r) => $r['hook'] === null ? 'N/A' : $num($r['hook'], 1) . '%', false],
+        'hold' => ['Hold rate', 'ThruPlay ÷ visualizações de 3 segundos: dos que pararam, quantos assistiram 15 segundos (ou o vídeo inteiro, se for mais curto).', fn($r) => $r['hold'] === null ? 'N/A' : $num($r['hold'], 1) . '%', false],
+        'video_3s' => ['Vis. de 3 s', 'Visualizações de 3 segundos ou mais do vídeo.', fn($r) => number_format((int)$r['video_3s'], 0, ',', '.'), false],
+        'thruplay' => ['ThruPlay', 'Visualizações de 15 segundos (ou do vídeo inteiro, se for mais curto).', fn($r) => number_format((int)$r['thruplay'], 0, ',', '.'), false],
+        'ret25' => ['Retenção 25%', 'Quem chegou a 25% do vídeo ÷ quem deu play.', fn($r) => $r['ret25'] === null ? 'N/A' : $num($r['ret25'], 1) . '%', false],
+        'ret50' => ['Retenção 50%', 'Quem chegou à metade do vídeo ÷ quem deu play.', fn($r) => $r['ret50'] === null ? 'N/A' : $num($r['ret50'], 1) . '%', false],
+        'ret75' => ['Retenção 75%', 'Quem chegou a 75% do vídeo ÷ quem deu play.', fn($r) => $r['ret75'] === null ? 'N/A' : $num($r['ret75'], 1) . '%', false],
+        'ret100' => ['Retenção 100%', 'Quem assistiu o vídeo até o fim ÷ quem deu play.', fn($r) => $r['ret100'] === null ? 'N/A' : $num($r['ret100'], 1) . '%', false],
         'imposto' => ['Imposto Meta', 'Impostos que a Meta cobra sobre o gasto no Brasil (' . $p . '%).', fn($r) => e(reais($r['imposto'])), false],
         'pend' => ['Pix pendentes', 'Pix ou boleto gerado e ainda não pago.', fn($r) => $r['pend'] ? (string)$r['pend'] : '', true],
         'reemb_fat' => ['Fat. reembolsado', 'Valor cobrado das vendas reembolsadas ou com chargeback.', fn($r) => $r['reemb_fat'] ? e(reais($r['reemb_fat'])) : '', false],
@@ -191,12 +222,13 @@ function gestor_colunas_escolhidas(array $todas, string $chave = 'gestor_colunas
 }
 
 // Modelos de colunas (botoes no seletor): o que olhar em cada nivel. Campanha: as 17 colunas da
-// aba CAMPANHAS da planilha, na ordem dela. Conjunto (publico): custo de alcancar e converter.
-// Criativo (anuncio): clique, custo do clique e o que a pagina faz com ele.
+// aba CAMPANHAS da planilha, na ordem dela. Conjunto (publico): alcance, frequencia e custo de
+// alcancar e converter. Criativo (anuncio): o video (hook, hold, retencao), o clique e o que a
+// pagina faz com ele. Coluna que nao existe na tela (alcance no gestor) fica fora do modelo.
 const GESTOR_MODELOS = [
     'campanha' => ['Campanha', ['orcamento', 'gasto', 'vendas', 'fat', 'lucro', 'cpa', 'roi', 'cpi', 'ic', 'cpv', 'cpc', 'cliques', 'ctr', 'impressoes', 'cpm', 'visualizacoes', 'margem']],
-    'conjunto' => ['Conjunto', ['orcamento', 'gasto', 'vendas', 'fat', 'lucro', 'cpa', 'roi', 'cpm', 'ctr', 'cpc', 'cliques', 'impressoes', 'ic', 'cpi', 'visualizacoes']],
-    'criativo' => ['Criativo', ['gasto', 'vendas', 'fat', 'lucro', 'roi', 'cpa', 'ctr', 'cpc', 'cliques', 'ic', 'cpi', 'visualizacoes', 'cpv', 'impressoes', 'cpm']],
+    'conjunto' => ['Conjunto', ['orcamento', 'gasto', 'vendas', 'fat', 'lucro', 'cpa', 'roi', 'alcance', 'frequencia', 'impressoes', 'cpm', 'ctr', 'cpc', 'cliques', 'ic', 'cpi', 'visualizacoes']],
+    'criativo' => ['Criativo', ['gasto', 'vendas', 'fat', 'roi', 'cpa', 'hook', 'hold', 'ret50', 'ret100', 'ctr', 'cpc', 'cliques', 'ic', 'cpi', 'visualizacoes', 'cpv', 'cpm']],
 ];
 
 // Seletor de colunas (como o da UTMify), numa janela no meio da tela: a esquerda todas, com
@@ -212,7 +244,7 @@ function gestor_colunas_seletor(array $todas, array $colunas, string $fixa, arra
         }
     }
     $h .= '<div class="colunas-cab"><strong>Personalize as colunas</strong><span class="suave">Marque as colunas e arraste para mudar a ordem, ou comece por um modelo.</span>'
-        . '<div class="colunas-modelos"><span class="suave">' . com_info('Modelos', 'Campanha: as 17 colunas da planilha de campanhas, na ordem dela. Conjunto (público): custo de alcançar e de converter o público. Criativo (anúncio): clique, custo do clique e o que a página faz com ele. O modelo só monta a lista: dá para ajustar antes de salvar.') . '</span>';
+        . '<div class="colunas-modelos"><span class="suave">' . com_info('Modelos', 'Campanha: as 17 colunas da planilha de campanhas, na ordem dela. Conjunto (público): alcance, frequência e o custo de alcançar e de converter o público. Criativo (anúncio): o vídeo (hook rate, hold rate e retenção), o clique e o que a página faz com ele. O modelo só monta a lista: dá para ajustar antes de salvar.') . '</span>';
     foreach (GESTOR_MODELOS as [$rot, $lista]) {
         $lista = array_values(array_filter($lista, fn($k) => isset($todas[$k])));
         $h .= '<button type="button" class="chip" data-modelo="' . e((string)json_encode($lista)) . '" aria-pressed="' . ($lista === $colunas ? 'true' : 'false') . '">' . e($rot) . '</button>';
@@ -252,7 +284,8 @@ function gestor_motivo_fora(array $v): array
 function gestor_linha_nova(): array
 {
     return ['gasto' => 0, 'checkouts' => 0, 'cliques' => 0, 'impressoes' => 0, 'visualizacoes' => 0, 'vendas' => 0, 'fat' => 0, 'fat_bruto' => 0,
-        'pend' => 0, 'reemb' => 0, 'reemb_fat' => 0, 'recusadas' => 0, 'nome_utm' => null, 'pai_camp' => null, 'pai_conj' => null];
+        'pend' => 0, 'reemb' => 0, 'reemb_fat' => 0, 'recusadas' => 0, 'nome_utm' => null, 'pai_camp' => null, 'pai_conj' => null]
+        + array_fill_keys(GESTOR_VIDEO, 0) + ['alcance' => 0];
 }
 
 // Soma uma venda na linha: aprovada entra no faturamento (liquido e bruto) e, se nao for order
@@ -282,7 +315,8 @@ function gestor_agregar(PDO $db, string $nivel, string $dia1, string $dia2, stri
 {
     [, $colGasto, $campoUtm] = GESTOR_NIVEIS[$nivel];
     $linhas = [];
-    $campos = 'SUM(gasto) AS gasto, SUM(checkouts) AS checkouts, SUM(cliques) AS cliques, SUM(impressoes) AS impressoes, SUM(visualizacoes) AS visualizacoes';
+    $campos = 'SUM(gasto) AS gasto, SUM(checkouts) AS checkouts, SUM(cliques) AS cliques, SUM(impressoes) AS impressoes, SUM(visualizacoes) AS visualizacoes, '
+        . implode(', ', array_map(fn($c) => "SUM($c) AS $c", GESTOR_VIDEO));
     $pais = ['conjunto_id' => ', MAX(campanha_id) AS pai_camp', 'anuncio_id' => ', MAX(campanha_id) AS pai_camp, MAX(conjunto_id) AS pai_conj'][$colGasto] ?? '';
     $sql = $colGasto
         ? "SELECT $colGasto AS id, $campos $pais FROM meta_gasto WHERE dia >= ? AND dia <= ? GROUP BY $colGasto"
@@ -292,7 +326,7 @@ function gestor_agregar(PDO $db, string $nivel, string $dia1, string $dia2, stri
             continue;
         }
         $l = gestor_linha_nova();
-        foreach (['gasto', 'checkouts', 'cliques', 'impressoes', 'visualizacoes'] as $c) {
+        foreach (array_merge(['gasto', 'checkouts', 'cliques', 'impressoes', 'visualizacoes'], GESTOR_VIDEO) as $c) {
             $l[$c] = (int)$g[$c];
         }
         $l['pai_camp'] = $g['pai_camp'] ?? null;
@@ -626,7 +660,9 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         'roi' => ['roi', false, false], 'roas' => ['roas', false, false], 'cpa' => ['cpa', true, false], 'cpi' => ['cpi', true, false], 'ic' => ['checkouts', false, false],
         'cpv' => ['cpv', true, false], 'cpc' => ['cpc', true, false], 'cliques' => ['cliques', false, false], 'ctr' => ['ctr', false, false],
         'impressoes' => ['impressoes', false, true], 'cpm' => ['cpm', true, false], 'visualizacoes' => ['visualizacoes', false, false],
-        'margem' => ['margem', false, false], 'imposto' => ['imposto', false, true], 'pend' => ['pend', false, true]];
+        'margem' => ['margem', false, false], 'imposto' => ['imposto', false, true], 'pend' => ['pend', false, true],
+        'hook' => ['hook', false, false], 'hold' => ['hold', false, false], 'video_3s' => ['video_3s', false, false], 'thruplay' => ['thruplay', false, false],
+        'ret25' => ['ret25', false, false], 'ret50' => ['ret50', false, false], 'ret75' => ['ret75', false, false], 'ret100' => ['ret100', false, false]];
     $celDelta = function (string $k, array $r, ?array $antesR) use ($deltas, $todas, $anterior): string {
         if (!$anterior || !isset($deltas[$k])) {
             return '';
@@ -650,10 +686,12 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         }
         $nomeHtml = $nomeLink($r);
         $marcado = $campoSel && in_array($r['id'], $nivel === 'campanhas' ? $selCamp : $selConj, true);
-        // Campanha: botao da analise diaria (so o icone do grafico; o nome vem na dica), que
-        // aparece ao passar o mouse na linha
-        $analise = $nivel === 'campanhas' && preg_match('/^\d{3,25}$/', $r['id'])
-            ? '<a class="analise" href="' . e('./?' . http_build_query(['aba' => 'campanha', 'id' => $r['id'], 'periodo' => $periodo])) . '" aria-label="Análise diária" data-dica-titulo="Análise diária" data-dica="A campanha dia a dia, com os gráficos e o orçamento" data-dica-botao>' . icone('grafico', 15) . '</a>'
+        // Botao da analise diaria (so o icone do grafico; o nome vem na dica), que aparece ao
+        // passar o mouse na linha: campanha, conjunto (publico) e anuncio (criativo)
+        $diaria = ['campanhas' => [null, 'A campanha dia a dia, com os gráficos e o orçamento'], 'conjuntos' => ['conjunto', 'O conjunto (público) dia a dia: alcance, frequência e quem compra'],
+            'anuncios' => ['anuncio', 'O anúncio (criativo) dia a dia: hook rate, hold rate e retenção do vídeo']][$nivel] ?? null;
+        $analise = $diaria && preg_match('/^\d{3,25}$/', $r['id'])
+            ? '<a class="analise" href="' . e('./?' . http_build_query(array_filter(['aba' => 'campanha', 'nivel' => $diaria[0], 'id' => $r['id'], 'periodo' => $periodo]))) . '" aria-label="Análise diária" data-dica-titulo="Análise diária" data-dica="' . e($diaria[1]) . '" data-dica-botao>' . icone('grafico', 15) . '</a>'
             : '';
         echo '<tr>' . ($campoSel ? '<td class="marca"><input type="checkbox" form="form-sel" name="' . $campoSel . '[]" value="' . e($r['id']) . '" data-sel' . ($marcado ? ' checked' : '') . ' aria-label="Marcar ' . e($r['nome']) . '"></td>' : '')
             . '<td class="st">' . ($nivel === 'contas' ? gestor_status($r['obj']) : gestor_chave($r['obj'], $volta, $pode)) . '</td>'

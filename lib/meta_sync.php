@@ -144,7 +144,8 @@ function meta_sync_buscar(array $k, bool $completa): array
         'level' => 'ad',
         'time_increment' => '1',
         'time_range' => json_encode(['since' => $de->format('Y-m-d'), 'until' => $ate->format('Y-m-d')]),
-        'fields' => 'ad_id,adset_id,campaign_id,spend,impressions,inline_link_clicks,actions',
+        'fields' => 'ad_id,adset_id,campaign_id,spend,impressions,inline_link_clicks,actions,video_play_actions,video_thruplay_watched_actions,'
+            . 'video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions',
         'limit' => '500',
     ], $k['token']);
     if (!$r['ok']) {
@@ -152,26 +153,40 @@ function meta_sync_buscar(array $k, bool $completa): array
     }
     $db->beginTransaction();
     $db->prepare('DELETE FROM meta_gasto WHERE dia >= ? AND dia <= ?')->execute([$de->format('Y-m-d'), $ate->format('Y-m-d')]);
-    $ins = $db->prepare('INSERT OR REPLACE INTO meta_gasto (dia, anuncio_id, conjunto_id, campanha_id, gasto, impressoes, cliques, checkouts, visualizacoes)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $ins = $db->prepare('INSERT OR REPLACE INTO meta_gasto (dia, anuncio_id, conjunto_id, campanha_id, gasto, impressoes, cliques, checkouts, visualizacoes,
+                             plays, video_3s, thruplay, p25, p50, p75, p100)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    // Video: cada campo vem como uma lista de acoes (video_view); a Meta pode repetir o numero
+    $video = function ($lista): int {
+        $n = 0;
+        foreach ((array)$lista as $a) {
+            $n = max($n, (int)($a['value'] ?? 0));
+        }
+        return $n;
+    };
     foreach ($r['itens'] as $l) {
         $ad = meta_so_numeros($l['ad_id'] ?? '');
         $dia = (string)($l['date_start'] ?? '');
         if (!$ad || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dia)) {
             continue;
         }
-        // Inicio de checkout: a Meta pode mandar o mesmo numero em mais de um tipo de acao
-        $checkouts = $visualizacoes = 0;
+        // Inicio de checkout: a Meta pode mandar o mesmo numero em mais de um tipo de acao.
+        // video_view nas acoes: as visualizacoes de 3 segundos.
+        $checkouts = $visualizacoes = $tres = 0;
         foreach ((array)($l['actions'] ?? []) as $a) {
             $tipo = $a['action_type'] ?? '';
             if (in_array($tipo, ['offsite_conversion.fb_pixel_initiate_checkout', 'initiate_checkout', 'omni_initiated_checkout'], true)) {
                 $checkouts = max($checkouts, (int)($a['value'] ?? 0));
             } elseif (in_array($tipo, ['landing_page_view', 'omni_landing_page_view'], true)) {
                 $visualizacoes = max($visualizacoes, (int)($a['value'] ?? 0));
+            } elseif ($tipo === 'video_view') {
+                $tres = max($tres, (int)($a['value'] ?? 0));
             }
         }
         $ins->execute([$dia, $ad, meta_so_numeros($l['adset_id'] ?? ''), meta_so_numeros($l['campaign_id'] ?? ''),
-            meta_centavos($l['spend'] ?? 0), (int)($l['impressions'] ?? 0), (int)($l['inline_link_clicks'] ?? 0), $checkouts, $visualizacoes]);
+            meta_centavos($l['spend'] ?? 0), (int)($l['impressions'] ?? 0), (int)($l['inline_link_clicks'] ?? 0), $checkouts, $visualizacoes,
+            $video($l['video_play_actions'] ?? []), $tres, $video($l['video_thruplay_watched_actions'] ?? []), $video($l['video_p25_watched_actions'] ?? []),
+            $video($l['video_p50_watched_actions'] ?? []), $video($l['video_p75_watched_actions'] ?? []), $video($l['video_p100_watched_actions'] ?? [])]);
     }
     $db->commit();
 
@@ -198,5 +213,32 @@ function meta_sync_buscar(array $k, bool $completa): array
         }
         $db->commit();
     }
-    return ['ok' => true, 'inicio' => $inicio, 'completa' => $completa, 'objetos' => $objetos, 'linhas' => count($r['itens'])];
+    $linhas = count($r['itens']);
+
+    // 4. Alcance por dia de cada conjunto e campanha (analise diaria do publico). O alcance nao
+    //    soma de um dia para o outro (a mesma pessoa conta em cada dia), entao vem por dia. Se a
+    //    conta nao liberar, o resto da busca continua valendo.
+    $insA = $db->prepare('INSERT OR REPLACE INTO meta_alcance (dia, objeto_id, alcance, impressoes) VALUES (?, ?, ?, ?)');
+    foreach (['adset' => 'adset_id', 'campaign' => 'campaign_id'] as $nivelA => $campoA) {
+        $rA = meta_listar($conta . '/insights', [
+            'level' => $nivelA,
+            'time_increment' => '1',
+            'time_range' => json_encode(['since' => $de->format('Y-m-d'), 'until' => $ate->format('Y-m-d')]),
+            'fields' => $campoA . ',reach,impressions',
+            'limit' => '500',
+        ], $k['token']);
+        if (!$rA['ok']) {
+            continue;
+        }
+        $db->beginTransaction();
+        foreach ($rA['itens'] as $l) {
+            $idA = meta_so_numeros($l[$campoA] ?? '');
+            $dia = (string)($l['date_start'] ?? '');
+            if ($idA && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dia)) {
+                $insA->execute([$dia, $idA, (int)($l['reach'] ?? 0), (int)($l['impressions'] ?? 0)]);
+            }
+        }
+        $db->commit();
+    }
+    return ['ok' => true, 'inicio' => $inicio, 'completa' => $completa, 'objetos' => $objetos, 'linhas' => $linhas];
 }
