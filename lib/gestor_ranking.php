@@ -17,19 +17,23 @@ const GESTOR_COMPARAR = [
 // Criterio do ranking: [titulo, explicacao do (i), menor e melhor]
 const GESTOR_RANK = [
     'lucro' => ['Lucro', 'Faturamento − gasto − imposto da Meta. O que sobrou de verdade.', false],
-    'roi' => ['ROI', 'Faturamento ÷ (gasto + imposto). Acima de 1, a campanha paga o que gasta.', false],
+    'roi' => ['ROI', '(Faturamento − imposto) ÷ gasto, como na UTMify. Acima de 1, a campanha paga o que gasta; de 2 para cima, verde.', false],
     'vendas' => ['Vendas', 'Vendas aprovadas (sem order bump).', false],
     'fat' => ['Faturamento', 'Faturamento líquido da Kiwify, com order bump.', false],
     'cpa' => ['CPA', 'Custo por venda: gasto ÷ vendas. Aqui, menor é melhor.', true],
 ];
 
-// Modos de comparacao que fazem sentido para o periodo
+// Modos de comparacao que fazem sentido para o periodo. "Hoje" nao compara (o dia ainda esta
+// pela metade e o gasto por anuncio vem por dia inteiro) e "Tudo" nao tem periodo anterior.
+// "Semana passada" so ate 7 dias; mais que isso, os dias se sobrepoem.
 function gestor_comparar_modos(string $periodo): array
 {
-    if (!in_array($periodo, ['ontem', '7d', '30d'], true)) {
+    if (in_array($periodo, ['hoje', 'tudo'], true) || !periodo_valido($periodo)) {
         return [];
     }
-    return $periodo === '30d' ? ['anterior', 'mes', 'nenhuma'] : ['anterior', 'semana', 'mes', 'nenhuma'];
+    [$d1, $d2] = gestor_dias($periodo);
+    $dias = (int)(new DateTime($d1))->diff(new DateTime($d2))->days + 1;
+    return $dias > 7 ? ['anterior', 'mes', 'nenhuma'] : ['anterior', 'semana', 'mes', 'nenhuma'];
 }
 
 // Modo escolhido: o do endereco, o lembrado na sessao ou o periodo anterior
@@ -91,7 +95,7 @@ function gestor_serie(PDO $db, string $nivel, string $dia1, string $dia2, string
     $tz = fuso();
     foreach (consulta($db, 'SELECT * FROM vendas WHERE recebida_em >= ? AND recebida_em < ?', [$de, $ate]) as $v) {
         $id = gestor_id_utm($v[$campoUtm]);
-        if (!$id || !aprovada($v)) {
+        if (!$id || !aprovada($v) || !venda_no_filtro($v)) {
             continue;
         }
         $dia = (new DateTime($v['recebida_em'], $utc))->setTimezone($tz)->format('Y-m-d');
@@ -110,12 +114,12 @@ function gestor_curva(array $porDia, array $dias, string $criterio, float $pct):
         $g += $porDia[$d]['gasto'] ?? 0;
         $f += $porDia[$d]['fat'] ?? 0;
         $n += $porDia[$d]['vendas'] ?? 0;
-        $inv = $g + (int)round($g * $pct / 100);
+        $imposto = (int)round($g * $pct / 100);
         $curva[] = match ($criterio) {
-            'lucro' => (float)($f - $inv),
+            'lucro' => (float)($f - $g - $imposto),
             'fat' => (float)$f,
             'vendas' => (float)$n,
-            'roi' => $inv ? $f / $inv : null,
+            'roi' => roi_campanha($f, $g, $imposto),
             'cpa' => $n ? $g / $n : null,
         };
     }
@@ -228,7 +232,7 @@ function gestor_ranking_html(array $tabela, ?array $antesPorId, string $criterio
         $classe = str_contains($var, 'delta bom') ? 'bom' : (str_contains($var, 'delta ruim') ? 'ruim' : '');
         $curva = isset($series[$id]) ? gestor_sparkline(gestor_curva($series[$id], $dias, $criterio, $pct), $classe, $tituloCrit . ' acumulado no período') : '';
         $v = $r[$criterio];
-        $cor = in_array($criterio, ['lucro'], true) ? ($v < 0 ? 'negativo' : 'positivo') : ($criterio === 'roi' && $v !== null ? ($v < 1 ? 'negativo' : 'positivo') : '');
+        $cor = in_array($criterio, ['lucro'], true) ? ($v < 0 ? 'negativo' : 'positivo') : ($criterio === 'roi' ? cor_roi($v === null ? null : (float)$v) : '');
         $ativo = $r['obj'] && ($r['obj']['status_efetivo'] ?? '') === 'ACTIVE';
         $html .= '<li><span class="rk-pos">' . $pos . 'º</span><span class="rk-mov">' . $mov . '</span>'
             . '<span class="rk-nome"><i class="rk-st' . ($ativo ? ' on' : '') . '" title="' . ($ativo ? 'Ativa na Meta' : 'Pausada ou sem status') . '"></i>' . $linkNome($r)

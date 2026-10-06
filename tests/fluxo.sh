@@ -58,7 +58,9 @@ export PUSH_FALSO_DIR="$TRACK_DADOS"
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_PUSH" "$RAIZ/tests/push-falso.php" >"$DADOS/push-falso.log" 2>&1 &
 PUSH_FALSO=$!
 # shellcheck disable=SC2086
-"$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA" -t "$RAIZ" >"$DADOS/servidor.log" 2>&1 &
+# Avisos do PHP vao para um arquivo (e nao para a tela): o fim do teste confere que nao sobrou nenhum
+ERROS_PHP="$(cygpath -w "$DADOS/php-erros.log" 2>/dev/null || echo "$DADOS/php-erros.log")"
+"$PHP" $PHP_FLAGS -d display_errors=0 -d log_errors=1 -d error_reporting=-1 -d "error_log=$ERROS_PHP" -S "127.0.0.1:$PORTA" -t "$RAIZ" >"$DADOS/servidor.log" 2>&1 &
 SERVIDOR=$!
 trap 'kill $SERVIDOR $API_FALSA $META_FALSA $IG_FALSA $PUSH_FALSO 2>/dev/null; rm -rf "$DADOS"' EXIT
 sleep 1
@@ -350,7 +352,7 @@ linha=$(grep -o '<strong>TL 1</strong>.*</tr>' < <(printf '%s\n' "$tab") | head 
 confere "$(tem 'R$ 40,00<br><span class="suave">Diário' "$linha")" "orçamento diário da campanha"
 confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$linha")" "gasto, 2 vendas (bump fora) e faturamento líquido com bump"
 confere "$(tem 'positivo">R$ 78,92' "$linha")" "lucro desconta gasto e imposto de 12,15% (igual à UTMify)"
-confere "$(tem 'R$ 25,00</td><td><span class="positivo">2,41</span></td><td>R$ 16,67</td><td>3</td><td>R$ 0,83</td><td>1,50%</td><td><span class="positivo">58,5%</span>' "$linha")" "CPA, ROI, CPI, IC, CPC, CTR e margem"
+confere "$(tem 'R$ 25,00</td><td><span class="positivo">2,58</span></td><td>R$ 16,67</td><td>3</td><td>R$ 0,83</td><td>1,50%</td><td><span class="positivo">61,2%</span>' "$linha")" "CPA, ROI (UTMify: (fat − imposto) ÷ gasto, verde de 2 para cima), CPI, IC, CPC, CTR e margem"
 confere "$(tem 'aria-checked="true"[^<]*><span></span></button></form></td><td class="quebra nome"><a class="abre" href="./?aba=gestor&amp;periodo=tudo&amp;nivel=conjuntos&amp;campanha=120120"' "$r")" "campanha ativa na Meta, com o nome abrindo os conjuntos dela"
 confere "$(tem 'negativo">R$ -11,22' "$r")" "campanha pausada com gasto e sem venda aparece no prejuízo"
 confere "$(tem '1 venda(s) fora de anúncio' "$r")" "venda orgânica conta como fora de anúncio"
@@ -393,10 +395,13 @@ confere "$(tem '<option value="semana" selected>' "$r")" "a comparação escolhi
 curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d&comparar=anterior"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=hoje")
 confere "$(tem 'Sem comparação' "$(sem_tags "$r")")" "hoje não compara (o dia ainda não terminou)"
-# Ranking (painel de bolsa): da melhor para a pior, antes da tabela
+# Ranking (painel de bolsa): da melhor para a pior, embaixo da tabela (pedido da reunião de 30/09)
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
-rk=${r%%'<div class="tabela gestor">'*}
-confere "$(tem 'Ranking das campanhas' "$(sem_tags "$rk")")" "ranking das campanhas no alto do gestor"
+rk=${r#*'<div class="tabela gestor">'}
+rk=${rk#*'</table>'}
+confere "$(tem 'Ranking das campanhas' "$(sem_tags "$rk")")" "ranking das campanhas embaixo da tabela"
+cima=${r%%'<div class="tabela gestor">'*}
+confere "$(grep -q 'Ranking das campanhas' < <(sem_tags "$cima"); [ $? -ne 0 ]; echo $?)" "ranking não fica mais em cima da tabela"
 confere "$([ "$(grep -o '<ol class="ranking">.*' < <(printf '%s\n' "$rk") | grep -o '<strong>[^<]*</strong>' | head -1)" = '<strong>TL 1</strong>' ]; echo $?)" "ranking por lucro: TL 1 (lucro) na frente da FREE (prejuízo)"
 confere "$(tem 'rk-pos">1º' "$rk")" "ranking com a posição"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&rank=cpa")
@@ -410,6 +415,7 @@ confere "$(tem 'Venda orgânica (WhatsApp): não veio de anúncio' "$r")" "cada 
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=gasto&cols[]=cpm&cols[]=impressoes")
 confere "$(tem '>CPM</a>' "$r")" "escolher colunas mostra a coluna pedida"
 tab=${r#*'<div class="tabela gestor">'}
+tab=${tab%%'</table>'*}
 confere "$(grep -q '>Lucro</a>' < <(printf '%s\n' "$tab"); [ $? -ne 0 ]; echo $?)" "escolher colunas esconde as outras"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
 confere "$(tem '>CPM</a>' "$r")" "escolha de colunas fica salva"
@@ -465,20 +471,94 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&con
 confere "$(tem '<strong>cv free</strong>' "$r")" "anúncios só dos conjuntos marcados"
 meta "$csrf" "$LEITURA" 587364236934346 >/dev/null
 
+echo "Filtros do topo, análise diária e Financeiro"
+# shellcheck disable=SC2086
+HOJE=$("$PHP" $PHP_FLAGS -r 'date_default_timezone_set("America/Sao_Paulo"); echo date("Y-m-d");')
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=mes")
+confere "$(tem '<option value="mes" selected>Este mês</option>' "$r")" "período Este mês no topo"
+confere "$(tem '<option value="mes_passado">Mês passado</option>' "$r")" "período Mês passado no topo"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=personalizado&de=$HOJE&ate=$HOJE")
+confere "$(tem '<option value="personalizado" selected>' "$r")" "de uma data a outra: o período personalizado fica escolhido"
+confere "$(tem "name=\"de\" value=\"$HOJE\"" "$r")" "as datas do período personalizado voltam preenchidas"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral")
+confere "$(tem '<option value="personalizado" selected>' "$r")" "período personalizado fica lembrado ao trocar de aba"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=2026-13-40_2026-01-01")
+confere "$(tem '<option value="7d" selected>' "$r")" "data inválida no endereço cai nos 7 dias"
+P2='produto[]=Drive%20de%20Projetos%202.0'
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&$P2")
+tab=${r#*'<div class="tabela gestor">'}
+linha=$(grep -o '<strong>TL 1</strong>.*</tr>' < <(printf '%s\n' "$tab") | head -1 | sed 's#</tr>.*##')
+confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 110,00</td>' "$linha")" "filtro de produto: só o Drive 2.0, sem o order bump no faturamento"
+confere "$(tem '<span class="positivo">2,08</span>' "$linha")" "ROI só do produto principal (como o Allan filtra na UTMify)"
+confere "$(tem '<summary>Drive de Projetos 2.0</summary>' "$r")" "lista de produtos mostra o escolhido"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem 'Faturamento líquidoiR$ 110,00' "$(sem_tags "$r")")" "produto escolhido fica lembrado e vale no Resumo"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&$P2&produto[]=Memorial%20Descritivo")
+confere "$(tem '<summary>2 produtos</summary>' "$r")" "dá para marcar mais de um produto"
+confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "com o order bump marcado, ele volta ao faturamento"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&produto[]=")
+confere "$(tem '<summary>Todos (com order bump)</summary>' "$r")" "desmarcar todos volta a contar tudo"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=fat_bruto&cols[]=taxas&cols[]=fat")
+confere "$(tem '<td>R$ 156,39</td><td>R$ 21,39</td><td>R$ 135,00</td>' "$r")" "colunas de faturamento bruto e taxas da Kiwify"
+curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=orcamento&cols[]=gasto&cols[]=vendas&cols[]=fat&cols[]=lucro&cols[]=cpa&cols[]=roi"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem 'class="analise" href="./?aba=campanha&amp;id=120120&amp;periodo=tudo"' "$r")" "campanha tem o botão de análise diária"
+confere "$(tem '<span class="negativo">-0,12</span>' "$r")" "ROI abaixo de 1 em vermelho (FREE, sem venda)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
+confere "$(tem '<h2>TL 1</h2>' "$r")" "análise diária abre com o nome da campanha"
+confere "$(tem 'Período <span class="suave">(1 dia)</span>' "$r")" "análise diária: total do período em cima"
+confere "$(tem 'class="ao-vivo"' "$r")" "análise diária: hoje aparece ao vivo"
+confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "análise diária: gasto, vendas e faturamento do dia"
+confere "$(tem 'href="./?aba=gestor[^"]*" class="atual"' "$r")" "análise diária deixa a aba Gestor marcada"
+confere "$(tem '<input type="hidden" name="id" value="120120">' "$r")" "trocar o período no topo continua na mesma campanha"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=987654321&periodo=tudo")
+confere "$(tem 'Campanha não encontrada' "$r")" "campanha que não é da conta não abre"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
+confere "$(grep -q 'class="canal canal-[a-z]*" title=' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "canal sem dica dupla (title do navegador por cima do (i))"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem 'Faturamento brutoiR$ 223,39' "$(sem_tags "$r")")" "Resumo: faturamento bruto"
+confere "$(tem 'Taxas da KiwifyiR$ 21,39' "$(sem_tags "$r")")" "Resumo: taxas da Kiwify à parte"
+confere "$(tem 'Orgânico <b>1</b>' "$r")" "Resumo: gráfico das vendas fora de anúncio por tipo"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=financeiro&periodo=tudo")
+confere "$(tem 'EntradasiR$ 202,00' "$(sem_tags "$r")")" "Financeiro: entradas (todas as vendas aprovadas, líquido)"
+confere "$(tem 'AnúnciosiR$ 67,29' "$(sem_tags "$r")")" "Financeiro: anúncios com o imposto da Meta"
+confere "$(tem 'Nenhuma despesa cadastrada' "$r")" "Financeiro começa sem despesas"
+confere "$(grep -q 'name="produto\[\]"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro é a empresa toda (sem filtro de produto)"
+gasto() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=$2" "${@:3}" --data-urlencode "volta=./?aba=financeiro&periodo=tudo" "$URL/gastos.php"; curl -s -b "$JAR" "$URL/index.php?aba=financeiro&periodo=tudo"; }
+r=$(gasto "" salvar --data-urlencode "descricao=Hospedagem" --data-urlencode "valor=40" --data-urlencode "repete=mensal" --data-urlencode "inicio=$HOJE")
+confere "$(tem 'Sessão expirada' "$r")" "despesa sem o token do formulário é recusada"
+r=$(gasto "$csrf" salvar --data-urlencode "descricao=Hospedagem" --data-urlencode "valor=abc" --data-urlencode "repete=mensal" --data-urlencode "inicio=$HOJE")
+confere "$(tem 'Confira a despesa' "$r")" "valor inválido é recusado"
+r=$(gasto "$csrf" salvar --data-urlencode "descricao=Hospedagem" --data-urlencode "categoria=Hospedagem" --data-urlencode "valor=R\$ 40,00" --data-urlencode "repete=mensal" --data-urlencode "inicio=$HOJE")
+confere "$(tem 'Despesa cadastrada.' "$r")" "cadastrar despesa que se repete todo mês"
+confere "$(tem 'Outras despesasiR$ 40,00' "$(sem_tags "$r")")" "despesa entra nas saídas do período"
+confere "$(tem 'ROI geral</span><span class="info"[^>]*>i</span></div><b class="medio">1,88</b>' "$r")" "ROI geral com as despesas (entradas ÷ saídas), em laranja entre 1 e 2"
+confere "$(tem 'SaldoiR$ 94,71' "$(sem_tags "$r")")" "saldo: entradas − anúncios − despesas"
+confere "$(tem 'data-confirma="Apagar a despesa &quot;Hospedagem&quot;?"' "$r")" "apagar pede confirmação"
+ID=$(grep -o 'name="id" value="[0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[0-9]*')
+r=$(gasto "$csrf" salvar --data-urlencode "id=$ID" --data-urlencode "descricao=Hospedagem" --data-urlencode "valor=50" --data-urlencode "repete=unico" --data-urlencode "inicio=$HOJE")
+confere "$(tem 'Outras despesasiR$ 50,00' "$(sem_tags "$r")")" "editar a despesa"
+r=$(gasto "$csrf" apagar --data-urlencode "id=$ID")
+confere "$(tem 'Despesa apagada.' "$r")" "apagar a despesa"
+confere "$(tem 'Nenhuma despesa cadastrada' "$r")" "despesa apagada some da lista"
+# shellcheck disable=SC2086
+oc=$(RAIZ_PHP="$(cygpath -m "$RAIZ" 2>/dev/null || echo "$RAIZ")" "$PHP" $PHP_FLAGS -r 'require getenv("RAIZ_PHP") . "/lib/financeiro.php"; echo implode(",", fin_ocorrencias(["inicio" => "2026-01-31", "fim" => null, "repete" => "mensal"], "2026-01-01", "2026-04-30")), "|", fin_centavos("R$ 1.234,56"), "|", fin_centavos("40");')
+confere "$([ "$oc" = "2026-01-31,2026-02-28,2026-03-31,2026-04-30|123456|4000" ]; echo $?)" "despesa do dia 31 cai no último dia dos meses curtos; valores em reais ($oc)"
+
 echo "Resumo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'Faturamento líquidoiR$ 202,00' "$(sem_tags "$r")")" "faturamento líquido do período (com order bump)"
 confere "$(tem 'Gasto com anúnciosiR$ 60,00' "$(sem_tags "$r")")" "gasto com anúncios"
 confere "$(tem 'Lucro</span><span class="info"[^>]*>i</span></div><b class="positivo">R$ 134,71</b>' "$r")" "lucro com imposto da Meta"
-confere "$(tem 'ROI geral</span><span class="info"[^>]*>i</span></div><b class="positivo">3,00</b>' "$r")" "ROI geral: todo o faturamento ÷ (gasto + imposto)"
+confere "$(tem 'ROI geral</span><span class="info"[^>]*>i</span></div><b class="positivo">3,25</b>' "$r")" "ROI geral: (todo o faturamento − imposto) ÷ gasto, como no gestor e na UTMify"
 confere "$(tem 'ROI rastreado' "$(sem_tags "$r")")" "ROI rastreado ao lado, para comparar"
-confere "$(tem 'Margem</span><span class="info"[^>]*>i</span></div><b class="positivo">66,7%</b>' "$r")" "margem"
+confere "$(tem 'Margem</span><span class="info"[^>]*>i</span></div><b class="positivo">69,2%</b>' "$r")" "margem: lucro ÷ (faturamento − imposto)"
 confere "$(tem 'Vendas pendentes</span><span class="info"[^>]*>i</span></div><b class="">R$ 67,00</b>' "$r")" "pendentes no valor cobrado"
 confere "$(tem 'class="rosca"' "$r")" "vendas por pagamento em rosca, como na UTMify"
 confere "$(tem 'aria-label="Vendas por dia da semana"' "$r")" "vendas por dia da semana"
 confere "$(tem 'Qualidade do rastreio' "$(sem_tags "$r")")" "qualidade do rastreio: quanto das vendas o painel explica"
 confere "$(tem 'Taxa de aprovação' "$(sem_tags "$r")")" "taxa de aprovação com anéis"
-confere "$(tem 'name="produto"' "$r")" "filtro de produto"
+confere "$(tem 'name="produto\[\]"' "$r")" "filtro de produto (no topo, vários de uma vez)"
 confere "$(tem 'name="canal"' "$r")" "filtro de canal"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&canal=organico")
 confere "$(tem 'Filtro ligado' "$(sem_tags "$r")")" "filtro de canal avisa que o gasto continua o da conta toda"
@@ -489,7 +569,7 @@ confere "$(tem 'Funil do site' "$(sem_tags "$r")")" "funil do site"
 confere "$(tem '<div class="fluxo" style="--n:5">' "$r")" "funil da Meta em fluxo, com os 5 passos"
 confere "$(tem '<b class="dentro">100,0%</b>' "$r")" "primeiro passo do funil com 100% dentro da faixa"
 confere "$(tem 'class="grafico"' "$r")" "gráficos por hora em SVG"
-confere "$(tem 'data-dica="Tudo o que voltou ÷ tudo o que foi investido' "$r")" "número do Resumo tem o (i) com a conta"
+confere "$(tem 'data-dica="Tudo o que voltou ÷ o gasto com anúncios' "$r")" "número do Resumo tem o (i) com a conta"
 
 echo "Orgânico"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=tudo")
@@ -807,6 +887,12 @@ confere "$(grep -q 'O webhook não está chegando' < <(printf '%s\n' "$r"); [ $?
 (cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; track_db()->exec("UPDATE vendas SET fonte = '"'"'api'"'"', recebida_em = datetime('"'"'now'"'"')");')
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
 confere "$(tem 'O webhook não está chegando' "$r")" "vendas recentes só pela API: aviso de webhook parado"
+
+echo "Avisos do PHP"
+# Aviso escondido (variavel que nao existe, indice faltando) nao quebra a tela, mas na
+# hospedagem pode aparecer para quem usa: nenhum pode sobrar depois de passar por todas as telas
+avisos=$(grep -E 'PHP (Warning|Notice|Deprecated|Fatal)' "$DADOS/php-erros.log" 2>/dev/null | sed 's/^\[[^]]*\] //' | sort -u | head -5)
+confere "$([ -z "$avisos" ]; echo $?)" "nenhum aviso do PHP no servidor${avisos:+: $avisos}"
 
 echo
 if [ "$FALHAS" -eq 0 ]; then echo "TUDO OK"; else echo "$FALHAS FALHA(S)"; echo "--- log do servidor:"; tail -20 "$DADOS/servidor.log"; fi

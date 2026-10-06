@@ -10,20 +10,26 @@ require_once __DIR__ . '/lib/gestor.php';
 require_once __DIR__ . '/lib/resumo.php';
 require_once __DIR__ . '/lib/organico.php';
 require_once __DIR__ . '/lib/trafego.php';
+require_once __DIR__ . '/lib/financeiro.php';
 
 exigir_login();
 $db = track_db();
 
 // ---------------------------------------------------------------- filtros
-$abasValidas = ['geral', 'trafego', 'gestor', 'organico', 'resumo', 'vendas', 'visitantes', 'eventos'];
+$abasValidas = ['geral', 'trafego', 'gestor', 'campanha', 'financeiro', 'organico', 'resumo', 'vendas', 'visitantes', 'eventos'];
 $aba = in_array($_GET['aba'] ?? '', $abasValidas, true) ? $_GET['aba'] : 'geral';
-// Site, pagina e periodo ficam lembrados na sessao: trocar de aba, abrir Configuracoes ou uma
-// API e voltar nao zera o filtro. Parametro presente no endereco (mesmo vazio) vale e e guardado.
+// Site, pagina, periodo e produto ficam lembrados na sessao: trocar de aba, abrir Configuracoes
+// ou uma API e voltar nao zera o filtro. Parametro presente no endereco (mesmo vazio) vale e e guardado.
 sessao_iniciar();
 $lembrado = is_array($_SESSION['track_filtro'] ?? null) ? $_SESSION['track_filtro'] : [];
 $escolhido = fn(string $k): string => array_key_exists($k, $_GET) ? (is_string($_GET[$k]) ? $_GET[$k] : '') : (string)($lembrado[$k] ?? '');
-$periodosValidos = ['hoje', 'ontem', '7d', '30d', 'tudo'];
-$periodo = in_array($escolhido('periodo'), $periodosValidos, true) ? $escolhido('periodo') : '7d';
+// Periodo: um dos prontos, o personalizado do endereco ("2026-09-25_2026-09-28") ou o que o
+// filtro manda ao escolher "De uma data a outra" (periodo=personalizado com de e ate)
+$periodo = $escolhido('periodo');
+if ($periodo === 'personalizado') {
+    $periodo = periodo_personalizado($_GET['de'] ?? null, $_GET['ate'] ?? null) ?? '';
+}
+$periodo = periodo_valido($periodo) ? $periodo : '7d';
 
 $dominios = $db->query('SELECT DISTINCT dominio FROM eventos ORDER BY dominio')->fetchAll(PDO::FETCH_COLUMN);
 $dominio = in_array($escolhido('dominio'), $dominios, true) ? $escolhido('dominio') : '';
@@ -34,7 +40,13 @@ if ($dominio !== '') {
     $paginas = $st->fetchAll(PDO::FETCH_COLUMN);
 }
 $pagina = in_array($escolhido('pagina'), $paginas, true) ? $escolhido('pagina') : '';
-$filtro = ['dominio' => $dominio, 'pagina' => $pagina, 'periodo' => $periodo];
+// Produtos: varios de uma vez. O formulario sempre manda produto[] (mesmo vazio, para dar
+// para desmarcar todos); so valem os que ja venderam.
+$produtosConhecidos = produtos_conhecidos($db);
+$pedidos = array_key_exists('produto', $_GET) ? (array)$_GET['produto'] : ($lembrado['produto'] ?? []);
+$produtos = array_values(array_intersect($produtosConhecidos, array_filter($pedidos, 'is_string')));
+produto_filtro($produtos);
+$filtro = ['dominio' => $dominio, 'pagina' => $pagina, 'periodo' => $periodo, 'produto' => $produtos];
 $_SESSION['track_filtro'] = $filtro;
 [$de, $ate] = periodo_utc($periodo);
 
@@ -73,6 +85,15 @@ if ($dominio !== '') {
     if ($pagina !== '') {
         $parVd[':pag'] = $pagina;
     }
+}
+// Produtos do filtro do topo (o order bump e outro produto: escolher o principal o tira)
+if ($produtos) {
+    $marcas = [];
+    foreach ($produtos as $i => $p) {
+        $marcas[] = ':prod' . $i;
+        $parVd[':prod' . $i] = $p;
+    }
+    $condVd .= ' AND v.produto IN (' . implode(', ', $marcas) . ')';
 }
 
 function consulta(PDO $db, string $sql, array $par): array
@@ -180,7 +201,7 @@ function conferir(PDO $db, array $v): array
     return ['Diferente', 'erro', 'A página mandou ' . ($mandou ?: 'sem etiqueta') . ', a Kiwify gravou ' . ($gravou ?: 'sem etiqueta') . '.'];
 }
 
-$parLink = ['dominio' => $dominio, 'pagina' => $pagina, 'periodo' => $periodo];
+$parLink = ['dominio' => $dominio, 'pagina' => $pagina, 'periodo' => $periodo, 'produto' => $produtos];
 function link_visitante(string $vid, array $parLink): string
 {
     return '?' . http_build_query(['aba' => 'visitantes', 'v' => $vid] + $parLink);
@@ -200,10 +221,10 @@ function rotulo_origem(array $ev): string
 
 pagina_inicio('Painel');
 casca_inicio();
-barra_topo($filtro, $dominios, $paginas, $aba);
+barra_topo($filtro, $dominios, $paginas, $aba, $produtosConhecidos);
 echo '<main>';
 // Aviso do botao Atualizar (ex.: limite de atualizacoes seguidas). O gestor mostra o dele.
-if ($aba !== 'gestor' && ($aviso = aviso_pegar())) {
+if (!in_array($aba, ['gestor', 'campanha'], true) && ($aviso = aviso_pegar())) {
     echo '<p class="' . ($aviso[1] === 'erro' ? 'erro' : 'aviso-ok') . '">' . e($aviso[0]) . '</p>';
 }
 if (in_array($aba, ['trafego', 'resumo', 'vendas'], true)) {
@@ -371,6 +392,16 @@ if ($aba === 'organico') {
 // ---------------------------------------------------------------- gestor de anuncios
 if ($aba === 'gestor') {
     gestor_render($db, $periodo, $de, $ate, $parLink);
+}
+
+// ---------------------------------------------------------------- analise diaria de uma campanha
+if ($aba === 'campanha') {
+    gestor_dias_render($db, $periodo);
+}
+
+// ---------------------------------------------------------------- financeiro
+if ($aba === 'financeiro') {
+    financeiro_render($db, $periodo);
 }
 
 // ---------------------------------------------------------------- conferencia (resumo)

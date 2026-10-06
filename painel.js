@@ -1,15 +1,61 @@
 // Filtros do topo: mudar uma caixa ja atualiza o painel. Mudar o dominio zera a pagina.
+// "De uma data a outra" mostra as duas datas e so filtra quando as duas estao escolhidas.
+// Produto (varios de uma vez): filtra no Aplicar ou ao fechar a lista com algo mudado.
 (function () {
   'use strict';
   var form = document.getElementById('filtros');
   if (form) {
+    var datas = form.querySelector('[data-datas]');
+    var mostrarDatas = function (sim) {
+      if (!datas) { return; }
+      datas.hidden = !sim;
+      var ds = datas.querySelectorAll('input');
+      for (var i = 0; i < ds.length; i++) { ds[i].disabled = !sim; }
+    };
     form.addEventListener('change', function (e) {
       var alvo = e.target;
-      if (alvo && alvo.getAttribute('data-reinicia') === 'pagina' && form.elements.pagina) {
+      if (alvo.closest && alvo.closest('[data-multi]')) { return; }
+      if (alvo.hasAttribute('data-periodo')) {
+        if (alvo.value === 'personalizado') {
+          mostrarDatas(true);
+          var primeira = datas && datas.querySelector('input');
+          if (primeira) { primeira.focus(); }
+          return;
+        }
+        mostrarDatas(false);
+      }
+      // Escolheu o "De": abre o "Até"; o filtro roda quando o "Até" e escolhido
+      if (alvo.type === 'date' && alvo.name === 'de' && form.elements.ate) {
+        form.elements.ate.min = alvo.value;
+        form.elements.ate.focus();
+        try { if (form.elements.ate.showPicker) { form.elements.ate.showPicker(); } } catch (x) {}
+        return;
+      }
+      if (alvo.type === 'date' && datas && Array.prototype.some.call(datas.querySelectorAll('input'), function (d) { return !d.value; })) { return; }
+      if (alvo.getAttribute('data-reinicia') === 'pagina' && form.elements.pagina) {
         form.elements.pagina.value = '';
       }
       form.submit();
     });
+    var multis = form.querySelectorAll('[data-multi]');
+    for (var mi = 0; mi < multis.length; mi++) {
+      (function (multi) {
+        var marcas = multi.querySelectorAll('input[type=checkbox]');
+        var antes = function () { return Array.prototype.map.call(marcas, function (c) { return c.checked ? '1' : '0'; }).join(''); };
+        var inicial = antes();
+        multi.addEventListener('toggle', function () {
+          if (!multi.open && antes() !== inicial) { form.submit(); }
+        });
+        var todos = multi.querySelector('[data-multi-todos]');
+        if (todos) {
+          todos.addEventListener('click', function () {
+            for (var i = 0; i < marcas.length; i++) { marcas[i].checked = false; }
+            form.submit();
+          });
+        }
+        document.addEventListener('click', function (e) { if (multi.open && !multi.contains(e.target)) { multi.open = false; } });
+      })(multis[mi]);
+    }
   }
   // Vendas pela API da Kiwify em segundo plano (so quando a ultima busca tem mais de
   // 10 minutos). Chegou venda nova ou mudou alguma: recarrega a tela com os numeros.
@@ -206,10 +252,10 @@
     if (i && i.closest('a')) { e.preventDefault(); e.stopPropagation(); mostrar(i); }
   }, true);
 
-  // Gestor: ligar ou pausar na Meta sempre pergunta antes
+  // Pergunta antes: ligar ou pausar na Meta (gestor) e apagar despesa (financeiro)
   document.addEventListener('submit', function (e) {
     var f = e.target;
-    if (f && f.classList && f.classList.contains('chave-form') && !window.confirm(f.getAttribute('data-confirma') || 'Confirmar?')) {
+    if (f && f.hasAttribute && f.hasAttribute('data-confirma') && !window.confirm(f.getAttribute('data-confirma') || 'Confirmar?')) {
       e.preventDefault();
     }
   });

@@ -53,12 +53,75 @@ function data_local(?string $utc, string $formato = 'd/m H:i:s'): string
     return $d->setTimezone(fuso())->format($formato);
 }
 
-// Periodo da tela ("hoje", "ontem", "7d", "30d", "tudo") em limites UTC
+// Periodos prontos do filtro do topo. Alem deles, o personalizado: "2026-09-25_2026-09-28"
+// (do primeiro ao ultimo dia, os dois inclusive), que vai no endereco como os outros.
+const PERIODOS = ['hoje' => 'Hoje', 'ontem' => 'Ontem', '7d' => 'Últimos 7 dias', '30d' => 'Últimos 30 dias',
+    'mes' => 'Este mês', 'mes_passado' => 'Mês passado', 'tudo' => 'Tudo'];
+
+// Dias do periodo personalizado ("2026-09-25_2026-09-28") ou null
+function periodo_datas(string $periodo): ?array
+{
+    if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})_(\d{4})-(\d{2})-(\d{2})$/', $periodo, $m)
+        || !checkdate((int)$m[2], (int)$m[3], (int)$m[1]) || !checkdate((int)$m[5], (int)$m[6], (int)$m[4])) {
+        return null;
+    }
+    [$d1, $d2] = explode('_', $periodo);
+    return $d1 <= $d2 && $d1 >= '2000-01-01' ? [$d1, $d2] : null;
+}
+
+function periodo_valido(string $periodo): bool
+{
+    return isset(PERIODOS[$periodo]) || periodo_datas($periodo) !== null;
+}
+
+// Periodo personalizado a partir das duas datas do filtro (em qualquer ordem) ou null
+function periodo_personalizado($de, $ate): ?string
+{
+    if (!is_string($de) || !is_string($ate)) {
+        return null;
+    }
+    $p = min($de, $ate) . '_' . max($de, $ate);
+    return periodo_datas($p) !== null ? $p : null;
+}
+
+// Nome do periodo para a tela: "Este mês" ou "25/09 a 28/09"
+function periodo_rotulo(string $periodo): string
+{
+    if (isset(PERIODOS[$periodo])) {
+        return PERIODOS[$periodo];
+    }
+    [$d1, $d2] = periodo_datas($periodo) ?? ['', ''];
+    $f = fn(string $d) => (new DateTime($d))->format(substr($d1, 0, 4) === substr($d2, 0, 4) ? 'd/m' : 'd/m/Y');
+    return $d1 === '' ? '' : ($d1 === $d2 ? $f($d1) : $f($d1) . ' a ' . $f($d2));
+}
+
+// Primeiro e ultimo dia do periodo no fuso ("Tudo": do comeco ao fim dos tempos)
+function periodo_dias(string $periodo): array
+{
+    if ($periodo === 'tudo') {
+        return ['0000-01-01', '9999-12-31'];
+    }
+    [$de, $ate] = periodo_utc($periodo);
+    $utc = new DateTimeZone('UTC');
+    $d1 = (new DateTime($de, $utc))->setTimezone(fuso());
+    $d2 = (new DateTime($ate, $utc))->setTimezone(fuso())->modify('-1 day');
+    return [$d1->format('Y-m-d'), $d2->format('Y-m-d')];
+}
+
+// Periodo da tela (um de PERIODOS ou o personalizado) em limites UTC
 function periodo_utc(string $periodo): array
 {
     $tz = fuso();
     $inicioHoje = new DateTime('today', $tz);
+    $datas = periodo_datas($periodo);
+    if ($datas) {
+        $de = new DateTime($datas[0], $tz);
+        $ate = (new DateTime($datas[1], $tz))->modify('+1 day');
+        $periodo = 'personalizado';
+    }
     switch ($periodo) {
+        case 'personalizado':
+            break;
         case 'ontem':
             $de = (clone $inicioHoje)->modify('-1 day');
             $ate = $inicioHoje;
@@ -70,6 +133,14 @@ function periodo_utc(string $periodo): array
         case '30d':
             $de = (clone $inicioHoje)->modify('-29 days');
             $ate = (clone $inicioHoje)->modify('+1 day');
+            break;
+        case 'mes':
+            $de = (clone $inicioHoje)->modify('first day of this month');
+            $ate = (clone $inicioHoje)->modify('+1 day');
+            break;
+        case 'mes_passado':
+            $de = (clone $inicioHoje)->modify('first day of last month');
+            $ate = (clone $inicioHoje)->modify('first day of this month');
             break;
         case 'tudo':
             return ['1970-01-01 00:00:00', '2999-12-31 23:59:59'];

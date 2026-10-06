@@ -29,7 +29,7 @@ function pagina_inicio(string $titulo): void
   --fundo:#F7F8FA; --cartao:#FFFFFF; --cartao-2:#F3F4F6; --hover:#F7F9FC;
   --texto:#111827; --suave:#6B7280; --apagado:#9CA3AF; --linha:#E5E7EB; --linha-forte:#D1D5DB;
   --marca:#1D6FF2; --marca-hover:#155FD6;
-  --ok:#15803D; --alerta:#B45309; --erro:#B91C1C;
+  --ok:#15803D; --alerta:#B45309; --erro:#B91C1C; --laranja:#C2410C;
   --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --f-titulo:var(--f-texto); --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
   --r-sm:6px; --r-md:8px; --r-lg:8px;
 }
@@ -57,7 +57,7 @@ button.discreto.neutro{ color:var(--texto); }
 
 /* Topo: filtros a esquerda, conta a direita */
 .topo{ position:sticky; top:0; z-index:5; background:var(--cartao); border-bottom:1px solid var(--linha); padding:10px 24px; display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
-.topo label, .gestor-filtros label{ display:flex; flex-direction:column; font-size:12px; color:var(--suave); gap:3px; }
+.topo label, .gestor-filtros label, .topo .campo{ display:flex; flex-direction:column; font-size:12px; color:var(--suave); gap:3px; }
 .filtros{ display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
 .conta{ margin-left:auto; align-self:center; display:flex; align-items:center; gap:10px; color:var(--suave); }
 .conta form{ margin:0; }
@@ -188,7 +188,45 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor th.largura-fixa, .tabela.gestor td.largura-fixa{ overflow:hidden; text-overflow:ellipsis; }
 .tabela.gestor td.quebra{ min-width:200px; }
 .tabela.gestor tr.total td{ background:var(--cartao-2); font-weight:600; }
-.positivo{ color:var(--ok); } .negativo{ color:var(--erro); }
+.positivo{ color:var(--ok); } .negativo{ color:var(--erro); } .medio{ color:var(--laranja); }
+/* Gestor: botao da analise diaria, que aparece ao passar o mouse na campanha (no toque, sempre) */
+a.analise{ display:inline-flex; align-items:center; gap:4px; margin-left:8px; padding:1px 7px; border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); color:var(--suave); font-size:12px; font-weight:500; white-space:nowrap; vertical-align:1px; opacity:0; transition:opacity .12s; }
+a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:none; }
+.tabela.gestor tr:hover a.analise, a.analise:focus-visible{ opacity:1; }
+@media (hover:none){ a.analise{ opacity:1; } a.analise span{ display:none; } }
+/* Analise diaria da campanha: um dia por linha (como a planilha); hoje, ao vivo, por ultimo */
+.campanha-cab{ margin:0 0 14px; }
+.campanha-cab p{ margin:8px 0 0; }
+.campanha-topo{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px 16px; }
+.campanha-topo .barra-vendas{ margin:0; }
+.campanha-nome{ display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; min-width:0; }
+.campanha-nome h2{ margin:0; font-size:17px; }
+.tabela.gestor td.dia, .tabela.gestor th.dia{ text-align:left; }
+.tabela.gestor tr.total td.dia{ font-weight:600; }
+.tabela.gestor tr.ao-vivo-linha td{ background:var(--hover); }
+.ao-vivo{ display:inline-flex; align-items:center; gap:5px; margin-left:6px; color:var(--ok); font-size:12px; font-weight:600; }
+.ao-vivo::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--ok); animation:pulsar 1.6s ease-in-out infinite; }
+@keyframes pulsar{ 50%{ opacity:.35; } }
+@media (prefers-reduced-motion:reduce){ .ao-vivo::before{ animation:none; } }
+/* Financeiro: formulario da despesa e o Apagar na linha */
+.fin-form{ max-width:640px; }
+.fin-linha{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0 12px; }
+.fin-form select{ width:100%; }
+.form-linha{ display:inline; margin:0 0 0 8px; }
+/* Filtro de periodo: as duas datas so aparecem no "De uma data a outra" */
+.datas{ display:contents; } .datas[hidden]{ display:none; }
+.topo input[type=date]{ min-width:0; }
+/* Filtro de produto do topo: varios de uma vez, numa lista que abre como um select */
+.multi{ position:relative; }
+.multi > summary{ list-style:none; cursor:pointer; min-width:180px; max-width:280px; padding:6px 28px 6px 9px; border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); color:var(--texto); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; position:relative; }
+.multi > summary::-webkit-details-marker{ display:none; }
+.multi > summary::after{ content:""; position:absolute; right:10px; top:50%; width:6px; height:6px; border-right:1.5px solid var(--suave); border-bottom:1.5px solid var(--suave); transform:translateY(-70%) rotate(45deg); }
+.multi[open] > summary{ border-color:var(--marca); }
+.multi-painel{ position:absolute; z-index:25; left:0; top:calc(100% + 4px); min-width:100%; width:max-content; max-width:min(360px, calc(100vw - 32px)); max-height:60vh; overflow:auto; padding:6px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px rgba(17,24,39,.12); color:var(--texto); font-size:13px; }
+.multi-painel label{ display:flex; flex-direction:row; align-items:center; gap:8px; padding:6px 8px; border-radius:var(--r-sm); color:var(--texto); font-size:13px; cursor:pointer; }
+.multi-painel label:hover{ background:var(--hover); }
+.multi-painel .multi-pe{ display:flex; justify-content:space-between; gap:8px; padding:6px 4px 2px; border-top:1px solid var(--linha); margin-top:4px; }
+.multi-painel .multi-pe button{ padding:4px 10px; }
 .tabela.gestor a.ordena{ color:inherit; } .tabela.gestor a.ordena.atual{ color:var(--texto); font-weight:600; }
 .tabela.gestor a.abre{ color:var(--texto); } .tabela.gestor a.abre:hover strong{ color:var(--marca); text-decoration:underline; }
 .delta{ font-size:11px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); } .delta.novo{ color:var(--marca); }
@@ -312,7 +350,7 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .resumo-aviso{ margin:10px 0 0; font-size:13px; }
 .rgrade{ display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; margin:0 0 12px; }
 .rgrade > *{ min-width:0; margin:0 !important; }
-.rgrade .c2{ grid-column:span 2; } .rgrade .c3{ grid-column:span 3; } .rgrade .c4{ grid-column:span 4; } .rgrade .c8{ grid-column:span 8; } .rgrade .r2{ grid-row:span 2; }
+.rgrade .c2{ grid-column:span 2; } .rgrade .c3{ grid-column:span 3; } .rgrade .c4{ grid-column:span 4; } .rgrade .c6{ grid-column:span 6; } .rgrade .c8{ grid-column:span 8; } .rgrade .r2{ grid-row:span 2; }
 .rc{ display:flex; flex-direction:column; gap:6px; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); }
 .rc-cab{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; color:var(--suave); font-size:13px; font-weight:500; }
 .rc > b{ font-size:24px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -339,13 +377,13 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .anel-valor{ fill:none; stroke:var(--marca); stroke-width:5; }
 @media (max-width:1100px){
   .rgrade{ grid-template-columns:repeat(6,minmax(0,1fr)); }
-  .rgrade .c2{ grid-column:span 2; } .rgrade .c3, .rgrade .c4{ grid-column:span 3; } .rgrade .c8{ grid-column:span 6; } .rgrade .r2{ grid-row:auto; }
+  .rgrade .c2{ grid-column:span 2; } .rgrade .c3, .rgrade .c4, .rgrade .c6{ grid-column:span 3; } .rgrade .c8{ grid-column:span 6; } .rgrade .r2{ grid-row:auto; }
   .rgrade > section.c4, .rgrade > section.c8{ grid-column:span 6; }
 }
 @media (max-width:640px){
   .rgrade{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
   .rgrade > *{ grid-column:1 / -1 !important; }
-  .rgrade > .rc.c2, .rgrade > .rc.c3{ grid-column:span 1 !important; }
+  .rgrade > .rc.c2, .rgrade > .rc.c3, .rgrade > .rc.c6{ grid-column:span 1 !important; }
   .rc > b{ font-size:19px; }
   .resumo-filtros label{ min-width:0; flex:1 1 140px; }
 }
@@ -392,6 +430,7 @@ th.marca, td.marca{ width:34px; text-align:center; }
   .topo .conta{ order:-1; width:100%; justify-content:space-between; margin:0; }
   .filtros{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); width:100%; gap:8px; }
   .filtros select{ width:100%; min-width:0; }
+  .filtros .campo, .multi > summary{ width:100%; min-width:0; max-width:none; }
   .lateral{ padding:4px 8px; gap:8px; }
   .lateral a{ flex-direction:row; width:auto; padding:6px 12px; gap:6px; font-size:12px; }
   .lateral svg{ width:18px; height:18px; }
@@ -509,6 +548,8 @@ function icone(string $nome, int $tam = 16): string
         'campanha' => '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/>',
         'conjunto' => '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
         'anuncio' => '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
+        'carteira' => '<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 9h-6a3 3 0 0 0 0 6h6z"/><path d="M15.5 12h.01"/>',
+        'calendario' => '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
     ];
     return '<svg class="ico" width="' . $tam . '" height="' . $tam . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$nome] ?? '') . '</svg>';
 }
@@ -600,10 +641,16 @@ const CANAIS_DICA = [
     'direto' => 'Chegou sem etiqueta e sem site de origem: link digitado ou salvo, app que esconde de onde veio, link direto do checkout ou troca de aparelho entre o clique e a compra.',
 ];
 
+// Uma explicacao so por canal: o detalhe vai dentro do (i), nunca num title (a dica do
+// navegador abria por cima da do (i) e as duas ficavam ilegiveis)
 function selo_canal(array $c, bool $comDetalhe = true): string
 {
-    return '<span class="canal canal-' . e($c[0]) . '"' . ($c[3] !== '' ? ' title="' . e($c[3]) . '"' : '') . '>' . icone($c[2]) . '<span>' . e($c[1]) . '</span>'
-        . (isset(CANAIS_DICA[$c[0]]) ? info(CANAIS_DICA[$c[0]]) : '')
+    $dica = CANAIS_DICA[$c[0]] ?? '';
+    if (!$comDetalhe && $c[3] !== '') {
+        $dica = trim($dica . ' Neste caso: ' . $c[3] . '.');
+    }
+    return '<span class="canal canal-' . e($c[0]) . '">' . icone($c[2]) . '<span>' . e($c[1]) . '</span>'
+        . ($dica !== '' ? info($dica) : '')
         . ($comDetalhe && $c[3] !== '' ? '<span class="suave">· ' . e($c[3]) . '</span>' : '') . '</span>';
 }
 
@@ -666,11 +713,32 @@ function topo_pagina(): void
     echo '<header class="topo">' . conta_topo() . '</header>';
 }
 
-// Barra do topo: dominio e, dependendo dele, a pagina, e o periodo. A conta fica a direita.
-function barra_topo(array $filtro, array $dominios, array $paginas, string $aba): void
+// Cor do ROI, como na planilha de campanhas: abaixo de 1 vermelho, de 1 ate 2 laranja, 2 ou
+// mais verde. Compara o numero como aparece na tela (2 casas): "2,00" e verde.
+function cor_roi(?float $roi): string
 {
-    $periodos = ['hoje' => 'Hoje', 'ontem' => 'Ontem', '7d' => 'Últimos 7 dias', '30d' => 'Últimos 30 dias', 'tudo' => 'Tudo'];
-    $soPeriodo = in_array($aba, ['gestor', 'geral', 'organico'], true); // no gestor, no resumo e no organico, site e pagina nao se aplicam
+    if ($roi === null) {
+        return '';
+    }
+    $r = round($roi, 2);
+    return $r < 1 ? 'negativo' : ($r < 2 ? 'medio' : 'positivo');
+}
+
+// Barra do topo, que vale para todas as telas e fica lembrada: site e pagina (onde fazem
+// sentido), periodo (prontos ou de uma data a outra) e produto. A conta fica a direita.
+function barra_topo(array $filtro, array $dominios, array $paginas, string $aba, array $produtos = []): void
+{
+    $soPeriodo = in_array($aba, ['gestor', 'campanha', 'geral', 'organico', 'financeiro'], true); // nessas telas, site e pagina nao se aplicam
+    $comProduto = !in_array($aba, ['visitantes', 'eventos', 'financeiro'], true); // telas sem venda (e o Financeiro, que e a empresa toda)
+    $marcados = $filtro['produto'] ?? [];
+    $rotuloProduto = !$marcados ? 'Todos (com order bump)' : (count($marcados) === 1 ? $marcados[0] : count($marcados) . ' produtos');
+    $datas = periodo_datas($filtro['periodo']);
+    // As datas do personalizado comecam no periodo que esta na tela
+    [$d1, $d2] = $datas ?? periodo_dias($filtro['periodo']);
+    $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
+    if ($filtro['periodo'] === 'tudo') {
+        [$d1, $d2] = [(new DateTime('today', fuso()))->modify('-29 days')->format('Y-m-d'), $hoje];
+    }
     ?>
 <header class="topo">
 <form class="filtros" method="get" action="./" id="filtros">
@@ -695,13 +763,37 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba)
   <?php elseif (is_string($_GET['nivel'] ?? null) && preg_match('/^[a-z]{5,10}$/', $_GET['nivel'])): ?>
   <input type="hidden" name="nivel" value="<?= e($_GET['nivel']) ?>">
   <?php endif; ?>
+  <?php if ($aba === 'campanha' && is_string($_GET['id'] ?? null) && preg_match('/^\d{3,25}$/', $_GET['id'])): ?>
+  <input type="hidden" name="id" value="<?= e($_GET['id']) ?>">
+  <?php endif; ?>
   <label>Período
-    <select name="periodo">
-      <?php foreach ($periodos as $v => $rotulo): ?>
+    <select name="periodo" data-periodo>
+      <?php foreach (PERIODOS as $v => $rotulo): ?>
         <option value="<?= e($v) ?>"<?= $filtro['periodo'] === $v ? ' selected' : '' ?>><?= e($rotulo) ?></option>
       <?php endforeach; ?>
+      <option value="personalizado"<?= $datas ? ' selected' : '' ?>>De uma data a outra…</option>
     </select>
   </label>
+  <span class="datas" data-datas<?= $datas ? '' : ' hidden' ?>>
+    <label>De <input type="date" name="de" value="<?= e($d1) ?>" max="<?= e($hoje) ?>"<?= $datas ? '' : ' disabled' ?>></label>
+    <label>Até <input type="date" name="ate" value="<?= e($d2) ?>" min="<?= e($d1) ?>" max="<?= e($hoje) ?>"<?= $datas ? '' : ' disabled' ?>></label>
+    <button type="submit" class="discreto neutro">Aplicar</button>
+  </span>
+  <?php if ($comProduto): ?>
+  <div class="campo"><span><?= com_info('Produto', 'Vale para as vendas de todas as telas: faturamento, vendas, CPA, ROI e lucro. Marque o produto principal (ou mais de um, como o Drive antigo e o novo) para tirar os order bumps da conta: cada order bump é outro produto na Kiwify. O gasto da Meta continua o das campanhas.') ?></span>
+    <details class="multi" data-multi>
+      <summary><?= e($rotuloProduto) ?></summary>
+      <div class="multi-painel">
+        <input type="hidden" name="produto[]" value="">
+        <?php foreach ($produtos as $p): ?>
+        <label><input type="checkbox" name="produto[]" value="<?= e($p) ?>"<?= in_array($p, $marcados, true) ? ' checked' : '' ?>><?= e($p) ?></label>
+        <?php endforeach; ?>
+        <?php if (!$produtos): ?><p class="suave">Nenhuma venda ainda.</p><?php endif; ?>
+        <div class="multi-pe"><button type="button" class="discreto neutro" data-multi-todos>Todos</button><button type="submit">Aplicar</button></div>
+      </div>
+    </details>
+  </div>
+  <?php endif; ?>
   <noscript><button type="submit">Filtrar</button></noscript>
 </form>
 <?= conta_topo() ?>
@@ -714,11 +806,12 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba)
 // configuracao (API Kiwify e Usuarios) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
-    $abas = ['geral' => ['Resumo', 'resumo'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
+    $abas = ['geral' => ['Resumo', 'resumo'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'financeiro' => ['Financeiro', 'carteira'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
         'visitantes' => ['Visitantes', 'visitantes'], 'eventos' => ['Eventos', 'eventos']];
+    $aba = $aba === 'campanha' ? 'gestor' : $aba; // a analise diaria e parte do gestor
     echo '<nav class="abas" aria-label="Seções do painel UTM"><span class="abas-titulo">UTM · Rastreio de vendas</span>';
     foreach ($abas as $id => [$rotulo, $ico]) {
-        $q = http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1]));
+        $q = http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1]));
         echo '<a href="./?' . e($q) . '" class="' . ($aba === $id ? 'atual' : '') . '">' . icone($ico) . e($rotulo) . '</a>';
     }
     echo '<span class="abas-espaco"></span>';
@@ -732,9 +825,9 @@ function abas_painel(string $aba, array $filtro = []): void
     echo '<a href="usuarios.php" class="' . ($aba === 'usuarios' ? 'atual' : '') . '">' . icone('usuario') . 'Usuários</a></nav>';
 
     // Celular: barra fixa embaixo com as 4 telas mais usadas; o resto em "Mais"
-    $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1]));
+    $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1]));
     $item = fn(string $href, string $id, string $ico, string $rotulo) => '<a href="' . e($href) . '"' . ($aba === $id ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico, 20) . '<span>' . e($rotulo) . '</span></a>';
-    $mais = [['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
+    $mais = [['financeiro', $link('financeiro'), 'carteira', 'Financeiro'], ['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
         ['visitantes', $link('visitantes'), 'visitantes', 'Visitantes'], ['eventos', $link('eventos'), 'eventos', 'Eventos']];
     $config = [['configuracoes', 'configuracoes.php', 'config', 'Configurações'], ['kiwify-api', 'kiwify-api.php', 'chave', 'API Kiwify'],
         ['meta-api', 'meta-api.php', 'meta', 'API Meta'], ['instagram-api', 'instagram-api.php', 'instagram', 'API Instagram'], ['usuarios', 'usuarios.php', 'usuario', 'Usuários']];

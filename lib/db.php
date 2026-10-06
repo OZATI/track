@@ -168,6 +168,33 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 7;
             SQL);
     }
+    if ($versao < 8) {
+        // Gestor dia a dia: o orcamento de cada campanha e conjunto em cada dia (a Meta so da
+        // o de agora; o painel guarda a cada busca). Financeiro: os gastos da empresa fora
+        // dos anuncios, unicos (com data) ou que se repetem todo mes ou todo ano.
+        track_migrar_para($pdo, 8, <<<'SQL'
+            CREATE TABLE IF NOT EXISTS meta_orcamento_dia (
+                dia              TEXT NOT NULL,
+                objeto_id        TEXT NOT NULL,
+                orcamento_diario INTEGER,
+                orcamento_total  INTEGER,
+                PRIMARY KEY (dia, objeto_id)
+            );
+            CREATE TABLE IF NOT EXISTS gastos (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                descricao     TEXT NOT NULL,
+                categoria     TEXT,
+                valor         INTEGER NOT NULL,
+                repete        TEXT NOT NULL,
+                inicio        TEXT NOT NULL,
+                fim           TEXT,
+                criado_por    TEXT,
+                criado_em     TEXT NOT NULL,
+                atualizado_em TEXT
+            );
+            PRAGMA user_version = 8;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

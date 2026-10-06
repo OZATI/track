@@ -4,18 +4,21 @@
 //
 // Gasto, status e orcamento vem da Meta (lib/meta_sync.php). Vendas vem da Kiwify (webhook e
 // API) e se ligam ao anuncio pelo ID que a etiqueta carrega depois do "|" (utm_campaign =
-// campanha, utm_medium = conjunto, utm_content = anuncio). So leitura: ligar, pausar e mudar
-// orcamento continuam no Gerenciador de Anuncios da Meta (o token do painel so le).
+// campanha, utm_medium = conjunto, utm_content = anuncio). Com um token que tambem gerencia
+// (ads_management), a chave de status liga e pausa na Meta (lib/gestor_editar.php).
 //
-// Contas iguais as da UTMify, para os numeros baterem:
+// Contas iguais as da UTMify e as da planilha de campanhas, para os numeros baterem:
 //   imposto  = 12,15% do gasto (o que a Meta cobra a mais no Brasil; config meta_imposto_pct)
 //   lucro    = faturamento liquido - imposto - gasto
-//   ROI      = faturamento liquido / (gasto + imposto)   (acima de 1, a campanha se paga)
+//   ROI      = (faturamento liquido - imposto) / gasto   (acima de 1, a campanha se paga)
+//   margem   = lucro / (faturamento liquido - imposto)
 //   CPA      = gasto / vendas;  custo por checkout = gasto / inicios de checkout na Meta
+// O historico dia a dia (vista "Dia a dia", lib/gestor_dias.php) usa as mesmas contas.
 
 require_once __DIR__ . '/meta_sync.php';
 require_once __DIR__ . '/gestor_editar.php';
 require_once __DIR__ . '/gestor_ranking.php';
+require_once __DIR__ . '/gestor_dias.php';
 
 // O (i) de cada nivel do gestor
 const GESTOR_NIVEIS_DICA = [
@@ -43,14 +46,7 @@ function gestor_id_utm(?string $v): ?string
 // Periodo da tela em dias do fuso (o gasto da Meta vem por dia)
 function gestor_dias(string $periodo): array
 {
-    if ($periodo === 'tudo') {
-        return ['0000-01-01', '9999-12-31'];
-    }
-    [$de, $ate] = periodo_utc($periodo);
-    $utc = new DateTimeZone('UTC');
-    $d1 = (new DateTime($de, $utc))->setTimezone(fuso());
-    $d2 = (new DateTime($ate, $utc))->setTimezone(fuso())->modify('-1 day');
-    return [$d1->format('Y-m-d'), $d2->format('Y-m-d')];
+    return periodo_dias($periodo);
 }
 
 function gestor_imposto_pct(): float
@@ -120,8 +116,9 @@ function gestor_metricas(array $r, float $pct): array
     return $r + [
         'imposto' => $imposto,
         'lucro' => $lucro,
-        // Mesma conta do ROI do Resumo: tudo o que voltou / tudo o que foi investido
-        'roi' => $div($r['fat'], $r['gasto'] + $imposto),
+        'taxas' => max(0, ($r['fat_bruto'] ?? 0) - $r['fat']),
+        // Conta da UTMify e da planilha (a mesma do ROI do Resumo)
+        'roi' => roi_campanha($r['fat'], $r['gasto'], $imposto),
         'roas' => $div($r['fat'], $r['gasto']),
         'cpa' => $div($r['gasto'], $r['vendas']),
         'cpi' => $div($r['gasto'], $r['checkouts']),
@@ -129,7 +126,7 @@ function gestor_metricas(array $r, float $pct): array
         'cpc' => $div($r['gasto'], $r['cliques']),
         'ctr' => $div($r['cliques'] * 100, $r['impressoes']),
         'cpm' => $div($r['gasto'] * 1000, $r['impressoes']),
-        'margem' => $div($lucro * 100, $r['fat']),
+        'margem' => margem_pct($r['fat'], $lucro, $imposto),
     ];
 }
 
@@ -145,9 +142,11 @@ function gestor_colunas(float $pct): array
         'gasto' => ['Gasto', 'Quanto a Meta cobrou no período, sem o imposto.', fn($r) => e(reais($r['gasto'])), true],
         'vendas' => ['Vendas', 'Vendas aprovadas ligadas pelo ID da etiqueta. Order bump não conta como outra venda.', fn($r) => (string)$r['vendas'], true],
         'fat' => ['Faturamento', 'Líquido da Kiwify (depois das taxas) das vendas aprovadas, com order bump.', fn($r) => e(reais($r['fat'])), true],
+        'fat_bruto' => ['Fat. bruto', 'Valor cobrado do comprador nas vendas aprovadas, antes das taxas da Kiwify, com order bump.', fn($r) => e(reais($r['fat_bruto'])), false],
+        'taxas' => ['Taxas Kiwify', 'Faturamento bruto − faturamento líquido: o que a Kiwify ficou de taxa nas vendas aprovadas.', fn($r) => e(reais($r['taxas'])), false],
         'lucro' => ['Lucro', 'Faturamento − gasto − imposto da Meta (' . $p . '%).', fn($r) => '<span class="' . $cor($r['lucro']) . '">' . e(reais($r['lucro'])) . '</span>', true],
         'cpa' => ['CPA', 'Custo por venda: gasto ÷ vendas.', fn($r) => $din($r['cpa']), true],
-        'roi' => ['ROI', 'Faturamento ÷ (gasto + imposto da Meta): quanto voltou para cada real investido. Acima de 1, se paga. É a mesma conta do ROI do Resumo (a UTMify desconta o imposto de outro jeito, então o número dela sai um pouco maior).', fn($r) => $r['roi'] === null ? 'N/A' : '<span class="' . $cor($r['roi'], 1) . '">' . $num($r['roi']) . '</span>', true],
+        'roi' => ['ROI', '(Faturamento − imposto da Meta) ÷ gasto: quanto voltou para cada real gasto. É a conta da UTMify e da planilha de campanhas. Vermelho abaixo de 1 (não se paga), laranja de 1 até 2, verde de 2 para cima.', fn($r) => $r['roi'] === null ? 'N/A' : '<span class="' . cor_roi($r['roi']) . '">' . $num($r['roi']) . '</span>', true],
         'roas' => ['ROAS', 'Faturamento ÷ gasto, sem o imposto. É o retorno sobre o gasto que a Meta mostra.', fn($r) => $r['roas'] === null ? 'N/A' : '<span class="' . $cor($r['roas'], 1) . '">' . $num($r['roas']) . '</span>', false],
         'cpi' => ['Custo por IC', 'Custo por início de checkout (finalização de compra iniciada): gasto ÷ ICs.', fn($r) => $din($r['cpi']), true],
         'ic' => ['IC', 'Inícios de checkout (finalização de compra iniciada) que a Meta contou.', fn($r) => (string)$r['checkouts'], true],
@@ -158,7 +157,7 @@ function gestor_colunas(float $pct): array
         'impressoes' => ['Impressões', 'Vezes que o anúncio apareceu.', fn($r) => number_format($r['impressoes'], 0, ',', '.'), false],
         'cpm' => ['CPM', 'Custo por mil impressões.', fn($r) => $din($r['cpm']), false],
         'visualizacoes' => ['Vis. de pág.', 'Visualizações da página de destino que a Meta contou (a página carregou).', fn($r) => (string)$r['visualizacoes'], false],
-        'margem' => ['Margem', 'Lucro ÷ faturamento.', fn($r) => $r['margem'] === null ? 'N/A' : '<span class="' . $cor($r['margem']) . '">' . $num($r['margem'], 1) . '%</span>', true],
+        'margem' => ['Margem', 'Lucro ÷ (faturamento − imposto da Meta), como na UTMify e na planilha: quanto de cada real que voltou sobrou.', fn($r) => $r['margem'] === null ? 'N/A' : '<span class="' . $cor($r['margem']) . '">' . $num($r['margem'], 1) . '%</span>', true],
         'imposto' => ['Imposto Meta', 'Impostos que a Meta cobra sobre o gasto no Brasil (' . $p . '%).', fn($r) => e(reais($r['imposto'])), false],
         'pend' => ['Pix pendentes', 'Pix ou boleto gerado e ainda não pago.', fn($r) => $r['pend'] ? (string)$r['pend'] : '', true],
         'reemb_fat' => ['Fat. reembolsado', 'Valor cobrado das vendas reembolsadas ou com chargeback.', fn($r) => $r['reemb_fat'] ? e(reais($r['reemb_fat'])) : '', false],
@@ -208,8 +207,28 @@ function gestor_motivo_fora(array $v): array
 
 function gestor_linha_nova(): array
 {
-    return ['gasto' => 0, 'checkouts' => 0, 'cliques' => 0, 'impressoes' => 0, 'visualizacoes' => 0, 'vendas' => 0, 'fat' => 0,
+    return ['gasto' => 0, 'checkouts' => 0, 'cliques' => 0, 'impressoes' => 0, 'visualizacoes' => 0, 'vendas' => 0, 'fat' => 0, 'fat_bruto' => 0,
         'pend' => 0, 'reemb' => 0, 'reemb_fat' => 0, 'recusadas' => 0, 'nome_utm' => null, 'pai_camp' => null, 'pai_conj' => null];
+}
+
+// Soma uma venda na linha: aprovada entra no faturamento (liquido e bruto) e, se nao for order
+// bump, conta como venda; Pix pendente, reembolso e recusa vao para as colunas deles
+function gestor_somar_venda(array &$l, array $v): void
+{
+    $principal = !eh_bump($v);
+    $sit = situacao($v)[0];
+    if ($sit === 'Aprovada') {
+        $l['fat'] += (int)($v['valor_liquido'] ?? $v['valor'] ?? 0);
+        $l['fat_bruto'] += (int)($v['valor'] ?? 0);
+        $l['vendas'] += $principal ? 1 : 0;
+    } elseif ($principal && $sit === 'Aguardando pagamento') {
+        $l['pend']++;
+    } elseif (in_array($sit, ['Reembolsada', 'Chargeback'], true)) {
+        $l['reemb_fat'] += (int)$v['valor'];
+        $l['reemb'] += $principal ? 1 : 0;
+    } elseif ($principal && $sit === 'Recusada') {
+        $l['recusadas']++;
+    }
 }
 
 // Soma gasto (Meta) e vendas (Kiwify) por objeto do nivel num periodo. Guarda tambem a
@@ -239,11 +258,11 @@ function gestor_agregar(PDO $db, string $nivel, string $dia1, string $dia2, stri
 
     $fora = [];
     foreach (consulta($db, 'SELECT * FROM vendas WHERE recebida_em >= ? AND recebida_em < ?', [$de, $ate]) as $v) {
-        $principal = !eh_bump($v);
-        $aprov = aprovada($v);
-        $sit = situacao($v)[0];
+        if (!venda_no_filtro($v)) {
+            continue;
+        }
         $camp = gestor_id_utm($v['utm_campaign']);
-        if ($aprov && $principal && (!$camp || ($conhecidas && !isset($conhecidas[$camp])))) {
+        if (aprovada($v) && !eh_bump($v) && (!$camp || ($conhecidas && !isset($conhecidas[$camp])))) {
             $motivo = gestor_motivo_fora($v)[0];
             $fora[$motivo[1]] = ($fora[$motivo[1]] ?? 0) + 1;
         }
@@ -252,17 +271,7 @@ function gestor_agregar(PDO $db, string $nivel, string $dia1, string $dia2, stri
             continue;
         }
         $l = $linhas[$id] ?? gestor_linha_nova();
-        if ($aprov) {
-            $l['fat'] += (int)($v['valor_liquido'] ?? $v['valor'] ?? 0);
-            $l['vendas'] += $principal ? 1 : 0;
-        } elseif ($principal && $sit === 'Aguardando pagamento') {
-            $l['pend']++;
-        } elseif (in_array($sit, ['Reembolsada', 'Chargeback'], true)) {
-            $l['reemb_fat'] += (int)$v['valor'];
-            $l['reemb'] += $principal ? 1 : 0;
-        } elseif ($principal && $sit === 'Recusada') {
-            $l['recusadas']++;
-        }
+        gestor_somar_venda($l, $v);
         $l['nome_utm'] = $l['nome_utm'] ?? ($campoUtm ? nome_curto($v[$campoUtm]) : null);
         $l['pai_camp'] = $l['pai_camp'] ?? $camp;
         $l['pai_conj'] = $l['pai_conj'] ?? gestor_id_utm($v['utm_medium']);
@@ -448,8 +457,8 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
             : 'Sem comparação: as setas e o movimento do ranking ficam escondidos.') . '</span>';
     } else {
         echo '<span class="suave">' . com_info('Sem comparação', $periodo === 'hoje'
-            ? 'Hoje ainda não terminou, e o gasto da Meta vem por dia inteiro: comparar agora daria números enganosos. Escolha Ontem, 7 ou 30 dias no período de cima.'
-            : 'Em Tudo não existe um período anterior para comparar. Escolha Ontem, 7 ou 30 dias no período de cima.')
+            ? 'Hoje ainda não terminou, e o gasto da Meta vem por dia inteiro: comparar agora daria números enganosos. Escolha outro período no topo (ontem, 7 dias, este mês, de uma data a outra...).'
+            : 'Em Tudo não existe um período anterior para comparar. Escolha outro período no topo (ontem, 7 dias, este mês, de uma data a outra...).')
             . ' neste período</span>';
     }
     echo '<noscript><button type="submit">Aplicar</button></noscript></form>';
@@ -515,22 +524,9 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         return $html;
     };
 
-    // Ranking (painel de bolsa): da melhor para a pior, com a curva do periodo
-    $antesMetricas = $anterior ? array_map(fn($l) => gestor_metricas($l, $pct), $antes) : null;
-    if ($nivel !== 'contas') {
-        $diasPeriodo = [];
-        $series = [];
-        if (in_array($periodo, ['7d', '30d'], true)) {
-            for ($d = new DateTime($dia1); $d->format('Y-m-d') <= $dia2; $d->modify('+1 day')) {
-                $diasPeriodo[] = $d->format('Y-m-d');
-            }
-            $series = gestor_serie($db, $nivel, $dia1, $dia2, $de, $ate);
-        }
-        echo gestor_ranking_html($tabela, $antesMetricas, $criterio, $nivel, $series, $diasPeriodo, $pct, $link, $nomeLink, $rotuloComp);
-    }
-
     // Filtros do nivel e escolha de colunas
-    echo '<div class="gestor-barra"><form class="gestor-filtros" method="get" action="./"><input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
+    // Status e nome aplicam sozinhos (status ao escolher, nome ao sair da caixa ou dar Enter)
+    echo '<div class="gestor-barra"><form class="gestor-filtros" method="get" action="./" data-auto><input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
         . '<input type="hidden" name="nivel" value="' . e($nivel) . '">'
         . ($fCamp !== '' ? '<input type="hidden" name="campanha" value="' . e($fCamp) . '">' : '')
         . ($fConj !== '' ? '<input type="hidden" name="conjunto" value="' . e($fConj) . '">' : '')
@@ -538,7 +534,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         . '<label>Nome<input type="search" name="q" value="' . e($busca) . '" placeholder="Filtrar por nome"></label>'
         . '<label>Status<select name="st"><option value="">Qualquer</option><option value="ativos"' . ($stFiltro === 'ativos' ? ' selected' : '') . '>Ativos</option>'
         . '<option value="pausados"' . ($stFiltro === 'pausados' ? ' selected' : '') . '>Pausados</option></select></label>'
-        . '<button type="submit" class="discreto neutro">Filtrar</button>'
+        . '<noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript>'
         . '</form>';
     // Seletor de colunas (como o da UTMify): a esquerda todas, com busca; a direita as
     // escolhidas, na ordem da tabela. Sem JavaScript, as caixas da esquerda ja funcionam.
@@ -632,9 +628,13 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         }
         $nomeHtml = $nomeLink($r);
         $marcado = $campoSel && in_array($r['id'], $nivel === 'campanhas' ? $selCamp : $selConj, true);
+        // Campanha: botao da analise diaria, que aparece ao passar o mouse na linha
+        $analise = $nivel === 'campanhas' && preg_match('/^\d{3,25}$/', $r['id'])
+            ? '<a class="analise" href="' . e('./?' . http_build_query(['aba' => 'campanha', 'id' => $r['id'], 'periodo' => $periodo])) . '" title="Análise diária: a campanha dia a dia, com o gráfico">' . icone('calendario', 14) . '<span>Análise diária</span></a>'
+            : '';
         echo '<tr>' . ($campoSel ? '<td class="marca"><input type="checkbox" form="form-sel" name="' . $campoSel . '[]" value="' . e($r['id']) . '" data-sel' . ($marcado ? ' checked' : '') . ' aria-label="Marcar ' . e($r['nome']) . '"></td>' : '')
             . '<td class="st">' . ($nivel === 'contas' ? gestor_status($r['obj']) : gestor_chave($r['obj'], $volta, $pode)) . '</td>'
-            . '<td class="quebra nome">' . $nomeHtml . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
+            . '<td class="quebra nome">' . $nomeHtml . $analise . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
         foreach ($colunas as $k) {
             echo '<td>' . $todas[$k][2]($r) . $celDelta($k, $r, $r['antes']) . '</td>';
         }
@@ -655,8 +655,24 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     $comparacao = $anterior
         ? 'As setas comparam com ' . $rotuloComp . ': verde melhorou, vermelho piorou (em custo, cair é bom), cinza é volume de gasto; "novo" não rodou antes. Passe o mouse na seta para ver o valor de antes. '
         : '';
-    echo '<p class="suave legenda">' . e($comparacao) . 'Clique no nome da campanha para ver os conjuntos, e no conjunto para ver os anúncios; marque várias para ver só as delas; clique no título da coluna para ordenar. '
+    echo '<p class="suave legenda">' . e($comparacao) . 'Clique no nome da campanha para ver os conjuntos, e no conjunto para ver os anúncios; passe o mouse na campanha para abrir a análise diária; marque várias para ver só as delas; clique no título da coluna para ordenar. '
         . 'Faturamento líquido da Kiwify, com order bump. Lucro = faturamento − gasto − imposto da Meta (' . e(number_format($pct, 2, ',', '.')) . '%).</p>';
+
+    // Ranking (painel de bolsa), embaixo da tabela: da melhor para a pior, com a curva do
+    // periodo. A curva aparece de 2 a 92 dias (em Tudo e em Hoje, so a posicao e o valor).
+    $antesMetricas = $anterior ? array_map(fn($l) => gestor_metricas($l, $pct), $antes) : null;
+    if ($nivel !== 'contas') {
+        $diasPeriodo = [];
+        $series = [];
+        $qtdDias = $periodo === 'tudo' ? 0 : (int)(new DateTime($dia1))->diff(new DateTime($dia2))->days + 1;
+        if ($qtdDias >= 2 && $qtdDias <= 92) {
+            for ($d = new DateTime($dia1); $d->format('Y-m-d') <= $dia2; $d->modify('+1 day')) {
+                $diasPeriodo[] = $d->format('Y-m-d');
+            }
+            $series = gestor_serie($db, $nivel, $dia1, $dia2, $de, $ate);
+        }
+        echo gestor_ranking_html($tabela, $antesMetricas, $criterio, $nivel, $series, $diasPeriodo, $pct, $link, $nomeLink, $rotuloComp);
+    }
 
     // Historico: quem ligou ou pausou o que, pelo painel
     $hist = gestor_historico(10);

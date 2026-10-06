@@ -260,9 +260,10 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     $num = fn(float $v, int $casas = 2) => number_format($v, $casas, ',', '.');
     $tz = fuso();
 
-    // Filtros do Resumo (como os da UTMify): produto e canal. Valem para as vendas; o gasto e
-    // o funil da Meta sao da conta toda (a Meta nao divide o gasto por produto).
-    $fProduto = texto($_GET['produto'] ?? '', 200);
+    // Filtros das vendas: produto (no topo, vale para todas as telas) e fonte de trafego (aqui,
+    // como na UTMify). O gasto e o funil da Meta sao da conta toda (a Meta nao divide o gasto
+    // por produto nem por fonte).
+    $fProduto = implode(', ', produto_filtro());
     $canaisNome = ['instagram' => 'Instagram · anúncio', 'facebook' => 'Facebook · anúncio', 'meta' => 'Anúncio sem posicionamento',
         'compartilhado' => 'Anúncio compartilhado', 'google' => 'Google · anúncio', 'organico' => 'Orgânico', 'outros' => 'Outras origens', 'direto' => 'Direto / sem origem'];
     $fCanal = isset($canaisNome[$_GET['canal'] ?? '']) ? $_GET['canal'] : '';
@@ -273,18 +274,17 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     $imposto = (int)round($gasto * $pct / 100);
 
     // Kiwify: vendas do periodo
-    $fat = $fatMeta = $aprovadas = $pendValor = $pendN = $reembValor = $reembN = 0;
+    $fat = $fatBruto = $fatMeta = $aprovadas = $pendValor = $pendN = $reembValor = $reembN = 0;
+    $foraTipo = ['Orgânico' => 0, 'Anúncio compartilhado' => 0, 'Direto / sem origem' => 0, 'Outras origens' => 0];
     $metaIniciadas = $metaAprovadas = $siteIniciadas = $siteAprovadas = $comOrigem = $semOrigem = 0;
     $porPagamento = ['Pix' => 0, 'Cartão' => 0, 'Boleto' => 0, 'Outros' => 0];
     $porProduto = $porCanal = $porHora = $fatHora = [];
     $porSemana = ['Seg' => 0, 'Ter' => 0, 'Qua' => 0, 'Qui' => 0, 'Sex' => 0, 'Sáb' => 0, 'Dom' => 0];
     $tentativas = $aprovPorMeio = [];
     $meios = ['pix' => 'Pix', 'credit_card' => 'Cartão', 'boleto' => 'Boleto'];
-    $produtos = [];
     foreach (consulta($db, 'SELECT * FROM vendas WHERE recebida_em >= ? AND recebida_em < ?', [$de, $ate]) as $v) {
-        $produtos[$v['produto'] ?: '—'] = true;
         $cn = canal($v['utm_source'], $v['utm_medium'], $v['utm_term'], null, $v['utm_campaign']);
-        if (($fProduto !== '' && ($v['produto'] ?: '—') !== $fProduto) || ($fCanal !== '' && $cn[0] !== $fCanal)) {
+        if (!venda_no_filtro($v) || ($fCanal !== '' && $cn[0] !== $fCanal)) {
             continue;
         }
         $principal = !eh_bump($v);
@@ -301,6 +301,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         }
         if (aprovada($v)) {
             $fat += $liquido;
+            $fatBruto += (int)($v['valor'] ?? 0);
             $fatMeta += $daMeta ? $liquido : 0;
             $porProduto[$v['produto'] ?: '—'] = ($porProduto[$v['produto'] ?: '—'] ?? 0) + 1;
             $quando = (new DateTime($v['aprovada_em'] ?: $v['recebida_em'], new DateTimeZone('UTC')))->setTimezone($tz);
@@ -316,6 +317,11 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
                 $metaAprovadas += $daMeta ? 1 : 0;
                 $siteAprovadas += $v['visitante'] ? 1 : 0;
                 $cn[0] === 'direto' ? $semOrigem++ : $comOrigem++;
+                // Fora de anuncio (sem o ID de uma campanha), pelo tipo: o grafico de pizza
+                if (!$daMeta) {
+                    $tipo = ['organico' => 'Orgânico', 'compartilhado' => 'Anúncio compartilhado', 'direto' => 'Direto / sem origem'][gestor_motivo_fora($v)[0][0]] ?? 'Outras origens';
+                    $foraTipo[$tipo]++;
+                }
             }
         } elseif ($principal && $sit === 'Aguardando pagamento') {
             $pendValor += (int)$v['valor'];
@@ -326,13 +332,14 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         }
     }
     $lucro = $fat - $gasto - $imposto;
-    // ROI geral: tudo o que voltou (anuncio, organico, direto, rastreado ou nao) sobre tudo o
-    // que foi investido (gasto + imposto da Meta). O rastreado usa so as vendas com o ID de
-    // uma campanha, para ver quanto do retorno o painel liga aos anuncios.
+    // ROI geral: tudo o que voltou (anuncio, organico, direto, rastreado ou nao), com a conta da
+    // UTMify e do gestor: (faturamento - imposto da Meta) / gasto. O rastreado usa so as vendas
+    // com o ID de uma campanha, para ver quanto do retorno o painel liga aos anuncios.
     $investido = $gasto + $imposto;
-    $roi = $investido ? $fat / $investido : null;
-    $roiMeta = $investido ? $fatMeta / $investido : null;
+    $roi = roi_campanha($fat, $gasto, $imposto);
+    $roiMeta = roi_campanha($fatMeta, $gasto, $imposto);
     $cor = fn(?float $v, float $limite = 0) => $v === null ? '' : ($v >= $limite ? 'positivo' : 'negativo');
+    $impostoTxt = number_format($pct, 2, ',', '.') . '%';
 
     // Site: visitantes e cliques no checkout (t.js)
     $visitantes = (int)valor($db, 'SELECT COUNT(DISTINCT visitante) FROM eventos WHERE em >= ? AND em < ?', [$de, $ate]);
@@ -344,22 +351,17 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     $vencida = meta_sync_vencida() || kiwify_sync_vencida();
     $datas = array_filter([$k['ok_em'], $meta['ok_em']]);
     $quando = $datas ? resumo_ha(min($datas)) : 'ainda não atualizado';
-    ksort($produtos);
-    if ($fProduto !== '') {
-        $produtos[$fProduto] = true;
-    }
     $opcoes = fn(array $lista, string $atual, string $todos) => '<option value="">' . e($todos) . '</option>'
         . implode('', array_map(fn($val, $rot) => '<option value="' . e((string)$val) . '"' . ((string)$val === $atual ? ' selected' : '') . '>' . e($rot) . '</option>', array_keys($lista), $lista));
     echo '<section class="bloco resumo-cab"><div class="resumo-topo"><h2>' . com_info('Resumo', 'Os números do período escolhido no topo. As vendas vêm da Kiwify (webhook e API), o gasto e o funil da Meta, e as visitas do próprio painel.') . '</h2>'
         . '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '><span data-sync-texto>' . e(ucfirst($quando)) . '</span>'
-        . botao_atualizar('./?' . http_build_query(array_filter(['aba' => 'geral', 'periodo' => $periodo, 'produto' => $fProduto, 'canal' => $fCanal]))) . '</div></div>'
+        . botao_atualizar('./?' . http_build_query(array_filter(['aba' => 'geral', 'periodo' => $periodo, 'canal' => $fCanal]))) . '</div></div>'
         . '<form class="resumo-filtros" method="get" action="./" data-auto><input type="hidden" name="aba" value="geral"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
-        . '<label>Produto<select name="produto">' . $opcoes(array_combine(array_keys($produtos), array_keys($produtos)), $fProduto, 'Qualquer') . '</select></label>'
-        . '<label>Canal da venda<select name="canal">' . $opcoes($canaisNome, $fCanal, 'Qualquer') . '</select></label>'
+        . '<label>' . com_info('Fonte de tráfego', 'Canal da venda, pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto... O produto se escolhe no topo e vale para todas as telas.') . '<select name="canal">' . $opcoes($canaisNome, $fCanal, 'Qualquer') . '</select></label>'
         . '<noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript></form>';
     if ($fProduto !== '' || $fCanal !== '') {
         echo '<p class="suave resumo-aviso">Filtro ligado: faturamento, vendas e lucro contam só ' . e(trim(($fProduto !== '' ? $fProduto : '') . ($fProduto !== '' && $fCanal !== '' ? ' · ' : '') . ($fCanal !== '' ? $canaisNome[$fCanal] : '')))
-            . '. O gasto e o funil da Meta continuam os da conta toda. <a href="' . e('./?' . http_build_query(['aba' => 'geral', 'periodo' => $periodo])) . '">Tirar o filtro</a></p>';
+            . '. O gasto e o funil da Meta continuam os da conta toda. <a href="' . e('./?' . http_build_query(['aba' => 'geral', 'periodo' => $periodo, 'produto' => ['']])) . '">Tirar o filtro</a></p>';
     }
     echo '</section>';
     if (!$temMeta) {
@@ -371,17 +373,23 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     echo '<div class="rgrade">'
         . resumo_cartao(reais($fat), 'Faturamento líquido', 'Soma do que a Kiwify repassa (depois das taxas) das vendas aprovadas no período, com order bump.', '', $aprovadas . ' venda' . ($aprovadas === 1 ? '' : 's') . ' aprovada' . ($aprovadas === 1 ? '' : 's'), 'c3')
         . resumo_cartao(reais($gasto), 'Gasto com anúncios', 'Quanto a Meta cobrou pelos anúncios no período, sem o imposto.', '', 'investimento com imposto: ' . reais($investido), 'c3')
-        . resumo_cartao($roi === null ? 'N/A' : $num($roi), 'ROI geral', 'Tudo o que voltou ÷ tudo o que foi investido: faturamento líquido de todas as vendas aprovadas (anúncio, orgânico e direto, rastreadas ou não) ÷ (gasto na Meta + imposto). Acima de 1, o investimento se paga.', $cor($roi, 1), '', 'c2')
-        . resumo_cartao($roiMeta === null ? 'N/A' : $num($roiMeta), 'ROI rastreado', 'Só as vendas com o ID de uma campanha da Meta ÷ (gasto + imposto). A diferença para o ROI geral é o retorno que veio de orgânico, direto ou venda sem etiqueta.', $cor($roiMeta, 1), '', 'c2')
+        . resumo_cartao($roi === null ? 'N/A' : $num($roi), 'ROI geral', 'Tudo o que voltou ÷ o gasto com anúncios, com a conta da UTMify e do gestor: (faturamento líquido de todas as vendas aprovadas − imposto da Meta) ÷ gasto. Entram anúncio, orgânico e direto, rastreadas ou não. Vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima. O ROI com as outras despesas da empresa fica na aba Financeiro.', cor_roi($roi), '', 'c2')
+        . resumo_cartao($roiMeta === null ? 'N/A' : $num($roiMeta), 'ROI rastreado', 'Só as vendas com o ID de uma campanha da Meta: (faturamento delas − imposto) ÷ gasto. A diferença para o ROI geral é o retorno que veio de orgânico, direto ou venda sem etiqueta.', cor_roi($roiMeta), '', 'c2')
         . resumo_cartao(reais($lucro), 'Lucro', 'Faturamento líquido − gasto − imposto da Meta (' . $num($pct) . '% sobre o gasto).', $lucro ? $cor((float)$lucro) : '', '', 'c2')
         . '<section class="rc c4 r2"><div class="rc-cab"><span>Vendas por pagamento</span>' . info('Vendas aprovadas (sem contar order bump) por forma de pagamento.') . '</div>'
         . resumo_rosca($porPagamento, ['Pix' => '#1D6FF2', 'Cartão' => '#60A5FA', 'Boleto' => '#F59E0B', 'Outros' => '#9CA3AF'], 'Total') . '</section>'
-        . resumo_cartao($fat ? $num($lucro * 100 / $fat, 1) . '%' : '—', 'Margem', 'Lucro ÷ faturamento líquido: quanto de cada real vendido sobra.', $fat ? $cor((float)$lucro) : '', '', 'c2')
+        . resumo_cartao(($m = margem_pct($fat, $lucro, $imposto)) === null ? '—' : $num($m, 1) . '%', 'Margem', 'Lucro ÷ (faturamento líquido − imposto da Meta), como na UTMify e na planilha: quanto de cada real que voltou sobra.', $fat ? $cor((float)$lucro) : '', '', 'c2')
         . resumo_cartao($aprovadas ? reais((int)round($gasto / $aprovadas)) : 'N/A', 'CPA', 'Gasto ÷ vendas aprovadas. Order bump não conta como outra venda.', '', '', 'c2')
         . resumo_cartao(reais($imposto), 'Imposto da Meta', 'Impostos que a Meta cobra sobre o gasto com anúncios no Brasil: ' . $num($pct) . '%.', '', '', 'c2')
         . resumo_cartao($aprovadas ? reais((int)round($fat / $aprovadas)) : 'N/A', 'Ticket médio', 'Faturamento líquido ÷ vendas aprovadas (quanto cada comprador deixa, com order bump). Na UTMify, ARPU.', '', '', 'c2')
         . resumo_cartao(reais($pendValor), 'Vendas pendentes', 'Pix ou boleto gerado e ainda não pago, no valor cobrado.', '', $pendN . ' pedido' . ($pendN === 1 ? '' : 's'), 'c4')
         . resumo_cartao(reais($reembValor), 'Vendas reembolsadas', 'Reembolsos e chargebacks no período, no valor cobrado.', $reembValor ? 'negativo' : '', $reembN . ' venda' . ($reembN === 1 ? '' : 's'), 'c4')
+        . '</div>';
+    // Faturamento bruto e taxas da Kiwify lado a lado (bruto - taxas = o liquido de cima). O
+    // imposto da Meta e outra coisa: vai junto com o gasto, no cartao dele
+    echo '<div class="rgrade">'
+        . resumo_cartao(reais($fatBruto), 'Faturamento bruto', 'Valor cobrado do comprador nas vendas aprovadas, antes das taxas da Kiwify, com order bump. Bruto − taxas = o faturamento líquido de cima, que é a base do lucro e do ROI.', '', '', 'c6')
+        . resumo_cartao(reais(max(0, $fatBruto - $fat)), 'Taxas da Kiwify', 'Faturamento bruto − líquido: o que a Kiwify ficou de taxa nas vendas aprovadas do período. O imposto da Meta (' . $impostoTxt . ' do gasto) é outra coisa: conta como custo do anúncio.', '', $fatBruto ? $num(max(0, $fatBruto - $fat) * 100 / $fatBruto, 1) . '% do bruto' : '', 'c6')
         . '</div>';
 
     // Taxa de aprovacao, produto e canal
@@ -424,6 +432,10 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
             ['Sem origem ' . info('Chegaram sem etiqueta nenhuma: link de checkout enviado à mão, e-mail, troca de aparelho.'), $semOrigem, $aprovadas ? $semOrigem * 100 / $aprovadas : null],
         ], 'Nenhuma venda aprovada no período.')
         . '<a class="rc-link" href="' . e($fora) . '">Ver as vendas fora de anúncio</a></section></div>';
+    echo '<div class="rgrade"><section class="rc c4"><div class="rc-cab"><span>Vendas fora de anúncio</span>' . info('Vendas aprovadas sem o ID de uma campanha da Meta (a UTMify chama de não trackeadas), pelo tipo: orgânico (bio, stories, WhatsApp, Google...), anúncio compartilhado (link do anúncio aberto fora da entrega paga), direto (sem etiqueta nenhuma, como link de checkout mandado à mão) e outras origens.') . '</div>'
+        . (array_sum($foraTipo) ? resumo_rosca($foraTipo, ['Orgânico' => '#16A34A', 'Anúncio compartilhado' => '#1D6FF2', 'Direto / sem origem' => '#9CA3AF', 'Outras origens' => '#F59E0B'], 'Fora')
+            : '<p class="suave">Nenhuma venda fora de anúncio no período.</p>')
+        . '<a class="rc-link" href="' . e($fora) . '">Ver cada uma e o motivo</a></section></div>';
 
     // Graficos por hora
     $hoje = $periodo === 'hoje';

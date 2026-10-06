@@ -110,6 +110,9 @@ function meta_sync_buscar(array $k, bool $completa): array
         ON CONFLICT (id) DO UPDATE SET nivel = excluded.nivel, nome = excluded.nome, status = excluded.status,
             status_efetivo = excluded.status_efetivo, campanha_id = excluded.campanha_id, conjunto_id = excluded.conjunto_id,
             orcamento_diario = excluded.orcamento_diario, orcamento_total = excluded.orcamento_total, atualizado_em = excluded.atualizado_em');
+    // Orcamento de hoje de cada campanha e conjunto: o dia a dia do gestor mostra o de cada dia
+    $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
+    $gravarOrc = $db->prepare('INSERT OR REPLACE INTO meta_orcamento_dia (dia, objeto_id, orcamento_diario, orcamento_total) VALUES (?, ?, ?, ?)');
     $objetos = 0;
     foreach ($niveis as $nivel => [$rota, $campos]) {
         $r = meta_listar($conta . $rota, ['fields' => $campos, 'limit' => '200'], $k['token']);
@@ -127,6 +130,9 @@ function meta_sync_buscar(array $k, bool $completa): array
                 $nivel === 'campaign' ? $id : meta_so_numeros($o['campaign_id'] ?? ''),
                 $nivel === 'adset' ? $id : ($nivel === 'ad' ? meta_so_numeros($o['adset_id'] ?? '') : null),
                 $orcDia ?: null, $orcTotal ?: null, agora_utc()]);
+            if ($orcDia || $orcTotal) {
+                $gravarOrc->execute([$hoje, $id, $orcDia ?: null, $orcTotal ?: null]);
+            }
             $objetos++;
         }
     }
