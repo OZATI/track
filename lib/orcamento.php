@@ -214,15 +214,55 @@ function orc_executar_vencidas(?DateTime $agora = null): int
     return $rodaram;
 }
 
-// Bloco "Orcamento" da analise diaria da campanha: mudar agora, programar, as programacoes e o
-// historico das mudancas da campanha e dos conjuntos dela
+// Orcamento no cabecalho da analise diaria, na linha do nome: o valor e um lapis (aparece ao
+// passar o mouse; no toque, sempre) que abre o campo ali mesmo, com salvar e cancelar. Salvar
+// pede a confirmacao com a variacao e o aviso de 20% (painel.js) e muda na Meta na hora
+// (meta-orcamento.php, acao=mudar). Campanha com orcamento nos conjuntos: o campo escolhe o
+// conjunto. Token so de leitura ou orcamento total: so o valor.
+function orc_inline(array $obj, string $volta): string
+{
+    $alvos = orc_alvos((string)$obj['id']);
+    if ($obj['orcamento_diario']) {
+        $txt = '<b>' . e(reais((int)$obj['orcamento_diario'])) . '</b> <small>por dia</small>';
+    } elseif ($obj['orcamento_total']) {
+        $txt = '<b>' . e(reais((int)$obj['orcamento_total'])) . '</b> <small>no total</small>';
+    } elseif ($alvos) {
+        $txt = '<small>nos conjuntos:</small> <b>' . e(reais(array_sum(array_map(fn($o) => (int)$o['orcamento_diario'], $alvos)))) . '</b> <small>por dia</small>';
+    } else {
+        return '<span class="campanha-orc suave">sem orçamento</span>';
+    }
+    if (!$alvos || !gestor_pode_editar()) {
+        $porque = !$alvos ? 'Orçamento total da campanha: muda no Gerenciador de Anúncios da Meta.' : 'Para mudar o orçamento por aqui, o token da API Meta precisa de ads_management (aba API Meta).';
+        return '<span class="campanha-orc" tabindex="0" data-dica="' . e($porque) . '">' . $txt . '</span>';
+    }
+    $teto = orc_teto();
+    if (count($alvos) === 1) {
+        $campo = '<input type="hidden" name="objeto" value="' . e($alvos[0]['id']) . '" data-atual="' . (int)$alvos[0]['orcamento_diario'] . '">';
+    } else {
+        $campo = '<select name="objeto" aria-label="Qual conjunto">';
+        foreach ($alvos as $o) {
+            $campo .= '<option value="' . e($o['id']) . '" data-atual="' . (int)$o['orcamento_diario'] . '">' . e(($o['nivel'] === 'campaign' ? 'Campanha' : 'Conjunto') . ': ' . $o['nome']) . '</option>';
+        }
+        $campo .= '</select>';
+    }
+    return '<details class="orc-inline"><summary class="campanha-orc" aria-label="Mudar o orçamento diário" data-dica-titulo="Mudar o orçamento" data-dica="Muda o orçamento diário na Meta na hora, com confirmação. Até ' . e(reais($teto)) . ' por dia." data-dica-botao>'
+        . $txt . icone('lapis', 14) . '</summary>'
+        . '<form method="post" action="meta-orcamento.php" class="orc-inline-form" data-orcamento><input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="volta" value="' . e($volta) . '"><input type="hidden" name="acao" value="mudar">'
+        . $campo . '<span class="suave">R$</span><input name="valor" inputmode="decimal" required autocomplete="off" value="' . e(number_format((int)$alvos[0]['orcamento_diario'] / 100, 2, ',', '.')) . '" aria-label="Novo orçamento diário (R$)"><span class="suave">por dia</span>'
+        . '<button type="submit" class="orc-salvar" aria-label="Mudar na Meta" title="Mudar na Meta">' . icone('ok', 16) . '</button>'
+        . '<button type="button" class="discreto neutro orc-cancelar" data-orc-fecha aria-label="Cancelar" title="Cancelar">' . icone('fechar', 16) . '</button></form></details>';
+}
+
+// Bloco "Programar orcamento" da analise diaria da campanha (embaixo): o botao que abre o
+// formulario, as programacoes e o historico das mudancas da campanha e dos conjuntos dela. Mudar
+// na hora fica no lapis do cabecalho (orc_inline).
 function orc_bloco(string $campanha, string $volta): string
 {
     $pode = gestor_pode_editar();
     $alvos = orc_alvos($campanha);
     $teto = orc_teto();
     $csrf = '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="volta" value="' . e($volta . '#orcamento') . '">';
-    $html = '<section class="bloco orcamento" id="orcamento">' . titulo('Orçamento', 'Muda o orçamento diário na Meta agora ou numa programação (todo dia num horário, ou uma vez numa data e hora). Teto de ' . reais($teto) . ' por dia, que muda em Configurações. Subir ou descer mais de 20% de uma vez pode reiniciar o aprendizado da Meta: a tela avisa antes. Cada mudança fica no histórico e a programação avisa no celular.');
+    $html = '<section class="bloco orcamento" id="orcamento">' . titulo('Programar orçamento', 'Muda o orçamento diário na Meta sozinho: todo dia num horário (nos dias marcados) ou uma vez numa data e hora. Para mudar agora, use o lápis ao lado do orçamento, no alto da página. Teto de ' . reais($teto) . ' por dia, que muda em Configurações. Subir ou descer mais de 20% de uma vez pode reiniciar o aprendizado da Meta. Cada mudança fica no histórico e a programação avisa no celular.');
     if (!$alvos) {
         return $html . '<p class="suave">Esta campanha não tem orçamento diário no painel (orçamento total, ou nada buscado ainda). Atualize o gestor ou mude no Gerenciador de Anúncios da Meta.</p></section>';
     }
@@ -234,13 +274,10 @@ function orc_bloco(string $campanha, string $volta): string
         $opcoes .= '<option value="' . e($o['id']) . '" data-atual="' . (int)$o['orcamento_diario'] . '">' . e(($o['nivel'] === 'campaign' ? 'Campanha' : 'Conjunto') . ': ' . $o['nome'] . ' (' . reais((int)$o['orcamento_diario']) . ')') . '</option>';
     }
     $dis = $pode ? '' : ' disabled';
-    $html .= '<div class="orc-grade"><form method="post" action="meta-orcamento.php" class="orc-form" data-orcamento>' . $csrf . '<input type="hidden" name="acao" value="mudar">'
-        . '<h3>Mudar agora</h3><label>Onde<select name="objeto"' . $dis . '>' . $opcoes . '</select></label>'
-        . '<label><span>' . com_info('Novo orçamento diário (R$)', 'Vale na hora, na Meta. Até ' . reais($teto) . ' por dia.') . '</span><input name="valor" inputmode="decimal" required placeholder="' . e(number_format((int)$alvos[0]['orcamento_diario'] / 100, 2, ',', '.')) . '"' . $dis . '></label>'
-        . '<button type="submit"' . $dis . '>Mudar na Meta</button></form>';
     $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
-    $html .= '<form method="post" action="meta-orcamento.php" class="orc-form" data-programar>' . $csrf . '<input type="hidden" name="acao" value="programar">'
-        . '<h3>Programar</h3><label>Onde<select name="objeto"' . $dis . '>' . $opcoes . '</select></label>'
+    $html .= '<details class="orc-novo"><summary>' . icone('calendario', 14) . '<span>Nova programação</span></summary>'
+        . '<form method="post" action="meta-orcamento.php" class="orc-form" data-programar>' . $csrf . '<input type="hidden" name="acao" value="programar">'
+        . '<label>Onde<select name="objeto"' . $dis . '>' . $opcoes . '</select></label>'
         . '<div class="orc-linha"><label class="orc-op"><input type="radio" name="tipo" value="diaria" checked' . $dis . '> Repete</label><label class="orc-op"><input type="radio" name="tipo" value="unica"' . $dis . '> Uma vez</label></div>'
         . '<div class="orc-dias" data-so="diaria">';
     foreach (ORC_SEMANA as $n => $rot) {
@@ -249,7 +286,7 @@ function orc_bloco(string $campanha, string $volta): string
     $html .= '</div><div class="orc-linha"><label data-so="unica">Data<input type="date" name="data" min="' . $hoje . '" value="' . $hoje . '"' . $dis . '></label>'
         . '<label>Horário<select name="hora"' . $dis . '>' . implode('', array_map(fn($m) => '<option' . ($m === 480 ? ' selected' : '') . '>' . sprintf('%02d:%02d', intdiv($m, 60), $m % 60) . '</option>', range(0, 1425, 15))) . '</select></label>'
         . '<label><span>' . com_info('Orçamento (R$)', 'O orçamento diário que a campanha passa a ter nesse horário. Até ' . reais($teto) . ' por dia.') . '</span><input name="valor" inputmode="decimal" required placeholder="0,00"' . $dis . '></label></div>'
-        . '<button type="submit"' . $dis . '>Programar</button></form></div>';
+        . '<button type="submit"' . $dis . '>Programar</button></form></details>';
 
     // Programacoes desta campanha
     $progs = orc_programacoes($campanha);

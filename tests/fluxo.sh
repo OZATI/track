@@ -495,7 +495,9 @@ orc() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlenco
 meta "$csrf" "$LEITURA" 587364236934346 >/dev/null
 r=$(orc "$csrf" mudar --data-urlencode "objeto=120120" --data-urlencode "valor=48,00")
 confere "$(tem 'O token da API Meta só lê. Para mudar o orçamento pelo painel' "$r")" "token só de leitura: o orçamento não muda"
-confere "$(tem '<button type="submit" disabled>Mudar na Meta</button>' "$r")" "token só de leitura: o formulário do orçamento aparece desligado"
+confere "$(grep -q 'class="orc-inline"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "token só de leitura: sem o lápis do orçamento no cabeçalho"
+confere "$(tem 'class="campanha-orc" tabindex="0" data-dica="Para mudar o orçamento por aqui, o token da API Meta precisa de ads_management' "$r")" "token só de leitura: o orçamento aparece, com a dica do porquê"
+confere "$(tem '<button type="submit" disabled>Programar</button>' "$r")" "token só de leitura: o programar aparece desligado"
 meta "$csrf" "TokenGerencia00000000000000000000000000000000" 587364236934346 >/dev/null
 r=$(orc "" mudar --data-urlencode "objeto=120120" --data-urlencode "valor=48,00")
 confere "$(tem 'Sessão expirada' "$r")" "mudar orçamento sem o token do formulário é recusado"
@@ -503,6 +505,10 @@ r=$(orc "$csrf" mudar --data-urlencode "objeto=120120" --data-urlencode "valor=4
 confere "$(tem 'Orçamento de &quot;TL 1&quot; mudou de R$ 40,00 para R$ 48,00 por dia na Meta.' "$r")" "mudar o orçamento da campanha na Meta, na hora"
 confere "$(tem 'data-atual="4800"' "$r")" "o orçamento novo já aparece no painel"
 confere "$(tem 'data-orcamento' "$r")" "mudar o orçamento pede confirmação na tela (com a variação e o aviso de 20%)"
+confere "$(tem '<details class="orc-inline"><summary class="campanha-orc"[^>]*><b>R\$ 48,00</b> <small>por dia</small><svg' "$r")" "orçamento no cabeçalho, na linha do nome, com o lápis"
+confere "$(tem 'class="orc-inline-form" data-orcamento>.*name="objeto" value="120120" data-atual="4800">.*name="valor"[^>]*value="48,00"' "$r")" "o lápis abre o campo na linha, com o valor de agora"
+confere "$(grep -q '<h3>Mudar agora</h3>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem o \"Mudar agora\" embaixo (fica o lápis)"
+confere "$(tem '<details class="orc-novo"><summary>.*Nova programação</span></summary>' "$r")" "programar abre num botão, embaixo"
 r=$(orc "$csrf" mudar --data-urlencode "objeto=120120" --data-urlencode "valor=500")
 confere "$(tem 'o teto de R$ 300,00 por dia' "$r")" "acima do teto (R$ 300,00 por dia) é recusado"
 r=$(orc "$csrf" mudar --data-urlencode "objeto=999999" --data-urlencode "valor=50")
@@ -592,7 +598,28 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
 confere "$(tem '<h2>TL 1</h2>' "$r")" "análise diária abre com o nome da campanha"
 confere "$(tem 'Período <span class="suave">(1 dia)</span>' "$r")" "análise diária: total do período em cima"
 confere "$(tem 'class="ao-vivo"' "$r")" "análise diária: hoje aparece ao vivo"
-confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "análise diária: gasto, vendas e faturamento do dia"
+confere "$(tem '<td data-v="5000">R$ 50,00</td><td data-v="2">2</td><td data-v="13500">R$ 135,00</td>' "$r")" "análise diária: gasto, vendas e faturamento do dia (com o número para ordenar)"
+confere "$(tem "<td class=\"nome dia\" data-v=\"$HOJE\">" "$r")" "análise diária: a data do dia para ordenar"
+confere "$(tem '<table data-ordenar="dias-campaign"><thead><tr><th class="nome dia" data-col="dia" data-tipo="data" data-inicial="asc"><button type="button" class="ordena">Data</button>' "$r")" "análise diária: clicar no título ordena (data, do mais recente ao mais antigo)"
+pt=$(printf '%s\n' "$r" | grep -bo 'data-ordenar="dias-campaign"' | head -1 | cut -d: -f1)
+pc=$(printf '%s\n' "$r" | grep -bo '<div class="rgrade analise">' | head -1 | cut -d: -f1)
+confere "$([ -n "$pt" ] && [ -n "$pc" ] && [ "$pt" -lt "$pc" ]; echo $?)" "análise diária: a tabela vem logo embaixo do cabeçalho, antes dos cartões"
+confere "$(tem 'ID <code>120120</code>' "$r")" "análise diária: o ID da campanha no cabeçalho"
+confere "$(tem '<input type="hidden" name="aba" value="campanha"><input type="hidden" name="id" value="120120"><input type="hidden" name="periodo" value="tudo"><div class="colunas-cab">' "$r")" "análise diária: botão Colunas no cabeçalho, como no gestor"
+confere "$(tem 'class="chip" data-modelo="[^"]*" aria-pressed="true">Campanha</button>' "$r")" "análise diária: modelo Campanha (as 17 colunas da planilha) marcado por padrão"
+confere "$(tem '>Conjunto</button><button type="button" class="chip" data-modelo="[^"]*" aria-pressed="false">Criativo</button>' "$r")" "modelos Conjunto e Criativo no seletor de colunas"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo&cols[]=gasto&cols[]=roi")
+confere "$(tem '<th data-col="gasto" data-tipo="num">.*<th data-col="roi" data-tipo="num">' "$r")" "análise diária: escolher as colunas"
+confere "$(grep -q '<th data-col="lucro"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "análise diária: coluna desmarcada sai"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
+confere "$(grep -q '<th data-col="lucro"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "análise diária: a escolha fica guardada"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem '>Lucro</a>' "$r")" "a escolha da análise diária não mexe nas colunas do gestor"
+confere "$(tem 'class="analise" href="[^"]*" aria-label="Análise diária" data-dica-titulo="Análise diária" data-dica="[^"]*" data-dica-botao><svg' "$r")" "botão da análise diária só com o ícone, e o nome na dica"
+confere "$(tem 'data-modelo=' "$r")" "gestor também tem os modelos de colunas"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo&cols=padrao")
+confere "$(tem '<th data-col="lucro" data-tipo="num">' "$r")" "análise diária: voltar ao padrão traz as 17 colunas"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
 confere "$(tem 'href="./?aba=gestor[^"]*" class="atual"' "$r")" "análise diária deixa a aba Gestor marcada"
 confere "$(tem '<input type="hidden" name="id" value="120120">' "$r")" "trocar o período no topo continua na mesma campanha"
 # Analise diaria, em cima: numeros, graficos, leitura da campanha e quem compra (Meta)
@@ -645,7 +672,7 @@ confere "$([ "$oc" = "2026-01-31,2026-02-28,2026-03-31,2026-04-30|123456|4000" ]
 # Rastreio da VSL (veio da copia do engdesk, commit 65b7a78): a pagina manda os eventos pelo window.trk
 confere "$(grep -q 'window.trk = function' "$RAIZ/t.js"; echo $?)" "t.js aceita os eventos da VSL (window.trk e a fila trkQueue)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
-confere "$(tem '<th data-col="orcamento">Orçamento .*<th data-col="gasto">Gastos .*<th data-col="visualizacoes">Vis. de página .*<th data-col="margem">Margem' "$(tr -d '
+confere "$(tem '<th data-col="orcamento" data-tipo="num"><button type="button" class="ordena">Orçamento</button>.*<th data-col="gasto" data-tipo="num"><button type="button" class="ordena">Gastos</button>.*<th data-col="visualizacoes" data-tipo="num"><button type="button" class="ordena">Vis. de página</button>.*<th data-col="margem" data-tipo="num"><button type="button" class="ordena">Margem</button>' "$(tr -d '
 ' < <(printf '%s
 ' "$r"))")" "análise diária com as colunas da planilha, na ordem dela"
 

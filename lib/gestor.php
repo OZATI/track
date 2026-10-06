@@ -167,25 +167,69 @@ function gestor_colunas(float $pct): array
     ];
 }
 
-// Colunas escolhidas: as do formulario (e salva), as salvas, ou as padrao
-function gestor_colunas_escolhidas(array $todas): array
+// Colunas escolhidas: as do formulario (e salva), as salvas, ou as padrao. $chave: onde fica
+// guardada (o gestor tem a sua e a analise diaria, uma por nivel); $padrao: a lista padrao, se
+// nao for a das colunas marcadas como padrao
+function gestor_colunas_escolhidas(array $todas, string $chave = 'gestor_colunas', ?array $padrao = null): array
 {
     // Na ordem escolhida (o seletor de colunas manda na ordem da lista da direita)
     $validas = fn(array $v) => array_values(array_unique(array_filter($v, fn($k) => is_string($k) && isset($todas[$k]))));
     if (($_GET['cols'] ?? null) === 'padrao') {
-        definir_ajuste('gestor_colunas', null);
+        definir_ajuste($chave, null);
     } elseif (isset($_GET['cols']) && is_array($_GET['cols'])) {
         $escolha = $validas($_GET['cols']);
         if ($escolha) {
-            definir_ajuste('gestor_colunas', json_encode($escolha));
+            definir_ajuste($chave, json_encode($escolha));
             return $escolha;
         }
     }
-    $salvas = json_decode((string)ajuste('gestor_colunas'), true);
+    $salvas = json_decode((string)ajuste($chave), true);
     if (is_array($salvas) && ($salvas = $validas($salvas))) {
         return $salvas;
     }
-    return array_keys(array_filter($todas, fn($c) => $c[3]));
+    return $padrao !== null ? $validas($padrao) : array_keys(array_filter($todas, fn($c) => $c[3]));
+}
+
+// Modelos de colunas (botoes no seletor): o que olhar em cada nivel. Campanha: as 17 colunas da
+// aba CAMPANHAS da planilha, na ordem dela. Conjunto (publico): custo de alcancar e converter.
+// Criativo (anuncio): clique, custo do clique e o que a pagina faz com ele.
+const GESTOR_MODELOS = [
+    'campanha' => ['Campanha', ['orcamento', 'gasto', 'vendas', 'fat', 'lucro', 'cpa', 'roi', 'cpi', 'ic', 'cpv', 'cpc', 'cliques', 'ctr', 'impressoes', 'cpm', 'visualizacoes', 'margem']],
+    'conjunto' => ['Conjunto', ['orcamento', 'gasto', 'vendas', 'fat', 'lucro', 'cpa', 'roi', 'cpm', 'ctr', 'cpc', 'cliques', 'impressoes', 'ic', 'cpi', 'visualizacoes']],
+    'criativo' => ['Criativo', ['gasto', 'vendas', 'fat', 'lucro', 'roi', 'cpa', 'ctr', 'cpc', 'cliques', 'ic', 'cpi', 'visualizacoes', 'cpv', 'impressoes', 'cpm']],
+];
+
+// Seletor de colunas (como o da UTMify), numa janela no meio da tela: a esquerda todas, com
+// busca; a direita as escolhidas, na ordem da tabela; em cima, os modelos. Sem JavaScript, as
+// caixas da esquerda ja funcionam. $campos: os campos que o formulario repete (nome => valor ou
+// lista de valores); $fixa: a primeira coluna, que nao sai (Campanha, Dia...)
+function gestor_colunas_seletor(array $todas, array $colunas, string $fixa, array $campos, string $hrefPadrao): string
+{
+    $h = '<details class="colunas" id="colunas"><summary>' . icone('colunas', 14) . '<span>Colunas</span></summary><form class="colunas-painel" method="get" action="./" data-colunas>';
+    foreach ($campos as $nome => $valor) {
+        foreach (is_array($valor) ? $valor : [$valor] as $v) {
+            $h .= '<input type="hidden" name="' . e($nome) . (is_array($valor) ? '[]' : '') . '" value="' . e((string)$v) . '">';
+        }
+    }
+    $h .= '<div class="colunas-cab"><strong>Personalize as colunas</strong><span class="suave">Marque as colunas e arraste para mudar a ordem, ou comece por um modelo.</span>'
+        . '<div class="colunas-modelos"><span class="suave">' . com_info('Modelos', 'Campanha: as 17 colunas da planilha de campanhas, na ordem dela. Conjunto (público): custo de alcançar e de converter o público. Criativo (anúncio): clique, custo do clique e o que a página faz com ele. O modelo só monta a lista: dá para ajustar antes de salvar.') . '</span>';
+    foreach (GESTOR_MODELOS as [$rot, $lista]) {
+        $lista = array_values(array_filter($lista, fn($k) => isset($todas[$k])));
+        $h .= '<button type="button" class="chip" data-modelo="' . e((string)json_encode($lista)) . '" aria-pressed="' . ($lista === $colunas ? 'true' : 'false') . '">' . e($rot) . '</button>';
+    }
+    $h .= '</div></div><div class="colunas-lista"><input type="search" placeholder="Buscar coluna" aria-label="Buscar coluna" data-colunas-busca><div data-colunas-todas>';
+    foreach ($todas as $k => [$tit, $dica]) {
+        $h .= '<label data-coluna="' . e($k) . '"><input type="checkbox" name="cols[]" value="' . e($k) . '"' . (in_array($k, $colunas, true) ? ' checked' : '') . '>'
+            . '<span><b>' . e($tit) . '</b><small>' . e($dica) . '</small></span></label>';
+    }
+    $h .= '</div></div><div class="colunas-escolhidas"><div class="colunas-fixa">' . e($fixa) . '</div><ol data-colunas-ordem>';
+    foreach ($colunas as $k) {
+        $h .= '<li draggable="true" data-coluna="' . e($k) . '"><span class="alca" aria-hidden="true">☰</span><span>' . e($todas[$k][0]) . '</span>'
+            . '<button type="button" class="discreto neutro" data-sobe aria-label="Subir">↑</button><button type="button" class="discreto neutro" data-desce aria-label="Descer">↓</button>'
+            . '<button type="button" class="discreto" data-tira aria-label="Tirar">×</button></li>';
+    }
+    return $h . '</ol></div><div class="colunas-pe"><a href="' . e($hrefPadrao) . '">Voltar ao padrão</a>'
+        . '<button type="button" class="discreto neutro" data-colunas-cancela>Cancelar</button><button type="submit">Salvar</button></div></form></details>';
 }
 
 // Por que uma venda aprovada ficou fora de anuncio (pelo canal da etiqueta)
@@ -536,32 +580,10 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         . '<option value="pausados"' . ($stFiltro === 'pausados' ? ' selected' : '') . '>Pausados</option></select></label>'
         . '<noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript>'
         . '</form>';
-    // Seletor de colunas (como o da UTMify): a esquerda todas, com busca; a direita as
-    // escolhidas, na ordem da tabela. Sem JavaScript, as caixas da esquerda ja funcionam.
-    echo '<details class="colunas" id="colunas"><summary>Colunas</summary><form class="colunas-painel" method="get" action="./" data-colunas>'
-        . '<input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '"><input type="hidden" name="nivel" value="' . e($nivel) . '">';
-    foreach (array_filter(['q' => $busca, 'st' => $stFiltro, 'campanha' => $fCamp, 'conjunto' => $fConj, 'ordem' => $ordem, 'dir' => $dir]) as $nomeCampo => $valor) {
-        echo '<input type="hidden" name="' . $nomeCampo . '" value="' . e($valor) . '">';
-    }
-    foreach ($sel as $nomeCampo => $ids) {
-        foreach ($ids as $idSel) {
-            echo '<input type="hidden" name="' . $nomeCampo . '[]" value="' . e($idSel) . '">';
-        }
-    }
-    echo '<div class="colunas-cab"><strong>Personalize as colunas</strong><span class="suave">Marque as colunas e arraste para mudar a ordem.</span></div>'
-        . '<div class="colunas-lista"><input type="search" placeholder="Buscar coluna" aria-label="Buscar coluna" data-colunas-busca><div data-colunas-todas>';
-    foreach ($todas as $k => [$tit, $dica]) {
-        echo '<label data-coluna="' . e($k) . '"><input type="checkbox" name="cols[]" value="' . e($k) . '"' . (in_array($k, $colunas, true) ? ' checked' : '') . '>'
-            . '<span><b>' . e($tit) . '</b><small>' . e($dica) . '</small></span></label>';
-    }
-    echo '</div></div><div class="colunas-escolhidas"><div class="colunas-fixa">' . e(['contas' => 'Conta', 'campanhas' => 'Campanha', 'conjuntos' => 'Conjunto', 'anuncios' => 'Anúncio'][$nivel]) . '</div><ol data-colunas-ordem>';
-    foreach ($colunas as $k) {
-        echo '<li draggable="true" data-coluna="' . e($k) . '"><span class="alca" aria-hidden="true">☰</span><span>' . e($todas[$k][0]) . '</span>'
-            . '<button type="button" class="discreto" data-sobe aria-label="Subir">↑</button><button type="button" class="discreto" data-desce aria-label="Descer">↓</button>'
-            . '<button type="button" class="discreto" data-tira aria-label="Tirar">×</button></li>';
-    }
-    echo '</ol></div><div class="colunas-pe"><a href="' . e($link(['cols' => 'padrao'])) . '">Voltar ao padrão</a>'
-        . '<button type="button" class="discreto neutro" data-colunas-cancela>Cancelar</button><button type="submit">Salvar</button></div></form></details></div>';
+    // Seletor de colunas, com os modelos Campanha, Conjunto e Criativo
+    echo gestor_colunas_seletor($todas, $colunas, ['contas' => 'Conta', 'campanhas' => 'Campanha', 'conjuntos' => 'Conjunto', 'anuncios' => 'Anúncio'][$nivel],
+        ['aba' => 'gestor', 'periodo' => $periodo, 'nivel' => $nivel] + array_filter(['q' => $busca, 'st' => $stFiltro, 'campanha' => $fCamp, 'conjunto' => $fConj, 'ordem' => $ordem, 'dir' => $dir]) + $sel,
+        $link(['cols' => 'padrao'])) . '</div>';
 
     // Cabecalho: clicar no titulo ordena (de novo, inverte)
     $cab = function (string $col, string $titulo, string $dica = '') use ($ordem, $dir, $link): string {
@@ -628,9 +650,10 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         }
         $nomeHtml = $nomeLink($r);
         $marcado = $campoSel && in_array($r['id'], $nivel === 'campanhas' ? $selCamp : $selConj, true);
-        // Campanha: botao da analise diaria, que aparece ao passar o mouse na linha
+        // Campanha: botao da analise diaria (so o icone do grafico; o nome vem na dica), que
+        // aparece ao passar o mouse na linha
         $analise = $nivel === 'campanhas' && preg_match('/^\d{3,25}$/', $r['id'])
-            ? '<a class="analise" href="' . e('./?' . http_build_query(['aba' => 'campanha', 'id' => $r['id'], 'periodo' => $periodo])) . '" title="Análise diária: a campanha dia a dia, com o gráfico">' . icone('calendario', 14) . '<span>Análise diária</span></a>'
+            ? '<a class="analise" href="' . e('./?' . http_build_query(['aba' => 'campanha', 'id' => $r['id'], 'periodo' => $periodo])) . '" aria-label="Análise diária" data-dica-titulo="Análise diária" data-dica="A campanha dia a dia, com os gráficos e o orçamento" data-dica-botao>' . icone('grafico', 15) . '</a>'
             : '';
         echo '<tr>' . ($campoSel ? '<td class="marca"><input type="checkbox" form="form-sel" name="' . $campoSel . '[]" value="' . e($r['id']) . '" data-sel' . ($marcado ? ' checked' : '') . ' aria-label="Marcar ' . e($r['nome']) . '"></td>' : '')
             . '<td class="st">' . ($nivel === 'contas' ? gestor_status($r['obj']) : gestor_chave($r['obj'], $volta, $pode)) . '</td>'

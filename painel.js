@@ -114,9 +114,11 @@
   document.addEventListener('pointerout', function (e) { var a = comDica(e.target); if (e.pointerType === 'mouse' && a && !fixa && !a.contains(e.relatedTarget)) { esconder(); } });
   document.addEventListener('focusin', function (e) { var a = comDica(e.target); if (a && !fixa) { mostrar(a); } });
   document.addEventListener('focusout', function () { if (!fixa) { esconder(); } });
-  // Clique ou toque no (i) ou num grafico fixa a dica; dentro de link, aba ou rotulo, nao navega
+  // Clique ou toque no (i) ou num grafico fixa a dica; dentro de link, aba ou rotulo, nao navega.
+  // Botao com dica (data-dica-botao, ex.: a analise diaria so com o icone): o clique e do botao.
   document.addEventListener('click', function (e) {
     var a = comDica(e.target);
+    if (a && a.hasAttribute('data-dica-botao')) { esconder(); return; }
     if (a) {
       if (a.closest('a, button, summary, label')) { e.preventDefault(); e.stopPropagation(); }
       if (fixa && alvoDica === a) { esconder(); } else { mostrar(a); fixa = true; }
@@ -316,7 +318,8 @@
   document.addEventListener('submit', function (e) {
     var f = e.target;
     if (f && f.hasAttribute && f.hasAttribute('data-orcamento')) {
-      var op = f.elements.objeto.options[f.elements.objeto.selectedIndex];
+      var ob = f.elements.objeto;
+      var op = ob.tagName === 'SELECT' ? ob.options[ob.selectedIndex] : ob;
       var atual = parseInt(op.getAttribute('data-atual'), 10), novo = centavos(f.elements.valor.value);
       if (novo === null) { return; }
       var pct = atual ? Math.round((novo - atual) * 100 / atual) : 0;
@@ -327,6 +330,25 @@
     }
     if (f && f.hasAttribute && f.hasAttribute('data-confirma') && !window.confirm(f.getAttribute('data-confirma') || 'Confirmar?')) {
       e.preventDefault();
+    }
+  });
+  // Orcamento no cabecalho da analise diaria: o lapis abre o campo na linha, ja selecionado;
+  // o X, Esc ou clicar fora fecha; com varios conjuntos, escolher o conjunto traz o valor dele
+  Array.prototype.forEach.call(document.querySelectorAll('details.orc-inline'), function (d) {
+    var f = d.querySelector('form'), campo = f.elements.valor, ob = f.elements.objeto;
+    var inicial = campo.value;
+    d.addEventListener('toggle', function () {
+      if (d.open) { campo.focus(); campo.select(); } else { campo.value = inicial; }
+    });
+    d.querySelector('[data-orc-fecha]').addEventListener('click', function () { d.open = false; });
+    f.addEventListener('keydown', function (e) { if (e.key === 'Escape') { d.open = false; d.querySelector('summary').focus(); } });
+    document.addEventListener('click', function (e) { if (d.open && !d.contains(e.target) && !e.target.closest('.sel-painel, .sel-fundo')) { d.open = false; } });
+    if (ob && ob.tagName === 'SELECT') {
+      ob.addEventListener('change', function () {
+        var c = parseInt(ob.options[ob.selectedIndex].getAttribute('data-atual'), 10) || 0;
+        campo.value = (c / 100).toFixed(2).replace('.', ',');
+        inicial = campo.value;
+      });
     }
   });
   // Financeiro: "Ate" so aparece na despesa que se repete
@@ -437,9 +459,32 @@
       });
       busca.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); } });
     }
+    // Modelos (Campanha, Conjunto, Criativo): montam a lista da direita; salvar continua
+    // sendo no Salvar. O modelo igual a lista de agora fica marcado.
+    var modelos = painelCols.querySelectorAll('[data-modelo]');
+    function marcarModelo() {
+      var agora = Array.prototype.map.call(lista.querySelectorAll('li'), function (li) { return li.getAttribute('data-coluna'); }).join(',');
+      for (var i = 0; i < modelos.length; i++) {
+        var ks = []; try { ks = JSON.parse(modelos[i].getAttribute('data-modelo')); } catch (x) {}
+        modelos[i].setAttribute('aria-pressed', ks.join(',') === agora ? 'true' : 'false');
+      }
+    }
+    for (var mo = 0; mo < modelos.length; mo++) {
+      modelos[mo].addEventListener('click', function () {
+        var ks = []; try { ks = JSON.parse(this.getAttribute('data-modelo')); } catch (x) { return; }
+        lista.innerHTML = '';
+        for (var i = 0; i < marcas.length; i++) { marcas[i].checked = ks.indexOf(marcas[i].value) !== -1; }
+        for (var j = 0; j < ks.length; j++) { lista.appendChild(novoItem(ks[j])); }
+        marcarModelo();
+      });
+    }
+    painelCols.addEventListener('change', marcarModelo);
+    lista.addEventListener('click', function () { setTimeout(marcarModelo, 0); });
+    lista.addEventListener('dragend', marcarModelo);
     painelCols.querySelector('[data-colunas-cancela]').addEventListener('click', function () {
       lista.innerHTML = inicial;
       for (var i = 0; i < marcas.length; i++) { marcas[i].checked = estado[i]; }
+      marcarModelo();
       painelCols.closest('details').open = false;
     });
     painelCols.addEventListener('submit', function () {
@@ -453,6 +498,55 @@
       }
     });
   }
+
+  // Tabela que ordena na tela (table[data-ordenar], ex.: a analise diaria): clicar no titulo
+  // ordena; de novo, inverte. Numero comeca do maior, texto de A a Z e data do mais recente. O
+  // valor vem em data-v (sem data-v, o texto da celula); celula sem valor fica sempre no fim. So
+  // as linhas do corpo mudam (o total fica em cima). A escolha fica guardada neste navegador.
+  function valorCelula(td, tipo) {
+    var v = td.hasAttribute('data-v') ? td.getAttribute('data-v') : td.textContent.trim();
+    if (tipo !== 'num') { return v; }
+    if (!td.hasAttribute('data-v')) { v = v.replace(/[\u2212\u2013]/g, '-').replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'); }
+    return v === '' || isNaN(parseFloat(v)) ? '' : parseFloat(v);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('table[data-ordenar]'), function (tab) {
+    var corpo = tab.tBodies[0];
+    if (!corpo) { return; }
+    var chave = 'ordem-' + tab.getAttribute('data-ordenar');
+    var ths = tab.querySelectorAll('th[data-tipo]');
+    var linhas = Array.prototype.slice.call(corpo.rows);
+    if (linhas.length < 2) { return; }
+    function ordenar(th, dir) {
+      var i = th.cellIndex, tipo = th.getAttribute('data-tipo');
+      var lista = linhas.slice().sort(function (a, b) {
+        var va = a.cells[i] ? valorCelula(a.cells[i], tipo) : '', vb = b.cells[i] ? valorCelula(b.cells[i], tipo) : '';
+        if (va === '' || vb === '') { return va === vb ? 0 : (va === '' ? 1 : -1); }
+        var c = tipo === 'num' ? va - vb : String(va).localeCompare(String(vb), 'pt-BR', { sensitivity: 'base', numeric: true });
+        return dir === 'asc' ? c : -c;
+      });
+      for (var j = 0; j < lista.length; j++) { corpo.appendChild(lista[j]); }
+      for (var k = 0; k < ths.length; k++) { ths[k].removeAttribute('aria-sort'); }
+      th.setAttribute('aria-sort', dir === 'asc' ? 'ascending' : 'descending');
+    }
+    Array.prototype.forEach.call(ths, function (th) {
+      if (th.hasAttribute('data-inicial')) { th.setAttribute('aria-sort', th.getAttribute('data-inicial') === 'asc' ? 'ascending' : 'descending'); }
+      var bt = th.querySelector('.ordena');
+      if (!bt) { return; }
+      bt.addEventListener('click', function () {
+        var primeiro = th.getAttribute('data-tipo') === 'texto' ? 'asc' : 'desc';
+        var agora = th.getAttribute('aria-sort');
+        var dir = agora === (primeiro === 'asc' ? 'ascending' : 'descending') ? (primeiro === 'asc' ? 'desc' : 'asc') : primeiro;
+        ordenar(th, dir);
+        try { localStorage.setItem(chave, JSON.stringify({ col: th.getAttribute('data-col'), dir: dir })); } catch (x) {}
+      });
+    });
+    var salva = null;
+    try { salva = JSON.parse(localStorage.getItem(chave) || 'null'); } catch (x) { salva = null; }
+    if (salva && salva.col) {
+      var thS = tab.querySelector('th[data-tipo][data-col="' + salva.col + '"]');
+      if (thS) { ordenar(thS, salva.dir === 'asc' ? 'asc' : 'desc'); }
+    }
+  });
 
   // Gestor: largura das colunas. Na borda do titulo aparece a linha; arrastar muda a largura
   // (guardada neste navegador, por nivel); dois cliques na linha voltam ao tamanho normal.
@@ -865,7 +959,7 @@
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') { return; }
     if (aberto) { aberto.fechar(true); return; }
-    Array.prototype.forEach.call(document.querySelectorAll('details.colunas[open], details.multi[open], details.tema-menu[open]'), function (d) { d.open = false; });
+    Array.prototype.forEach.call(document.querySelectorAll('details.colunas[open], details.multi[open], details.tema-menu[open], details.orc-inline[open]'), function (d) { d.open = false; });
   });
   // Foto do perfil: escolher ja envia
   var foto = document.querySelector('[data-foto-arquivo]');
