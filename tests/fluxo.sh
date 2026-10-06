@@ -145,7 +145,14 @@ confere "$(tem 'canal-instagram' "$r")" "anúncio com posicionamento Instagram_R
 confere "$(tem '<span>Orgânico</span>' "$r")" "visita vinda do Google sem etiqueta vira canal Orgânico (folha)"
 confere "$(tem '<span>Direto / sem origem</span>' "$r")" "visita sem etiqueta nem site de origem vira Direto"
 confere "$(tem '<span>Direto / sem origem</span><span class="info"' "$r")" "Direto / sem origem tem o (i) explicando"
-confere "$(tem 'id="form-sair"' "$r")" "Sair fica no topo, com a conta"
+confere "$(grep -q 'id="form-sair"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Sair saiu do topo (fica em Configurações)"
+confere "$(tem 'id="csrf-painel"' "$r")" "token do painel num campo próprio no topo (busca em segundo plano e notificações)"
+confere "$(tem 'class="conta-icone" href="configuracoes.php"' "$r")" "Configurações só com a engrenagem"
+confere "$(tem 'class="conta-perfil"' "$r")" "bolinha do perfil no topo"
+confere "$(tem 'class="recolher" data-recolher' "$r")" "seta para recolher a barra de cima"
+confere "$(tem 'data-periodo-campo' "$r")" "período com o seletor de calendário"
+rr=$(curl -s -b "$JAR" --cookie "track_topo=recolhido" "$URL/index.php")
+confere "$(tem 'class="topo-recolhido"' "$rr")" "barra de cima recolhida fica lembrada (cookie), sem piscar"
 confere "$(grep -q 'data-sair' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Sair não é mais uma aba"
 confere "$(tem 'orgânico · www.google.com' "$r")" "visita sem etiqueta vinda do Google aparece como orgânico · www.google.com"
 confere "$(tem 'direto (sem origem)' "$r")" "visita sem etiqueta e sem site de origem aparece como direto"
@@ -857,7 +864,7 @@ echo "Configurações, app e notificações"
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/configuracoes.php")
 confere "$(tem 'entrar.php' "$destino")" "Configurações exige login"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
-confere "$(tem 'class="conta-nome" href="configuracoes.php"' "$r")" "o nome no topo leva a Configurações"
+confere "$(tem 'class="conta-icone" href="configuracoes.php"' "$r")" "a engrenagem no topo leva a Configurações"
 confere "$(tem '<link rel="manifest" href="manifest.php">' "$r")" "painel aponta o manifesto do app"
 r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
 t=$(sem_tags "$r")
@@ -1008,6 +1015,35 @@ r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
 confere "$(tem 'Aparência' "$(sem_tags "$r")")" "aparência também em Configurações"
 r=$(tema "$csrf" --data-urlencode "pronto=claro")
 confere "$(tem '<html lang="pt-BR" data-tema="claro">' "$r")" "voltar ao claro"
+
+echo "Perfil (foto) e Sair em Configurações"
+r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
+confere "$(tem 'id="form-sair"' "$r")" "Sair fica em Configurações"
+confere "$(tem 'id="perfil"' "$r")" "Configurações tem o perfil"
+# shellcheck disable=SC2086
+if "$PHP" $PHP_FLAGS -r 'exit(function_exists("imagecreatetruecolor") ? 0 : 1);'; then
+  FOTO="$(cygpath -m "$DADOS/foto.png" 2>/dev/null || echo "$DADOS/foto.png")"
+  # shellcheck disable=SC2086
+  FOTO="$FOTO" "$PHP" $PHP_FLAGS -r '$i = imagecreatetruecolor(400, 300); imagefill($i, 0, 0, imagecolorallocate($i, 30, 120, 240)); imagepng($i, getenv("FOTO"));'
+  c=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+  r=$(curl -s -b "$JAR" -F "csrf=$c" -F "acao=foto" -F "foto=@$FOTO;type=image/png" "$URL/configuracoes.php")
+  confere "$(tem 'Foto do perfil salva.' "$r")" "enviar a foto do perfil"
+  r=$(curl -s -b "$JAR" "$URL/index.php")
+  confere "$(tem '<img class="avatar" src="avatar.php?u=kenio' "$r")" "foto aparece na bolinha do topo"
+  tipo=$(curl -s -o /dev/null -w '%{content_type}' -b "$JAR" "$URL/avatar.php?u=kenio")
+  confere "$([ "$tipo" = "image/jpeg" ]; echo $?)" "foto sai reduzida em JPEG para quem entrou ($tipo)"
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/avatar.php?u=kenio")
+  confere "$([ "$code" = "403" ]; echo $?)" "foto não sai para quem não entrou ($code)"
+  r=$(curl -s -b "$JAR" -F "csrf=$c" -F "acao=tirar_foto" "$URL/configuracoes.php")
+  confere "$(tem 'Foto do perfil tirada.' "$r")" "tirar a foto do perfil"
+  printf 'isto nao e imagem' > "$DADOS/falsa.png"
+  # No Git Bash do Windows, o curl so acha o arquivo pelo caminho do Windows (cygpath -m)
+  FALSA="$(cygpath -m "$DADOS/falsa.png" 2>/dev/null || echo "$DADOS/falsa.png")"
+  r=$(curl -s -b "$JAR" -F "csrf=$c" -F "acao=foto" -F "foto=@$FALSA;type=image/png" "$URL/configuracoes.php")
+  confere "$(tem 'A foto não foi salva: a foto precisa ser JPEG, PNG ou WebP.' "$r")" "arquivo que não é imagem é recusado"
+fi
+r=$(curl -s -b "$JAR" "$URL/index.php")
+confere "$(tem 'class="avatar avatar-letra"' "$r")" "sem foto, a bolinha mostra a inicial"
 
 echo "Avisos do PHP"
 # Aviso escondido (variavel que nao existe, indice faltando) nao quebra a tela, mas na

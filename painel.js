@@ -60,7 +60,7 @@
   // Vendas pela API da Kiwify em segundo plano (so quando a ultima busca tem mais de
   // 10 minutos). Chegou venda nova ou mudou alguma: recarrega a tela com os numeros.
   var sync = document.querySelector('[data-sync]');
-  var token = document.querySelector('#form-sair input[name=csrf]');
+  var token = document.getElementById('csrf-painel') || document.querySelector('#form-sair input[name=csrf]');
   if (sync && token && window.fetch) {
     var texto = sync.querySelector('[data-sync-texto]');
     if (texto) { texto.textContent = 'Buscando vendas na API da Kiwify…'; }
@@ -499,4 +499,375 @@
       })(ths[t]);
     }
   }
+  // ---------------------------------------------------------------- seletores
+  // Todo <select> do painel no mesmo padrao do Produto: botao com o texto e a seta, e uma lista
+  // propria (embaixo, ou em cima se faltar espaco; no celular, um painel de baixo com fundo
+  // escuro e opcoes grandes). O <select> continua no formulario, escondido: o envio e o
+  // "change" dos filtros seguem iguais. Teclado: setas, Home, End, Enter, Esc e busca digitando.
+  // data-nativo: fica o nativo (o periodo tem o seletor proprio, com calendario).
+  var celular = window.matchMedia ? window.matchMedia('(max-width: 640px)') : { matches: false };
+  var aberto = null, fundo = null, seqSel = 0;
+  function abrirPainel(painel, caixa, fechar) {
+    if (aberto && aberto.painel !== painel) { aberto.fechar(false); }
+    aberto = { painel: painel, caixa: caixa, fechar: fechar };
+    painel.hidden = false;
+    painel.classList.remove('acima');
+    if (celular.matches) {
+      painel.classList.add('folha');
+      if (!fundo) {
+        fundo = document.createElement('div');
+        fundo.className = 'sel-fundo';
+        fundo.addEventListener('click', function () { if (aberto) { aberto.fechar(false); } });
+        document.body.appendChild(fundo);
+      }
+      fundo.hidden = false;
+      document.body.classList.add('com-folha');
+    } else {
+      painel.classList.remove('folha');
+      var r = caixa.getBoundingClientRect();
+      var precisa = Math.min(painel.scrollHeight, 340) + 12;
+      if (window.innerHeight - r.bottom < precisa && r.top > window.innerHeight - r.bottom) { painel.classList.add('acima'); }
+      // Nao deixa a lista sair da tela pela direita
+      painel.style.left = '';
+      var pr = painel.getBoundingClientRect();
+      if (pr.right > window.innerWidth - 8) { painel.style.left = Math.min(0, window.innerWidth - 8 - pr.right) + 'px'; }
+    }
+  }
+  function fecharPainel(painel) {
+    painel.hidden = true;
+    if (fundo) { fundo.hidden = true; }
+    document.body.classList.remove('com-folha');
+    if (aberto && aberto.painel === painel) { aberto = null; }
+  }
+  document.addEventListener('click', function (e) { if (aberto && !aberto.caixa.contains(e.target) && !aberto.painel.contains(e.target)) { aberto.fechar(false); } });
+  function seta() { return '<svg class="sel-seta" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>'; }
+
+  function seletor(sel) {
+    if (sel.hasAttribute('data-nativo') || sel.multiple || sel.getAttribute('data-feito')) { return; }
+    sel.setAttribute('data-feito', '1');
+    var id = 'sel' + (++seqSel);
+    var caixa = document.createElement('div');
+    caixa.className = 'sel';
+    var botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'sel-botao';
+    botao.setAttribute('aria-haspopup', 'listbox');
+    botao.setAttribute('aria-expanded', 'false');
+    botao.setAttribute('aria-controls', id);
+    var texto = document.createElement('span');
+    texto.className = 'sel-texto';
+    botao.appendChild(texto);
+    botao.insertAdjacentHTML('beforeend', seta());
+    var rotulo = sel.closest('label');
+    if (rotulo) { botao.setAttribute('aria-label', (rotulo.firstElementChild && rotulo.firstElementChild !== sel ? rotulo.firstElementChild.textContent : rotulo.textContent).replace(/\s+/g, ' ').trim()); }
+    var lista = document.createElement('div');
+    lista.className = 'sel-painel';
+    lista.id = id;
+    lista.setAttribute('role', 'listbox');
+    lista.tabIndex = -1;
+    lista.hidden = true;
+    sel.parentNode.insertBefore(caixa, sel.nextSibling);
+    caixa.appendChild(botao);
+    caixa.appendChild(lista);
+    sel.classList.add('sel-nativo');
+    sel.tabIndex = -1;
+    sel.setAttribute('aria-hidden', 'true');
+    var ativo = -1, busca = '', buscaT = null;
+    function atualizar() {
+      var o = sel.options[sel.selectedIndex];
+      texto.textContent = o ? o.textContent : '';
+      botao.disabled = sel.disabled;
+    }
+    function marcar(i) {
+      var ops = lista.children;
+      if (ativo >= 0 && ops[ativo]) { ops[ativo].classList.remove('ativo'); }
+      ativo = i;
+      if (ops[i]) {
+        ops[i].classList.add('ativo');
+        lista.setAttribute('aria-activedescendant', ops[i].id);
+        if (ops[i].scrollIntoView) { ops[i].scrollIntoView({ block: 'nearest' }); }
+      }
+    }
+    function montar() {
+      lista.textContent = '';
+      Array.prototype.forEach.call(sel.options, function (o, i) {
+        var d = document.createElement('div');
+        d.className = 'sel-op';
+        d.id = id + '-' + i;
+        d.setAttribute('role', 'option');
+        d.setAttribute('aria-selected', o.selected ? 'true' : 'false');
+        if (o.disabled) { d.setAttribute('aria-disabled', 'true'); }
+        d.textContent = o.textContent;
+        d.addEventListener('click', function (e) { e.stopPropagation(); escolher(i); });
+        d.addEventListener('mousemove', function () { if (ativo !== i) { marcar(i); } });
+        lista.appendChild(d);
+      });
+    }
+    function fechar(foco) {
+      botao.setAttribute('aria-expanded', 'false');
+      fecharPainel(lista);
+      if (foco) { botao.focus(); }
+    }
+    function abrir() {
+      montar();
+      botao.setAttribute('aria-expanded', 'true');
+      abrirPainel(lista, caixa, fechar);
+      marcar(Math.max(0, sel.selectedIndex));
+      lista.focus({ preventScroll: true });
+    }
+    function escolher(i) {
+      var o = sel.options[i];
+      if (!o || o.disabled) { return; }
+      fechar(true);
+      if (sel.selectedIndex !== i) {
+        sel.selectedIndex = i;
+        atualizar();
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+    botao.addEventListener('click', function (e) { e.stopPropagation(); if (lista.hidden) { abrir(); } else { fechar(true); } });
+    botao.addEventListener('keydown', function (e) {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].indexOf(e.key) !== -1) { e.preventDefault(); abrir(); }
+    });
+    lista.addEventListener('keydown', function (e) {
+      var n = sel.options.length;
+      if (e.key === 'ArrowDown') { e.preventDefault(); marcar(Math.min(n - 1, ativo + 1)); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); marcar(Math.max(0, ativo - 1)); }
+      else if (e.key === 'Home') { e.preventDefault(); marcar(0); }
+      else if (e.key === 'End') { e.preventDefault(); marcar(n - 1); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); escolher(ativo); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fechar(true); }
+      else if (e.key === 'Tab') { fechar(false); }
+      else if (e.key.length === 1) {
+        busca += e.key.toLowerCase();
+        clearTimeout(buscaT);
+        buscaT = setTimeout(function () { busca = ''; }, 700);
+        for (var i = 0; i < n; i++) {
+          if (sel.options[i].textContent.trim().toLowerCase().indexOf(busca) === 0) { marcar(i); break; }
+        }
+      }
+    });
+    sel.addEventListener('change', atualizar);
+    atualizar();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('select'), seletor);
+
+  // ---------------------------------------------------------------- calendario
+  var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  function doisDig(n) { return (n < 10 ? '0' : '') + n; }
+  function iso(d) { return d.getFullYear() + '-' + doisDig(d.getMonth() + 1) + '-' + doisDig(d.getDate()); }
+  function lerIso(t) { var p = String(t || '').split('-'); return p.length === 3 ? new Date(+p[0], +p[1] - 1, +p[2]) : null; }
+  function br(t, ano) { var p = String(t || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + (ano ? '/' + p[0] : '') : ''; }
+  // Calendario de um mes: um dia (intervalo: false) ou do primeiro ao ultimo (intervalo: true).
+  // o: {intervalo, de, ate, min, max, aoEscolher(de, ate)}
+  function calendario(o) {
+    var el = document.createElement('div');
+    el.className = 'cal';
+    var base = lerIso(o.ate || o.de) || new Date();
+    var mes = new Date(base.getFullYear(), base.getMonth(), 1);
+    var de = o.de || '', ate = o.ate || '', escolhendo = false, sobre = '';
+    function desenhar() {
+      var hoje = iso(new Date());
+      var h = '<div class="cal-cab"><button type="button" data-mes="-1" aria-label="Mês anterior">‹</button><b>' + MESES[mes.getMonth()].charAt(0).toUpperCase() + MESES[mes.getMonth()].slice(1) + ' de ' + mes.getFullYear() + '</b><button type="button" data-mes="1" aria-label="Próximo mês">›</button></div>'
+        + '<div class="cal-sem"><span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span></div><div class="cal-dias">';
+      var d = new Date(mes.getFullYear(), mes.getMonth(), 1 - mes.getDay());
+      var fim = escolhendo && sobre ? (sobre < de ? de : sobre) : ate;
+      var ini = escolhendo && sobre && sobre < de ? sobre : de;
+      for (var i = 0; i < 42; i++) {
+        var t = iso(d), cls = 'cal-dia';
+        if (d.getMonth() !== mes.getMonth()) { cls += ' fora'; }
+        if (t === hoje) { cls += ' hoje'; }
+        if (o.intervalo) {
+          if (ini && t === ini) { cls += ' inicio'; }
+          if (fim && t === fim) { cls += ' fim'; }
+          if (ini && fim && t > ini && t < fim) { cls += ' no-intervalo'; }
+        } else if (t === de) { cls += ' inicio fim'; }
+        var fora = (o.min && t < o.min) || (o.max && t > o.max);
+        h += '<button type="button" class="' + cls + '" data-dia="' + t + '"' + (fora ? ' disabled' : '') + ' aria-label="' + br(t, true) + '">' + d.getDate() + '</button>';
+        d.setDate(d.getDate() + 1);
+      }
+      el.innerHTML = h + '</div>';
+    }
+    el.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var m = e.target.closest('[data-mes]');
+      if (m) { mes.setMonth(mes.getMonth() + (+m.getAttribute('data-mes'))); desenhar(); return; }
+      var b = e.target.closest('[data-dia]');
+      if (!b || b.disabled) { return; }
+      var t = b.getAttribute('data-dia');
+      if (!o.intervalo) { de = ate = t; desenhar(); o.aoEscolher(t, t); return; }
+      if (!escolhendo) { de = t; ate = ''; escolhendo = true; }
+      else { if (t < de) { ate = de; de = t; } else { ate = t; } escolhendo = false; sobre = ''; }
+      desenhar();
+      o.aoEscolher(de, ate);
+    });
+    el.addEventListener('mouseover', function (e) {
+      var b = e.target.closest && e.target.closest('[data-dia]');
+      if (escolhendo && b && b.getAttribute('data-dia') !== sobre) { sobre = b.getAttribute('data-dia'); desenhar(); }
+    });
+    desenhar();
+    return el;
+  }
+
+  // ---------------------------------------------------------------- periodo do topo
+  // Um botao so ("Ultimos 7 dias", "25/09 a 06/10"): os prontos a esquerda e o calendario do
+  // primeiro ao ultimo dia a direita. Manda periodo=personalizado com de e ate (o index.php
+  // ja entende). Sem JavaScript, ficam o select e as duas datas.
+  var campoP = document.querySelector('[data-periodo-campo]');
+  if (campoP && form) {
+    var selP = campoP.querySelector('select[name=periodo]');
+    var datasP = campoP.querySelector('[data-datas]');
+    var caixaP = document.createElement('div');
+    caixaP.className = 'sel';
+    var botaoP = document.createElement('button');
+    botaoP.type = 'button';
+    botaoP.className = 'sel-botao';
+    botaoP.setAttribute('aria-haspopup', 'dialog');
+    botaoP.setAttribute('aria-expanded', 'false');
+    botaoP.setAttribute('aria-label', 'Período: ' + campoP.getAttribute('data-rotulo'));
+    botaoP.innerHTML = '<svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span class="sel-texto"></span>' + seta();
+    botaoP.querySelector('.sel-texto').textContent = campoP.getAttribute('data-rotulo');
+    var painelP = document.createElement('div');
+    painelP.className = 'sel-painel periodo-painel';
+    painelP.setAttribute('role', 'dialog');
+    painelP.setAttribute('aria-label', 'Escolher o período');
+    painelP.hidden = true;
+    var prontos = document.createElement('div');
+    prontos.className = 'periodo-prontos';
+    Array.prototype.forEach.call(selP.options, function (o) {
+      if (o.value === 'personalizado') { return; }
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = o.textContent;
+      if (o.selected) { b.className = 'atual'; }
+      b.addEventListener('click', function () {
+        selP.value = o.value;
+        Array.prototype.forEach.call(datasP.querySelectorAll('input'), function (i) { i.disabled = true; });
+        form.submit();
+      });
+      prontos.appendChild(b);
+    });
+    var de = campoP.getAttribute('data-de'), ate = campoP.getAttribute('data-ate'), hojeP = campoP.getAttribute('data-hoje');
+    var escolhido = document.createElement('span');
+    var aplicar = document.createElement('button');
+    aplicar.type = 'button';
+    aplicar.textContent = 'Aplicar';
+    var mostrarEscolha = function () {
+      escolhido.textContent = de && ate ? (de === ate ? br(de, true) : br(de) + ' a ' + br(ate, true)) : 'Escolha o último dia';
+      aplicar.disabled = !(de && ate);
+    };
+    var cal = calendario({ intervalo: true, de: de, ate: ate, max: hojeP, aoEscolher: function (a, b) { de = a; ate = b; mostrarEscolha(); } });
+    var ladoCal = document.createElement('div');
+    ladoCal.className = 'periodo-cal';
+    ladoCal.appendChild(cal);
+    var pe = document.createElement('div');
+    pe.className = 'periodo-pe';
+    var cancelar = document.createElement('button');
+    cancelar.type = 'button';
+    cancelar.className = 'discreto neutro';
+    cancelar.textContent = 'Cancelar';
+    pe.appendChild(escolhido);
+    pe.appendChild(cancelar);
+    pe.appendChild(aplicar);
+    ladoCal.appendChild(pe);
+    painelP.appendChild(prontos);
+    painelP.appendChild(ladoCal);
+    mostrarEscolha();
+    aplicar.addEventListener('click', function () {
+      selP.value = 'personalizado';
+      Array.prototype.forEach.call(datasP.querySelectorAll('input'), function (i) { i.disabled = false; });
+      form.elements.de.value = de;
+      form.elements.ate.value = ate;
+      form.submit();
+    });
+    var fecharP = function (foco) { botaoP.setAttribute('aria-expanded', 'false'); fecharPainel(painelP); if (foco) { botaoP.focus(); } };
+    cancelar.addEventListener('click', function () { fecharP(true); });
+    botaoP.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (painelP.hidden) { botaoP.setAttribute('aria-expanded', 'true'); abrirPainel(painelP, caixaP, fecharP); } else { fecharP(true); }
+    });
+    painelP.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); fecharP(true); } });
+    caixaP.appendChild(botaoP);
+    caixaP.appendChild(painelP);
+    selP.classList.add('sel-nativo');
+    selP.tabIndex = -1;
+    selP.setAttribute('aria-hidden', 'true');
+    datasP.hidden = true;
+    datasP.setAttribute('data-sem-js', '');
+    campoP.appendChild(caixaP);
+  }
+
+  // ---------------------------------------------------------------- datas soltas
+  // Campos de data fora do topo (Financeiro, Programar orcamento): o mesmo calendario, de um dia
+  Array.prototype.forEach.call(document.querySelectorAll('input[type=date]'), function (inp) {
+    if (inp.closest('[data-datas]')) { return; }
+    var caixa = document.createElement('div');
+    caixa.className = 'sel campo-data';
+    var botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'sel-botao';
+    botao.setAttribute('aria-haspopup', 'dialog');
+    botao.setAttribute('aria-expanded', 'false');
+    botao.innerHTML = '<span class="sel-texto"></span><svg class="ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>';
+    var texto = botao.querySelector('.sel-texto');
+    var painel = document.createElement('div');
+    painel.className = 'sel-painel';
+    painel.setAttribute('role', 'dialog');
+    painel.hidden = true;
+    var mostrar = function () { texto.textContent = inp.value ? br(inp.value, true) : (inp.required ? 'Escolher a data' : 'Sem data'); };
+    var fechar = function (foco) { botao.setAttribute('aria-expanded', 'false'); fecharPainel(painel); if (foco) { botao.focus(); } };
+    var cal = calendario({ intervalo: false, de: inp.value, min: inp.min, max: inp.max, aoEscolher: function (d) {
+      inp.value = d; mostrar(); fechar(true); inp.dispatchEvent(new Event('change', { bubbles: true }));
+    } });
+    painel.appendChild(cal);
+    if (!inp.required) {
+      var limpar = document.createElement('button');
+      limpar.type = 'button';
+      limpar.className = 'discreto neutro';
+      limpar.textContent = 'Sem data';
+      limpar.style.marginTop = '8px';
+      limpar.addEventListener('click', function (e) { e.stopPropagation(); inp.value = ''; mostrar(); fechar(true); });
+      painel.appendChild(limpar);
+    }
+    botao.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (painel.hidden) { botao.setAttribute('aria-expanded', 'true'); abrirPainel(painel, caixa, fechar); } else { fechar(true); }
+    });
+    painel.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); fechar(true); } });
+    inp.parentNode.insertBefore(caixa, inp.nextSibling);
+    caixa.appendChild(botao);
+    caixa.appendChild(painel);
+    inp.type = 'hidden';
+    mostrar();
+  });
+
+  // ---------------------------------------------------------------- barra de cima recolhida
+  // A seta do canto (e o resumo dos filtros, com ela recolhida) abre e fecha; fica num cookie
+  // para a proxima tela ja vir do mesmo jeito, sem piscar.
+  Array.prototype.forEach.call(document.querySelectorAll('[data-recolher]'), function (b) {
+    b.addEventListener('click', function () {
+      var raiz = document.documentElement;
+      var sim = !raiz.classList.contains('topo-recolhido');
+      raiz.classList.toggle('topo-recolhido', sim);
+      document.cookie = 'track_topo=' + (sim ? 'recolhido' : 'aberto') + '; path=' + location.pathname.replace(/[^\/]*$/, '') + '; max-age=31536000; SameSite=Lax';
+      Array.prototype.forEach.call(document.querySelectorAll('.recolher'), function (r) {
+        r.setAttribute('aria-expanded', sim ? 'false' : 'true');
+        r.setAttribute('aria-label', sim ? 'Mostrar a barra de cima' : 'Recolher a barra de cima');
+        r.title = r.getAttribute('aria-label');
+      });
+    });
+  });
+  if (document.documentElement.classList.contains('topo-recolhido')) {
+    Array.prototype.forEach.call(document.querySelectorAll('.recolher'), function (r) { r.setAttribute('aria-expanded', 'false'); r.setAttribute('aria-label', 'Mostrar a barra de cima'); r.title = 'Mostrar a barra de cima'; });
+  }
+
+  // Esc fecha o que estiver aberto: colunas, produto, aparencia
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') { return; }
+    if (aberto) { aberto.fechar(true); return; }
+    Array.prototype.forEach.call(document.querySelectorAll('details.colunas[open], details.multi[open], details.tema-menu[open]'), function (d) { d.open = false; });
+  });
+  // Foto do perfil: escolher ja envia
+  var foto = document.querySelector('[data-foto-arquivo]');
+  if (foto) { foto.addEventListener('change', function () { if (foto.files.length) { foto.form.submit(); } }); }
 })();

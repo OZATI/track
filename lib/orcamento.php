@@ -247,7 +247,7 @@ function orc_bloco(string $campanha, string $volta): string
         $html .= '<label class="orc-op"><input type="checkbox" name="dias[]" value="' . $n . '" checked' . $dis . '> ' . e($rot) . '</label>';
     }
     $html .= '</div><div class="orc-linha"><label data-so="unica">Data<input type="date" name="data" min="' . $hoje . '" value="' . $hoje . '"' . $dis . '></label>'
-        . '<label>Horário<input type="time" name="hora" required value="08:00"' . $dis . '></label>'
+        . '<label>Horário<select name="hora"' . $dis . '>' . implode('', array_map(fn($m) => '<option' . ($m === 480 ? ' selected' : '') . '>' . sprintf('%02d:%02d', intdiv($m, 60), $m % 60) . '</option>', range(0, 1425, 15))) . '</select></label>'
         . '<label><span>' . com_info('Orçamento (R$)', 'O orçamento diário que a campanha passa a ter nesse horário. Até ' . reais($teto) . ' por dia.') . '</span><input name="valor" inputmode="decimal" required placeholder="0,00"' . $dis . '></label></div>'
         . '<button type="submit"' . $dis . '>Programar</button></form></div>';
 

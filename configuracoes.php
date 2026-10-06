@@ -7,6 +7,7 @@ require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/layout.php';
 require_once __DIR__ . '/lib/push.php';
 require_once __DIR__ . '/lib/orcamento.php';
+require_once __DIR__ . '/lib/perfil.php';
 
 exigir_login();
 $usuario = (string)usuario_atual();
@@ -30,6 +31,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             track_salvar_config($cfg);
         }
         $aviso = 'Configurações salvas.';
+    } elseif (($_POST['acao'] ?? '') === 'foto') {
+        $f = $_FILES['foto'] ?? null;
+        $r = is_array($f) && ($f['error'] ?? 1) === UPLOAD_ERR_OK && is_uploaded_file($f['tmp_name']) ? avatar_salvar($usuario, $f['tmp_name']) : 'escolha uma foto (até 3 MB)';
+        if ($r === true) {
+            $aviso = 'Foto do perfil salva.';
+        } else {
+            $erros[] = 'A foto não foi salva: ' . $r . '.';
+        }
+    } elseif (($_POST['acao'] ?? '') === 'tirar_foto') {
+        avatar_apagar($usuario);
+        $aviso = 'Foto do perfil tirada.';
     } elseif (($_POST['acao'] ?? '') === 'teto') {
         // Teto do orcamento pelo painel: vale para todos (e da conta, nao do usuario)
         $teto = fin_centavos((string)($_POST['teto'] ?? ''));
@@ -71,6 +83,22 @@ abas_painel('configuracoes');
   <h1 class="cfg-titulo">Configurações <span class="suave">· <?= e($usuario) ?></span></h1>
 
   <div class="cfg-grade">
+    <section class="cartao" id="perfil">
+      <h2><?= com_info('Perfil', 'A foto aparece na bolinha do canto de cima. Só quem entrou no painel vê. JPEG, PNG ou WebP, até 3 MB: o painel corta no centro e reduz.') ?></h2>
+      <div class="perfil-linha"><?= avatar_html($usuario, 64) ?><div><b><?= e($usuario) ?></b>
+        <form method="post" action="configuracoes.php" enctype="multipart/form-data" class="perfil-acoes" data-foto>
+          <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="foto">
+          <label class="botao-arquivo"><input type="file" name="foto" accept="image/jpeg,image/png,image/webp" data-foto-arquivo> Escolher foto</label>
+          <noscript><button type="submit" class="discreto neutro">Enviar</button></noscript>
+        </form>
+        <?php if (is_file(avatar_arquivo($usuario))): ?>
+        <form method="post" action="configuracoes.php"><input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="tirar_foto"><button type="submit" class="discreto">Tirar a foto</button></form>
+        <?php endif; ?>
+      </div></div>
+      <form method="post" action="sair.php" id="form-sair" class="perfil-sair"><input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
+        <button type="submit" class="discreto neutro" title="Encerrar a sessão neste navegador"><?= icone('sair', 14) ?> Sair do painel</button></form>
+    </section>
+
     <section class="cartao" data-app>
       <h2><?= com_info('Aplicativo', 'Instala o painel como um app no celular ou no computador: abre em tela cheia, com ícone próprio, e recebe as notificações.') ?></h2>
       <p class="suave" data-app-estado>Veja abaixo como instalar neste aparelho.</p>

@@ -2,6 +2,7 @@
 // HTML comum do painel. Sem framework; CSS aqui, JS em painel.js (a CSP so aceita script do proprio painel).
 
 require_once __DIR__ . '/tema.php';
+require_once __DIR__ . '/perfil.php';
 
 function pagina_inicio(string $titulo): void
 {
@@ -9,7 +10,7 @@ function pagina_inicio(string $titulo): void
     header('X-Robots-Tag: noindex, nofollow');
     header('Cache-Control: no-store');
     ?><!doctype html>
-<html lang="pt-BR"<?= tema_atributos() ?>>
+<html lang="pt-BR"<?= tema_atributos() ?><?= ($_COOKIE['track_topo'] ?? '') === 'recolhido' ? ' class="topo-recolhido"' : '' ?>>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -92,6 +93,81 @@ button.discreto.neutro{ color:var(--texto); }
 .dica span{ display:block; white-space:pre-line; color:#E5E7EB; }
 :root[data-tema=escuro] .dica{ background:color-mix(in srgb, var(--base), #fff 16%); border:1px solid var(--linha-forte); }
 
+/* Seletores (painel.js): todo select do painel no mesmo padrao do Produto. O <select> fica
+   escondido no formulario; a lista abre embaixo (ou em cima) e, no celular, como painel de baixo */
+.sel{ position:relative; min-width:0; max-width:100%; }
+.sel-nativo{ position:absolute !important; width:1px !important; height:1px !important; min-width:0 !important; padding:0 !important; border:0 !important; opacity:0; pointer-events:none; }
+.sel-botao, .multi > summary{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-width:160px; max-width:300px; padding:6px 10px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-sm); font:inherit; font-weight:400; text-align:left; cursor:pointer; }
+.sel-botao:hover, .multi > summary:hover{ background:var(--cartao); border-color:var(--apagado); }
+.sel-botao[aria-expanded=true], .multi[open] > summary{ border-color:var(--marca); box-shadow:0 0 0 3px var(--realce); }
+.sel-botao:disabled{ background:var(--cartao-2); color:var(--apagado); cursor:not-allowed; }
+.sel-texto{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sel-seta{ flex:none; width:14px; height:14px; fill:none; stroke:var(--suave); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; transition:transform .15s; }
+.sel-botao[aria-expanded=true] .sel-seta{ transform:rotate(180deg); }
+.sel-painel{ position:absolute; z-index:45; left:0; top:calc(100% + 4px); min-width:100%; width:max-content; max-width:min(380px, calc(100vw - 24px)); max-height:320px; overflow:auto; padding:5px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:10px; box-shadow:0 12px 32px var(--sombra); outline:none; }
+.sel-painel.acima{ top:auto; bottom:calc(100% + 4px); }
+.sel-painel[hidden], .sel-fundo[hidden]{ display:none !important; }
+.sel-op{ display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:7px; color:var(--texto); font-size:13px; cursor:pointer; white-space:nowrap; }
+.sel-op.ativo{ background:var(--hover); }
+.sel-op[aria-selected=true]{ color:var(--marca); font-weight:600; }
+.sel-op[aria-selected=true]::after{ content:""; margin-left:auto; width:6px; height:11px; border:solid var(--marca); border-width:0 2px 2px 0; transform:rotate(45deg) translate(-2px,-1px); }
+.sel-op[aria-disabled=true]{ color:var(--apagado); cursor:default; }
+.sel-fundo{ position:fixed; inset:0; z-index:44; background:rgba(15,23,42,.45); }
+.sel-painel.folha, .periodo-painel.folha{ position:fixed; left:0; right:0; bottom:0; top:auto; width:auto; max-width:none; max-height:75vh; border-radius:16px 16px 0 0; padding:10px 10px calc(12px + env(safe-area-inset-bottom)); }
+.sel-painel.folha .sel-op{ padding:13px 14px; font-size:15px; }
+/* Periodo: prontos a esquerda e o calendario a direita (no celular, um embaixo do outro) */
+.campo-periodo .sel-botao{ min-width:190px; }
+.campo-periodo .sel-botao .ico{ flex:none; color:var(--suave); }
+.periodo-painel{ display:flex; width:auto; max-width:calc(100vw - 24px); max-height:none; padding:0; overflow:visible; }
+.periodo-prontos{ display:flex; flex-direction:column; gap:2px; min-width:150px; padding:8px; border-right:1px solid var(--linha); }
+.periodo-prontos button{ background:none; border:0; color:var(--texto); text-align:left; padding:7px 10px; border-radius:7px; font-weight:400; }
+.periodo-prontos button:hover{ background:var(--hover); }
+.periodo-prontos button.atual{ background:var(--realce); color:var(--marca); font-weight:600; }
+.periodo-cal{ padding:10px 12px 12px; }
+.periodo-pe{ display:flex; align-items:center; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--linha); }
+.periodo-pe span{ margin-right:auto; color:var(--suave); font-size:12px; }
+.cal{ width:252px; user-select:none; }
+.cal-cab{ display:flex; align-items:center; justify-content:space-between; margin:0 0 6px; }
+.cal-cab b{ font-size:13px; font-weight:600; }
+.cal-cab button{ width:30px; height:30px; padding:0; background:none; border:0; color:var(--suave); border-radius:7px; font-size:18px; line-height:1; }
+.cal-cab button:hover{ background:var(--hover); color:var(--texto); }
+.cal-sem, .cal-dias{ display:grid; grid-template-columns:repeat(7,1fr); text-align:center; }
+.cal-sem span{ font-size:11px; color:var(--apagado); padding:4px 0; }
+.cal-dia{ height:34px; padding:0; margin:1px 0; background:none; border:0; border-radius:8px; color:var(--texto); font-weight:400; font-variant-numeric:tabular-nums; }
+.cal-dia:hover:not(:disabled){ background:var(--hover); }
+.cal-dia.fora{ color:var(--apagado); }
+.cal-dia.hoje{ box-shadow:inset 0 0 0 1px var(--linha-forte); }
+.cal-dia.no-intervalo{ background:var(--realce); border-radius:0; }
+.cal-dia.inicio, .cal-dia.fim{ background:var(--marca); color:#fff; font-weight:600; }
+.cal-dia.inicio{ border-radius:8px 0 0 8px; } .cal-dia.fim{ border-radius:0 8px 8px 0; } .cal-dia.inicio.fim{ border-radius:8px; }
+.cal .cal-dia:disabled, .cal .cal-dia:disabled:hover{ background:none; color:var(--linha-forte); border:0; cursor:not-allowed; }
+.campo-data .sel-botao{ min-width:150px; }
+@media (max-width:640px){
+  .periodo-painel.folha{ flex-direction:column; overflow:auto; }
+  .periodo-prontos{ flex-direction:row; flex-wrap:wrap; border-right:0; border-bottom:1px solid var(--linha); }
+  .periodo-prontos button{ padding:8px 12px; border:1px solid var(--linha); border-radius:999px; }
+  .cal{ width:100%; } .cal-dia{ height:42px; }
+  .multi[open] > summary::before{ content:""; position:fixed; inset:0; z-index:44; background:rgba(15,23,42,.45); }
+  .multi-painel{ position:fixed; left:0; right:0; bottom:0; top:auto; z-index:45; width:auto; max-width:none; max-height:75vh; border-radius:16px 16px 0 0; padding:10px 10px calc(12px + env(safe-area-inset-bottom)); }
+  .multi-painel label{ padding:12px 10px; font-size:15px; }
+}
+body.com-folha{ overflow:hidden; }
+/* Topo: conta, foto e a seta que recolhe a barra de cima (lembrado num cookie) */
+.avatar{ display:inline-flex; flex:none; align-items:center; justify-content:center; border-radius:50%; object-fit:cover; }
+.avatar-letra{ background:var(--av); color:#fff; font-weight:600; line-height:1; }
+section[id], .cartao[id]{ scroll-margin-top:84px; }
+.conta-icone, .recolher{ display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; padding:0; border:0; border-radius:var(--r-sm); background:none; color:var(--suave); }
+.conta-icone:hover, .recolher:hover{ background:var(--hover); color:var(--marca); text-decoration:none; }
+.conta-perfil{ display:inline-flex; align-items:center; gap:8px; padding:3px 12px 3px 3px; border:1px solid var(--linha); border-radius:999px; color:var(--texto); font-weight:500; }
+.conta-perfil:hover{ border-color:var(--linha-forte); background:var(--hover); text-decoration:none; }
+.recolher .ico{ transition:transform .2s; }
+.topo-recolhido .recolher .ico{ transform:rotate(180deg); }
+.topo-resumo{ display:none; align-items:center; gap:8px; padding:5px 12px; background:var(--cartao-2); color:var(--texto); border:1px solid var(--linha); border-radius:999px; font-weight:500; }
+.topo-resumo:hover{ background:var(--hover); }
+.topo-resumo .ico{ color:var(--suave); }
+.topo-recolhido .topo{ padding-top:6px; padding-bottom:6px; align-items:center; }
+.topo-recolhido .topo .filtros{ display:none; }
+.topo-recolhido .topo .topo-resumo{ display:inline-flex; }
 /* Topo: filtros a esquerda, conta a direita */
 .topo{ position:sticky; top:0; z-index:5; background:var(--cartao); border-bottom:1px solid var(--linha); padding:10px 24px; display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
 .topo label, .gestor-filtros label, .topo .campo{ display:flex; flex-direction:column; font-size:12px; color:var(--suave); gap:3px; }
@@ -191,7 +267,8 @@ td.quebra{ white-space:normal; min-width:220px; }
 .colunas{ position:relative; }
 .colunas summary{ list-style:none; cursor:pointer; padding:6px 12px; border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); color:var(--texto); }
 .colunas summary::-webkit-details-marker{ display:none; }
-.colunas-painel{ position:absolute; z-index:20; left:0; top:calc(100% + 6px); width:min(780px, calc(100vw - 32px)); max-height:72vh; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto minmax(0,1fr) auto; gap:12px 18px; padding:16px 18px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); }
+.colunas[open] > summary::before{ content:""; position:fixed; inset:0; z-index:65; background:rgba(15,23,42,.45); cursor:default; }
+.colunas-painel{ position:fixed; z-index:70; left:50%; top:50%; transform:translate(-50%,-50%); width:min(820px, calc(100vw - 32px)); max-height:min(82vh, 760px); display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto minmax(0,1fr) auto; gap:12px 18px; padding:16px 18px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); }
 .colunas-cab{ grid-column:1 / -1; display:flex; flex-direction:column; gap:2px; }
 .colunas-cab strong{ font-size:15px; }
 .colunas-lista, .colunas-escolhidas{ min-height:0; overflow:auto; }
@@ -210,7 +287,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 .colunas-escolhidas li button{ padding:1px 7px; font-size:12px; }
 .colunas-pe{ grid-column:1 / -1; display:flex; align-items:center; gap:8px; justify-content:flex-end; border-top:1px solid var(--linha); padding-top:12px; }
 .colunas-pe a{ margin-right:auto; font-size:13px; }
-@media (max-width:640px){ .colunas-painel{ grid-template-columns:1fr; max-height:80vh; } }
+@media (max-width:640px){ .colunas-painel{ grid-template-columns:1fr; top:auto; bottom:0; left:0; transform:none; width:100%; max-height:85vh; border-radius:16px 16px 0 0; } }
 .tabela.gestor td, .tabela.gestor th{ text-align:right; } .tabela.gestor .nome, .tabela.gestor .st{ text-align:left; }
 /* Caixa de marcar e chave de status: colunas estreitas e fixas (sem arrastar a largura) */
 .tabela.gestor .marca{ width:48px; min-width:48px; max-width:48px; padding-left:16px; padding-right:12px; text-align:center; }
@@ -300,11 +377,11 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .topo input[type=date]{ min-width:0; }
 /* Filtro de produto do topo: varios de uma vez, numa lista que abre como um select */
 .multi{ position:relative; }
-.multi > summary{ list-style:none; cursor:pointer; min-width:180px; max-width:280px; padding:6px 28px 6px 9px; border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); color:var(--texto); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; position:relative; }
+.multi > summary{ list-style:none; position:relative; padding-right:30px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .multi > summary::-webkit-details-marker{ display:none; }
-.multi > summary::after{ content:""; position:absolute; right:10px; top:50%; width:6px; height:6px; border-right:1.5px solid var(--suave); border-bottom:1.5px solid var(--suave); transform:translateY(-70%) rotate(45deg); }
-.multi[open] > summary{ border-color:var(--marca); }
-.multi-painel{ position:absolute; z-index:25; left:0; top:calc(100% + 4px); min-width:100%; width:max-content; max-width:min(360px, calc(100vw - 32px)); max-height:60vh; overflow:auto; padding:6px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); color:var(--texto); font-size:13px; }
+.multi > summary::after{ content:""; position:absolute; right:12px; top:50%; width:6px; height:6px; border-right:1.8px solid var(--suave); border-bottom:1.8px solid var(--suave); transform:translateY(-70%) rotate(45deg); }
+
+.multi-painel{ position:absolute; z-index:45; left:0; top:calc(100% + 4px); min-width:100%; width:max-content; max-width:min(380px, calc(100vw - 24px)); max-height:60vh; overflow:auto; padding:5px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:10px; box-shadow:0 12px 32px var(--sombra); color:var(--texto); font-size:13px; }
 .multi-painel label{ display:flex; flex-direction:row; align-items:center; gap:8px; padding:6px 8px; border-radius:var(--r-sm); color:var(--texto); font-size:13px; cursor:pointer; }
 .multi-painel label:hover{ background:var(--hover); }
 .multi-painel .multi-pe{ display:flex; justify-content:space-between; gap:8px; padding:6px 4px 2px; border-top:1px solid var(--linha); margin-top:4px; }
@@ -314,7 +391,9 @@ a.analise:hover{ color:var(--marca); border-color:var(--marca); text-decoration:
 .delta{ font-size:11px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); } .delta.novo{ color:var(--marca); }
 /* Gestor: comparar com (no alto) e o ranking (painel de bolsa) */
 .gestor-comparar{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 12px; }
-.gestor-comparar label{ display:flex; align-items:center; gap:8px; font-size:13px; color:var(--suave); }
+.gestor-comparar label{ display:flex; align-items:center; gap:8px; max-width:100%; min-width:0; font-size:13px; color:var(--suave); }
+.gestor-comparar label > .sel{ flex:1 1 auto; }
+@media (max-width:640px){ .sel-botao, .multi > summary{ min-width:0; } .gestor-comparar label{ width:100%; } }
 .gestor-comparar select{ min-width:0; }
 .gestor-comparar b{ color:var(--texto); font-weight:600; margin:0 2px; }
 .ranking-bloco{ margin:0 0 16px; }
@@ -373,6 +452,15 @@ a.conta-nome{ display:inline-flex; align-items:center; gap:6px; color:var(--text
 a.conta-nome:hover{ background:var(--hover); text-decoration:none; }
 a.conta-nome .conta-cfg{ color:var(--suave); font-size:12px; }
 @media (max-width:640px){ a.conta-nome .conta-cfg{ display:none; } }
+/* Configuracoes: perfil (foto) e o Sair */
+.perfil-linha{ display:flex; align-items:center; gap:14px; margin:0 0 14px; }
+.perfil-linha b{ display:block; font-size:15px; margin:0 0 6px; }
+.perfil-acoes{ display:inline-flex; margin:0 8px 0 0; }
+.perfil-linha form{ display:inline-flex; }
+.botao-arquivo{ display:inline-flex !important; flex-direction:row !important; align-items:center; gap:6px; margin:0 !important; padding:6px 12px; background:var(--marca); color:#fff !important; border-radius:var(--r-sm); font-weight:500; font-size:13px !important; cursor:pointer; }
+.botao-arquivo:hover{ background:var(--marca-hover); }
+.botao-arquivo input{ position:absolute; width:1px; height:1px; opacity:0; }
+.perfil-sair{ border-top:1px solid var(--linha); padding-top:12px; }
 /* Configuracoes */
 .cfg-titulo{ font-size:20px; margin:0 0 14px; }
 .cfg-grade{ display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:16px; margin:0 0 16px; align-items:start; }
@@ -656,6 +744,9 @@ function icone(string $nome, int $tam = 16): string
         'anuncio' => '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
         'carteira' => '<path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 9h-6a3 3 0 0 0 0 6h6z"/><path d="M15.5 12h.01"/>',
         'calendario' => '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
+        'filtro' => '<path d="M3 5h18l-7 8v5l-4 2v-7z"/>',
+        'seta-cima' => '<path d="M6 15l6-6 6 6"/>',
+        'grafico' => '<path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/><path d="M4 9l6-4 6 8 5-5"/>',
         'paleta' => '<path d="M12 22a10 10 0 1 1 10-10c0 2.2-1.8 3.5-4 3.5h-1.6a1.9 1.9 0 0 0-1.4 3.2A2 2 0 0 1 12 22z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="10.5" cy="6.5" r="1"/><circle cx="15.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/>',
     ];
     return '<svg class="ico" width="' . $tam . '" height="' . $tam . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$nome] ?? '') . '</svg>';
@@ -806,14 +897,18 @@ function com_icone_canal(array $c, string $texto): string
 // Conta de quem esta no painel e o Sair, no canto direito do topo (como no CMS)
 function conta_topo(): string
 {
-    // A paleta abre a aparencia (claro, escuro, pretao ou outra cor); o nome leva a
-    // Configuracoes (instalar o app e as notificacoes)
+    // Canto direito: a paleta (aparencia), a engrenagem (Configuracoes, onde fica o Sair), a
+    // bolinha com a foto de quem entrou e a seta que recolhe a barra de cima. O token vai num
+    // campo proprio para o painel.js (busca em segundo plano e notificacoes).
     $aqui = destino_seguro((string)($_SERVER['REQUEST_URI'] ?? ''));
     $volta = $aqui === './' ? './' : $aqui;
-    return '<div class="conta"><details class="tema-menu"><summary title="Aparência: claro, escuro ou outra cor de fundo" aria-label="Aparência">' . icone('paleta', 18) . '</summary>'
-        . '<div class="tema-painel"><h3>Aparência</h3>' . tema_form($volta) . '</div></details><a class="conta-nome" href="configuracoes.php" title="Configurações: instalar o app e notificações">' . icone('config', 15) . '<span>' . e((string)usuario_atual()) . '</span><span class="conta-cfg">Configurações</span></a>'
-        . '<form method="post" action="sair.php" id="form-sair"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
-        . '<button type="submit" class="discreto neutro" title="Encerrar a sessão neste navegador">' . icone('sair', 14) . ' Sair</button></form></div>';
+    $u = (string)usuario_atual();
+    return '<div class="conta"><input type="hidden" id="csrf-painel" value="' . e(token_csrf()) . '">'
+        . '<details class="tema-menu"><summary title="Aparência: claro, escuro ou outra cor de fundo" aria-label="Aparência">' . icone('paleta', 18) . '</summary>'
+        . '<div class="tema-painel"><h3>Aparência</h3>' . tema_form($volta) . '</div></details>'
+        . '<a class="conta-icone" href="configuracoes.php" title="Configurações: perfil, aparência, app, notificações e sair" aria-label="Configurações">' . icone('config', 18) . '</a>'
+        . '<a class="conta-perfil" href="configuracoes.php#perfil" title="' . e($u) . ': foto do perfil e sair">' . avatar_html($u, 28) . '<span>' . e($u) . '</span></a>'
+        . '<button type="button" class="recolher" data-recolher aria-expanded="true" aria-label="Recolher a barra de cima" title="Recolher a barra de cima">' . icone('seta-cima', 16) . '</button></div>';
 }
 
 // Botao de atualizar (so o icone, com a dica): busca na hora e volta para $volta
@@ -863,7 +958,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
 <form class="filtros" method="get" action="./" id="filtros">
   <input type="hidden" name="aba" value="<?= e($aba) ?>">
   <?php if (!$soPeriodo): ?>
-  <label>Site
+  <label><span><?= com_info('Site', 'O site em que a visita aconteceu (onde o t.js do painel está instalado). Todos os sites: soma tudo. Vale para tráfego, conferência, vendas, visitantes e eventos.') ?></span>
     <select name="dominio" data-reinicia="pagina">
       <option value="">Todos os sites</option>
       <?php foreach ($dominios as $d): ?>
@@ -871,7 +966,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
       <?php endforeach; ?>
     </select>
   </label>
-  <label>Página
+  <label><span><?= com_info('Página', 'Uma página do site escolhido (/drivedeprojetos e /drivedeprojetos/ são a mesma). Escolha um site para ver as páginas dele.') ?></span>
     <select name="pagina"<?= $filtro['dominio'] === '' ? ' disabled' : '' ?>>
       <option value="">Todas as páginas</option>
       <?php foreach ($paginas as $p): ?>
@@ -885,19 +980,20 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
   <?php if ($aba === 'campanha' && is_string($_GET['id'] ?? null) && preg_match('/^\d{3,25}$/', $_GET['id'])): ?>
   <input type="hidden" name="id" value="<?= e($_GET['id']) ?>">
   <?php endif; ?>
-  <label>Período
-    <select name="periodo" data-periodo>
+  <div class="campo campo-periodo" data-periodo-campo data-rotulo="<?= e(periodo_rotulo($filtro['periodo'])) ?>" data-de="<?= e($d1) ?>" data-ate="<?= e($d2) ?>" data-hoje="<?= e($hoje) ?>">
+    <span><?= com_info('Período', 'Vale para todas as telas e fica lembrado. Escolha um dos prontos ou, no calendário, o primeiro e o último dia (os dois entram). Hoje e Tudo não comparam com o período anterior.') ?></span>
+    <select name="periodo" data-periodo data-nativo aria-label="Período">
       <?php foreach (PERIODOS as $v => $rotulo): ?>
         <option value="<?= e($v) ?>"<?= $filtro['periodo'] === $v ? ' selected' : '' ?>><?= e($rotulo) ?></option>
       <?php endforeach; ?>
       <option value="personalizado"<?= $datas ? ' selected' : '' ?>>De uma data a outra…</option>
     </select>
-  </label>
-  <span class="datas" data-datas<?= $datas ? '' : ' hidden' ?>>
-    <label>De <input type="date" name="de" value="<?= e($d1) ?>" max="<?= e($hoje) ?>"<?= $datas ? '' : ' disabled' ?>></label>
-    <label>Até <input type="date" name="ate" value="<?= e($d2) ?>" min="<?= e($d1) ?>" max="<?= e($hoje) ?>"<?= $datas ? '' : ' disabled' ?>></label>
-    <button type="submit" class="discreto neutro">Aplicar</button>
-  </span>
+    <span class="datas" data-datas<?= $datas ? '' : ' hidden' ?>>
+      <label>De <input type="date" name="de" value="<?= e($d1) ?>" max="<?= e($hoje) ?>"<?= $datas ? '' : ' disabled' ?>></label>
+      <label>Até <input type="date" name="ate" value="<?= e($d2) ?>" min="<?= e($d1) ?>" max="<?= e($hoje) ?>"<?= $datas ? '' : ' disabled' ?>></label>
+      <button type="submit" class="discreto neutro">Aplicar</button>
+    </span>
+  </div>
   <?php if ($comProduto): ?>
   <div class="campo"><span><?= com_info('Produto', 'Vale para as vendas de todas as telas: faturamento, vendas, CPA, ROI e lucro. Marque o produto principal (ou mais de um, como o Drive antigo e o novo) para tirar os order bumps da conta: cada order bump é outro produto na Kiwify. O gasto da Meta continua o das campanhas.') ?></span>
     <details class="multi" data-multi>
@@ -915,6 +1011,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
   <?php endif; ?>
   <noscript><button type="submit">Filtrar</button></noscript>
 </form>
+<button type="button" class="topo-resumo" data-recolher title="Mostrar os filtros"><?= icone('filtro', 15) ?><span><?= e(implode(' · ', array_filter([periodo_rotulo($filtro['periodo']), $comProduto ? $rotuloProduto : '', !$soPeriodo && $filtro['dominio'] !== '' ? $filtro['dominio'] . $filtro['pagina'] : '']))) ?></span></button>
 <?= conta_topo() ?>
 </header>
 <?php
