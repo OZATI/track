@@ -103,6 +103,10 @@ function gestor_dias_render(PDO $db, string $periodo): void
         $dia2 = $hoje;
     }
     $dia2 = min($dia2, $hoje);
+    // Antes do primeiro dia da campanha nao ha o que mostrar (eram linhas zeradas)
+    if ($inicio !== null && $dia1 < $inicio) {
+        $dia1 = min($inicio, $dia2);
+    }
     $limite = (new DateTime($dia2))->modify('-365 days')->format('Y-m-d');
     $dia1 = max($dia1, $limite);
 

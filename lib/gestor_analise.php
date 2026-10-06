@@ -192,8 +192,8 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
     if ($t['gasto'] === 0) {
         return [['neutro', 'Sem gasto no período: escolha outro período no topo para ler a campanha.']];
     }
-    // 1. ROI do periodo
-    $roi = $t['roi'];
+    // 1. ROI do periodo (arredondado como aparece na tela: "2,00" ja e verde)
+    $roi = $t['roi'] === null ? null : round($t['roi'], 2);
     $dicas[] = [$roi === null ? 'neutro' : ['negativo' => 'erro', 'medio' => 'alerta', 'positivo' => 'ok'][cor_roi($roi)],
         'ROI do período ' . analise_num($roi) . ($roi === null ? '.' : ($roi >= 2 ? ': acima de 2, a campanha se paga com folga.' : ($roi >= 1 ? ': se paga, mas com margem curta (entre 1 e 2).' : ': abaixo de 1, não se pagou no período.')))];
     // Dias fechados (hoje ainda esta pela metade), do mais antigo para o mais novo
