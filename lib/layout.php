@@ -405,7 +405,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 .velocimetro path{ fill:none; stroke-width:16; stroke-linecap:round; }
 .vel-ruim{ stroke:var(--erro); } .vel-medio{ stroke:var(--laranja); } .vel-bom{ stroke:var(--ok); }
 .vel-marca{ font:11px var(--f-texto); fill:var(--suave); }
-.vel-ponteiro{ stroke:var(--texto); stroke-width:3.5; stroke-linecap:round; transform-box:view-box; transform-origin:120px 116px; animation:ponteiro .9s cubic-bezier(.2,.8,.2,1) both; }
+.vel-ponteiro{ stroke:var(--texto); stroke-width:2.2; stroke-linecap:round; transform-box:view-box; transform-origin:120px 116px; animation:ponteiro .9s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes ponteiro{ from{ transform:rotate(var(--de, 0deg)); } to{ transform:none; } }
 .vel-centro{ fill:var(--texto); }
 .vel-valor{ font:600 22px var(--f-texto); fill:var(--texto); } .vel-valor.positivo{ fill:var(--ok); } .vel-valor.medio{ fill:var(--laranja); } .vel-valor.negativo{ fill:var(--erro); }
