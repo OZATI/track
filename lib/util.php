@@ -393,6 +393,7 @@ function exigir_login(?string $acesso = 'utm'): void
         header('Location: ' . admin_base() . 'entrar.php' . (admin_base() !== '' ? '?volta=' . rawurlencode((string)($_SERVER['REQUEST_URI'] ?? '/')) : ''));
         exit;
     }
+    track_acessos_migrar();
     if ($acesso !== null && !usuario_pode($acesso)) {
         // Usuario so do CMS que abriu o UTM: vai para o CMS
         $cms = (track_config() ?? [])['menu_cms'] ?? '';

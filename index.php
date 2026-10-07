@@ -122,7 +122,7 @@ function chegada(?string $fonte): array
 function barra_vendas(array $parLink, string $aba): void
 {
     if (!kiwify_api_chave()) {
-        echo '<p class="suave barra-vendas">Vendas só pelo webhook da Kiwify. Para buscar também pela API (e pegar o que o webhook não entregar), cadastre a chave na aba <a href="kiwify-api.php">API Kiwify</a>.</p>';
+        echo '<p class="suave barra-vendas">Vendas só pelo webhook da Kiwify. Para buscar também pela API (e pegar o que o webhook não entregar), cadastre a chave em <a href="kiwify-api.php">Integrações → Kiwify</a>.</p>';
         return;
     }
     $s = kiwify_sync_estado();

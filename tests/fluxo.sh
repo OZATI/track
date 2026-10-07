@@ -275,6 +275,10 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/financeiro.php")
 confere "$([ "$code" = "403" ]; echo $?)" "Financeiro fechado para quem não tem o acesso Financeiro ($code)"
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/bio.php")
 confere "$([ "$code" = "403" ]; echo $?)" "Bio fechada para quem não tem o acesso Bio ($code)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/integracoes.php")
+confere "$([ "$code" = "403" ]; echo $?)" "Integrações fechadas para quem não tem o acesso Integrações ($code)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/meta-api.php")
+confere "$([ "$code" = "403" ]; echo $?)" "o token da Meta (dentro de Integrações) fica fechado sem o acesso ($code)"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" "$URL/usuarios.php")
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/index.php")
 confere "$([ "$code" = "403" ]; echo $?)" "usuário sem nenhum painel não abre o UTM ($code)"
@@ -318,7 +322,8 @@ destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/kiwify-api.php")
 confere "$(tem 'entrar.php' "$destino")" "tela da API exige login"
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
 confere "$(tem 'Colar a chave da API' "$r")" "tela da API abre com o formulário"
-confere "$(tem 'href="kiwify-api.php" class="atual"' "$r")" "aba API Kiwify aparece marcada"
+confere "$(tem 'href="integracoes.php?aba=vendas" class="atual"' "$r")" "a Kiwify abre dentro de Integrações, na aba Vendas"
+confere "$(tem '<span aria-hidden="true">/</span><b>Kiwify</b>' "$r")" "a trilha mostra Integrações / Vendas / Kiwify"
 csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 salvar() { curl -s -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=salvar" --data-urlencode "client_id=$2" \
     --data-urlencode "client_secret=$3" --data-urlencode "account_id=$4" "$URL/kiwify-api.php"; }
@@ -398,7 +403,8 @@ destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/meta-api.php")
 confere "$(tem 'entrar.php' "$destino")" "tela da API Meta exige login"
 r=$(curl -s -b "$JAR" "$URL/meta-api.php")
 confere "$(tem 'Conectar a conta de anúncios da Meta' "$r")" "tela da API Meta abre com o passo a passo"
-confere "$(tem 'href="meta-api.php" class="atual"' "$r")" "aba API Meta aparece marcada"
+confere "$(tem 'href="integracoes.php?aba=anuncios" class="atual"' "$r")" "a Meta Ads abre dentro de Integrações, na aba Anúncios"
+confere "$(grep -q 'href="meta-api.php"' < <(printf '%s\n' "$(curl -s -b "$JAR" "$URL/index.php?aba=vendas")"); [ $? -ne 0 ]; echo $?)" "a barra de cima do UTM não tem mais as abas de API"
 meta() { curl -s -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=salvar" --data-urlencode "token=$2" --data-urlencode "conta=$3" "$URL/meta-api.php"; }
 LEITURA="TokenLeitura0000000000000000000000000000000000"
 r=$(meta "" "$LEITURA" 587364236934346)
@@ -416,6 +422,28 @@ r=$(meta "$csrf" "$LEITURA" act_587364236934346)
 confere "$(tem 'Token conferido e salvo. Conta DRIVE DE PROJETOS: R$ 1.539,22 investidos nos últimos 7 dias' "$r")" "token só de leitura é conferido e salvo, com o gasto de 7 dias"
 confere "$(grep -q "$LEITURA" < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "token da Meta não volta para a tela"
 confere "$(tem 'consulta(s) no último minuto' "$r")" "aba API Meta mostra o uso da API"
+
+echo "Integrações"
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/integracoes.php")
+confere "$(tem 'entrar.php' "$destino")" "Integrações exige login"
+r=$(curl -s -b "$JAR" "$URL/integracoes.php")
+confere "$(tem 'title="Integrações"' "$r")" "Integrações aparece na barra lateral"
+confere "$(tem '<a href="integracoes.php?aba=anuncios" class="atual" aria-current="page">' "$r")" "Integrações abre na aba Anúncios"
+confere "$(tem 'data-integracao="meta"><a href="meta-api.php">' "$r")" "o cartão da Meta Ads leva à tela dela"
+confere "$(tem 'DRIVE DE PROJETOS · 587364236934346' "$r")" "o cartão da Meta Ads mostra a conta conectada"
+confere "$(tem '<span class="selo ok">Conectado</span>' "$r")" "Meta Ads aparece como conectada"
+confere "$(tem 'data-integracao="google"><div>' "$r")" "Google Ads aparece, ainda sem tela"
+confere "$(tem '<span class="selo neutro">Em construção</span>' "$r")" "Google Ads em construção"
+confere "$(tem 'data-integracao="tiktok"' "$r")" "TikTok Ads aparece como em breve"
+r=$(curl -s -b "$JAR" "$URL/integracoes.php?aba=vendas")
+confere "$(tem 'data-integracao="kiwify"><a href="kiwify-api.php">' "$r")" "aba Vendas mostra a Kiwify"
+confere "$(tem 'data-integracao="mercadopago"' "$r")" "aba Vendas mostra o Mercado Pago (em breve)"
+r=$(curl -s -b "$JAR" "$URL/integracoes.php?aba=rastreio")
+confere "$(tem '/t.js&quot; defer&gt;&lt;/script&gt;' "$r")" "aba Rastreio mostra o código do t.js"
+confere "$(tem 'utm_source=MetaAds&amp;utm_campaign={{campaign.name}}|{{campaign.id}}' "$r")" "aba Rastreio mostra os parâmetros da Meta"
+confere "$(tem 'utm_campaign=GoogleAds|{campaignid}' "$r")" "aba Rastreio mostra os parâmetros do Google"
+r=$(curl -s -b "$JAR" "$URL/integracoes.php?aba=xyz")
+confere "$(tem '<a href="integracoes.php?aba=anuncios" class="atual"' "$r")" "aba desconhecida volta para Anúncios"
 
 echo "Gestor de anúncios"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
@@ -892,7 +920,7 @@ destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/instagram-api.php")
 confere "$(tem 'entrar.php' "$destino")" "tela da API Instagram exige login"
 r=$(curl -s -b "$JAR" "$URL/instagram-api.php")
 confere "$(tem 'Conectar o perfil do Instagram' "$r")" "tela da API Instagram abre com o passo a passo"
-confere "$(tem 'href="instagram-api.php" class="atual"' "$r")" "aba API Instagram aparece marcada"
+confere "$(tem 'href="integracoes.php?aba=organico" class="atual"' "$r")" "o Instagram abre dentro de Integrações, na aba Orgânico"
 ig() { curl -s -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=salvar" --data-urlencode "token=$2" "$URL/instagram-api.php"; }
 ZEROS=$(printf '0%.0s' $(seq 60))
 IGTOKEN="IGAATeste$ZEROS"
@@ -1015,7 +1043,7 @@ confere "$(grep -q 'IGAA' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "token do
 echo "Instagram pelo token da API Meta"
 usar_meta() { curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=usar_meta" "$URL/instagram-api.php"; }
 r=$(usar_meta)
-confere "$(tem 'Salve primeiro o token na aba API Meta' "$r")" "sem token na API Meta, o botão diz o que falta"
+confere "$(tem 'Salve primeiro o token em Integrações → Meta Ads' "$r")" "sem token na API Meta, o botão diz o que falta"
 meta "$csrf" "$LEITURA" 587364236934346 >/dev/null
 r=$(usar_meta)
 confere "$(tem 'não enxerga nenhuma conta do Instagram. Faltam as permissões: instagram_basic, instagram_manage_insights, pages_show_list.' "$r")" "token da API Meta sem Instagram lista as permissões que faltam"
@@ -1038,7 +1066,7 @@ confere "$(tem 'Reel do Drive de Projetos' "$t")" "posts buscados pelo token da 
 confere "$(grep -q 'Última busca no Instagram falhou' < <(printf '%s\n' "$t"); [ $? -ne 0 ]; echo $?)" "busca pela Meta sem erro"
 curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/meta-api.php"
 r=$(curl -s -b "$JAR" "$URL/instagram-api.php")
-confere "$(tem 'O token da aba API Meta foi removido' "$r")" "sem o token da API Meta, a aba Instagram avisa"
+confere "$(tem 'O token da Meta Ads (em Integrações) foi removido' "$r")" "sem o token da API Meta, a aba Instagram avisa"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/instagram-api.php")
 confere "$(tem 'Instagram desconectado do painel' "$r")" "desconectar o Instagram ligado pela Meta"
 

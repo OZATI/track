@@ -67,7 +67,7 @@ function meta_publico_campanha(string $id, string $dia1, string $dia2): array
     }
     $k = meta_api_chave();
     if (!$k) {
-        return $resposta($guardado, 'Conecte a conta de anúncios na aba API Meta para ver quem compra por sexo e idade.');
+        return $resposta($guardado, 'Conecte a conta de anúncios em Integrações → Meta Ads para ver quem compra por sexo e idade.');
     }
     $r = meta_listar('/' . $id . '/insights', [
         'breakdowns' => 'age,gender',

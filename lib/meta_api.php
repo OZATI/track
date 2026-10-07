@@ -2,7 +2,7 @@
 // Cliente da API de Marketing da Meta (Graph API), so para LER: quanto cada anuncio gastou,
 // para o painel calcular ROI e ROAS ao lado das vendas.
 //
-// Token de usuario do sistema, colado uma vez na aba API Meta e guardado na configuracao, fora
+// Token de usuario do sistema, colado uma vez na tela Meta Ads (Integracoes) e guardado na configuracao, fora
 // da pasta publica. Precisa de ads_read. Token que tambem pode editar (ads_management,
 // business_management) e aceito com aviso: decisao de 29/09/2026, para o gestor poder ligar,
 // pausar e mudar orcamento no futuro. Ate la o painel so le; toda edicao, quando existir, pede

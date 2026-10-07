@@ -1,15 +1,16 @@
 <?php
 // Perfil do Instagram na aba Organico: seguidores, alcance, toques nos links do perfil e os
 // posts e reels que mais engajam. O painel so le. Dois caminhos (lib/instagram_api.php):
-// - usar o token da aba API Meta, se ele tiver as permissoes do Instagram (nao vence);
+// - usar o token da tela Meta Ads (Integracoes), se ele tiver as permissoes do Instagram (nao vence);
 // - colar um token do login do Instagram (IGAA...), que o painel renova sozinho.
 
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/layout.php';
 require_once __DIR__ . '/lib/kiwify_api.php'; // mascarar()
 require_once __DIR__ . '/lib/instagram_sync.php';
+require_once __DIR__ . '/lib/integracoes.php';
 
-exigir_login();
+exigir_login('integracoes');
 $erros = [];
 $aviso = '';
 $escolher = [];
@@ -53,7 +54,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     } elseif ($acao === 'usar_meta') {
         $meta = meta_api_chave();
         if (!$meta) {
-            $erros[] = 'Salve primeiro o token na aba API Meta.';
+            $erros[] = 'Salve primeiro o token em Integrações → Meta Ads.';
         } else {
             $d = ig_api_contas_meta($meta['token']);
             $pedido = (string)($_POST['ig_id'] ?? '');
@@ -85,7 +86,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         if ($token === null) {
             $erros[] = ig_explicar_colado($colado);
         } elseif (strpos($token, 'EAA') === 0) {
-            $erros[] = 'Esse é um token da Meta (começa com "EAA"), não do login do Instagram. Cole-o na aba API Meta e, aqui, use a opção 1: "Usar o token da API Meta".';
+            $erros[] = 'Esse é um token da Meta (começa com "EAA"), não do login do Instagram. Cole-o em Integrações → Meta Ads e, aqui, use a opção 1: "Usar o token da API Meta".';
         } else {
             $r = ig_api_testar(ig_ctx(['token' => $token]));
             if (!$r['ok']) {
@@ -131,10 +132,9 @@ $salva = track_config()['instagram_api'] ?? null; // salva, mesmo sem o token da
 $pelaMeta = is_array($salva) && ($salva['modo'] ?? '') === 'facebook';
 $temMeta = (bool)meta_api_chave();
 $estado = ig_sync_estado();
-pagina_inicio('API Instagram');
-casca_inicio();
-topo_pagina();
-abas_painel('instagram-api');
+pagina_inicio('Instagram');
+casca_inicio('integracoes');
+integracoes_topo('organico', 'Instagram');
 ?>
 <main>
   <?php foreach ($erros as $erro): ?><p class="erro"><?= e($erro) ?></p><?php endforeach; ?>
@@ -157,7 +157,7 @@ abas_painel('instagram-api');
   <?php if ($salva): ?>
   <section class="cartao">
     <h2>Instagram conectado</h2>
-    <?php if (!$chave): ?><p class="erro">O token da aba API Meta foi removido: sem ele, o painel não busca mais no Instagram. Salve um token lá de novo.</p><?php endif; ?>
+    <?php if (!$chave): ?><p class="erro">O token da Meta Ads (em Integrações) foi removido: sem ele, o painel não busca mais no Instagram. Salve um token lá de novo.</p><?php endif; ?>
     <div class="tabela"><table>
       <tr><th>Conta do Instagram</th><td>@<?= e($salva['usuario'] ?? '') ?> <span class="suave">(<?= e(trim(($salva['nome'] ?? '') . ' · ' . mb_strtolower($salva['tipo'] ?? ''), ' ·')) ?>)</span></td></tr>
       <tr><th>Acesso</th><td><?= $pelaMeta
@@ -203,14 +203,14 @@ abas_painel('instagram-api');
       <li>No app da Meta, deixe disponíveis <strong>instagram_basic</strong>, <strong>instagram_manage_insights</strong>, <strong>pages_show_list</strong> e <strong>pages_read_engagement</strong>.</li>
       <li><strong>business.facebook.com</strong> → Configurações do negócio → Contas: o Instagram da marca ligado à <strong>página do Facebook</strong> do portfólio.</li>
       <li>Usuários do sistema → o usuário do painel → <strong>Atribuir ativos</strong>: a página e a conta do Instagram (só ver).</li>
-      <li><strong>Gerar novo token</strong> marcando, além do que já tinha, as quatro permissões acima. Cole na aba <a href="meta-api.php">API Meta</a> e revogue o token antigo.</li>
+      <li><strong>Gerar novo token</strong> marcando, além do que já tinha, as quatro permissões acima. Cole em <a href="meta-api.php">Integrações → Meta Ads</a> e revogue o token antigo.</li>
       <li>Volte aqui e clique no botão abaixo.</li>
     </ol>
     <form method="post" action="instagram-api.php" class="linha-botoes">
       <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
       <input type="hidden" name="acao" value="usar_meta">
       <button type="submit"<?= $temMeta ? '' : ' disabled' ?>>Usar o token da API Meta</button>
-      <?= $temMeta ? '' : '<span class="suave">Salve primeiro um token na aba API Meta.</span>' ?>
+      <?= $temMeta ? '' : '<span class="suave">Salve primeiro um token em Integrações → Meta Ads.</span>' ?>
     </form>
 
     <h3>Opção 2: token do login do Instagram</h3>

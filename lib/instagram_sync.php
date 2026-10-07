@@ -103,7 +103,7 @@ function ig_sync_buscar(array $k): array
     if ($st !== 200 || empty($c['username'])) {
         $m = ig_api_mensagem($c);
         return ['ok' => false, 'adiada' => $st === IG_ADIADA,
-            'erro' => $st === 0 ? 'Sem conexão com a API do Instagram.' : 'O Instagram recusou a consulta do perfil' . ($m ? ': ' . $m : '') . '. Se o token foi revogado, gere outro' . ($ctx['modo'] === 'facebook' ? ' e cole na aba API Meta.' : ' na aba API Instagram.')];
+            'erro' => $st === 0 ? 'Sem conexão com a API do Instagram.' : 'O Instagram recusou a consulta do perfil' . ($m ? ': ' . $m : '') . '. Se o token foi revogado, gere outro' . ($ctx['modo'] === 'facebook' ? ' e cole em Integrações → Meta Ads.' : ' em Integrações → Instagram.')];
     }
     $seguidores = (int)($c['followers_count'] ?? 0);
     definir_ajuste('ig_perfil', json_encode([
@@ -152,7 +152,7 @@ function ig_sync_buscar(array $k): array
     foreach ($imagens as $id => $url) {
         if ($url !== '' && $tentadas < IG_MINIATURAS_POR_BUSCA && microtime(true) < $prazo && !is_file(ig_arquivo_miniatura($id))) {
             $r = ig_baixar_miniatura($id, $url);
-            // Guarda o motivo da ultima falha para a aba API Instagram mostrar
+            // Guarda o motivo da ultima falha para a tela Instagram (Integracoes) mostrar
             definir_ajuste('ig_capas_erro', $r === true ? null : $r);
             $tentadas++;
         }

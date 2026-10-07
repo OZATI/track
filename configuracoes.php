@@ -100,7 +100,7 @@ abas_painel('configuracoes');
       <h2><?= com_info('Orçamento pelo painel', 'O maior orçamento diário que alguém pode pôr numa campanha ou conjunto pelo painel, na hora ou numa programação. Vale para todos os usuários. Para mudar o orçamento por aqui, o token da API Meta precisa de ads_management.') ?></h2>
       <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="teto">
       <label class="cfg-campo"><span>Teto por dia (R$)</span><input name="teto" inputmode="decimal" value="<?= e(number_format(orc_teto() / 100, 2, ',', '.')) ?>"></label>
-      <p class="suave"><?= gestor_pode_editar() ? 'O token da API Meta pode mudar o orçamento.' : 'O token da API Meta só lê: gere um com ads_management na aba API Meta para mudar o orçamento por aqui.' ?></p>
+      <p class="suave"><?= gestor_pode_editar() ? 'O token da API Meta pode mudar o orçamento.' : 'O token da API Meta só lê: gere um com ads_management em Integrações → Meta Ads para mudar o orçamento por aqui.' ?></p>
       <button type="submit">Salvar teto</button>
     </form>
 

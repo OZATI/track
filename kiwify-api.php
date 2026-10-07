@@ -6,8 +6,9 @@
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/layout.php';
 require_once __DIR__ . '/lib/kiwify_sync.php';
+require_once __DIR__ . '/lib/integracoes.php';
 
-exigir_login();
+exigir_login('integracoes');
 $erros = [];
 $aviso = '';
 
@@ -78,11 +79,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 }
 
 $chave = kiwify_api_chave();
-pagina_inicio('API Kiwify');
-casca_inicio();
+pagina_inicio('Kiwify');
+casca_inicio('integracoes');
 ?>
-<?php topo_pagina(); ?>
-<?php abas_painel('kiwify-api'); ?>
+<?php integracoes_topo('vendas', 'Kiwify'); ?>
 <main>
   <?php foreach ($erros as $erro): ?><p class="erro"><?= e($erro) ?></p><?php endforeach; ?>
   <?php if ($aviso): ?><p class="aviso-ok"><?= e($aviso) ?></p><?php endif; ?>

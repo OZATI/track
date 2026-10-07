@@ -546,7 +546,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         echo '<p class="' . ($aviso[1] === 'erro' ? 'erro' : 'aviso-ok') . '">' . e($aviso[0]) . '</p>';
     }
     if (!$temMeta) {
-        echo '<p class="aviso-meta">Sem a conta de anúncios conectada, o gestor mostra só as vendas por campanha. Para ver gasto, lucro, CPA e ROI, conecte na aba <a href="meta-api.php">API Meta</a>.</p>';
+        echo '<p class="aviso-meta">Sem a conta de anúncios conectada, o gestor mostra só as vendas por campanha. Para ver gasto, lucro, CPA e ROI, conecte em <a href="meta-api.php">Integrações → Meta Ads</a>.</p>';
     } elseif ($meta['adiada']) {
         echo '<p class="suave">Busca na Meta adiada: ' . e($meta['adiada']) . '</p>';
     } elseif ($meta['erro']) {
@@ -681,7 +681,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
                     . '<small class="suave" data-orc-massa-nota>Orçamento diário de cada marcada, até ' . e(reais(orc_teto())) . ' por dia. No percentual, 10 sobe 10% e -10 desce 10%.</small></form>';
             }
         } else {
-            $acoes[] = '<p class="menu-nota">Ativar, desativar e mudar o orçamento por aqui pedem um token da API Meta com ads_management (aba API Meta).</p>';
+            $acoes[] = '<p class="menu-nota">Ativar, desativar e mudar o orçamento por aqui pedem um token da API Meta com ads_management (Integrações → Meta Ads).</p>';
         }
         $ferr .= menu_linha($acoes, 'Ações das marcadas', 'seta-baixo', 'gestor-menu gestor-acoes');
     }

@@ -283,7 +283,7 @@ function orc_inline(array $obj, string $volta): string
         return '<span class="campanha-orc suave">sem orçamento</span>';
     }
     if (!$alvos || !gestor_pode_editar()) {
-        $porque = !$alvos ? 'Orçamento total da campanha: muda no Gerenciador de Anúncios da Meta.' : 'Para mudar o orçamento por aqui, o token da API Meta precisa de ads_management (aba API Meta).';
+        $porque = !$alvos ? 'Orçamento total da campanha: muda no Gerenciador de Anúncios da Meta.' : 'Para mudar o orçamento por aqui, o token da API Meta precisa de ads_management (Integrações → Meta Ads).';
         return '<span class="campanha-orc" tabindex="0" data-dica="' . e($porque) . '">' . $txt . '</span>';
     }
     $teto = orc_teto();
@@ -319,7 +319,7 @@ function orc_bloco(string $campanha, string $volta, string $nivel = 'campanha'):
             : 'Este conjunto não tem orçamento próprio: o orçamento é o da campanha (programe na análise diária da campanha).') . '</p></section>';
     }
     if (!$pode) {
-        $html .= '<p class="aviso-meta">O token da API Meta só lê: para mudar e programar o orçamento por aqui, gere um token com <b>ads_management</b> na aba <a href="meta-api.php">API Meta</a>.</p>';
+        $html .= '<p class="aviso-meta">O token da API Meta só lê: para mudar e programar o orçamento por aqui, gere um token com <b>ads_management</b> em <a href="meta-api.php">Integrações → Meta Ads</a>.</p>';
     }
     $opcoes = '';
     foreach ($alvos as $o) {

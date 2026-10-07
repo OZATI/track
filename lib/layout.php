@@ -357,6 +357,27 @@ td.quebra{ white-space:normal; min-width:220px; }
 .bio-form label{ display:flex; flex-direction:column; gap:4px; margin:0; font-size:12px; color:var(--suave); }
 .bio-form label.caixa{ flex-direction:row; align-items:center; gap:8px; color:var(--texto); font-size:13px; }
 .bio-form .linha-botoes{ grid-column:1 / -1; margin:0; }
+
+/* Integracoes (lib/integracoes.php): um cartao por plataforma, como na UTMify */
+.integ-intro{ margin:0 0 14px; max-width:720px; }
+.integ-lista{ list-style:none; margin:0; padding:0; display:grid; gap:10px; max-width:720px; }
+.integ-item > a, .integ-item > div{ display:flex; align-items:center; gap:14px; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); color:var(--texto); }
+.integ-item > a:hover{ text-decoration:none; border-color:var(--marca); }
+.integ-item.integ-breve > div{ opacity:.62; }
+.integ-item .selo{ flex:0 0 auto; white-space:nowrap; }
+.integ-logo{ flex:0 0 auto; display:block; }
+.integ-texto{ flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.integ-texto b{ font-size:15px; font-weight:600; }
+.integ-texto small{ color:var(--suave); font-size:12px; overflow-wrap:anywhere; }
+.integ-texto small.integ-erro{ color:var(--erro); }
+.integ-seta{ flex:0 0 auto; display:grid; place-items:center; width:32px; height:32px; border-radius:50%; background:var(--cartao-2); color:var(--suave); }
+.integ-trilha{ display:flex; align-items:center; gap:8px; margin:0; padding:12px 24px 0; font-size:13px; color:var(--suave); }
+.integ-trilha a{ display:inline-flex; align-items:center; gap:2px; }
+.integ-trilha b{ color:var(--texto); font-weight:600; }
+.integ-cartao{ max-width:720px; }
+.integ-sub{ display:flex; align-items:center; gap:8px; margin:14px 0 6px; font-size:13px; font-weight:600; flex-wrap:wrap; }
+.integ-codigo{ display:block; width:100%; box-sizing:border-box; font:12px/1.5 var(--f-mono); background:var(--cartao-2); border:1px solid var(--linha); border-radius:var(--r-sm); padding:8px 10px; resize:vertical; }
+@media (max-width:640px){ .integ-trilha{ padding:12px 16px 0; } .integ-item > a, .integ-item > div{ padding:12px; gap:12px; } }
 /* Modo foco: a tela fica so com o gestor (sem a barra lateral, as abas, o ranking e o historico) */
 html.modo-foco .lateral, html.modo-foco .abas, html.modo-foco .nav-celular, html.modo-foco .gestor-pos{ display:none !important; }
 html.modo-foco .gestor-card .tcard-corpo{ max-height:calc(100vh - 220px); }
@@ -891,6 +912,9 @@ function icone(string $nome, int $tam = 16): string
         'grade' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 10h18M10 10v11"/>',
         'estrela' => '<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
         'paleta' => '<path d="M12 22a10 10 0 1 1 10-10c0 2.2-1.8 3.5-4 3.5h-1.6a1.9 1.9 0 0 0-1.4 3.2A2 2 0 0 1 12 22z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="10.5" cy="6.5" r="1"/><circle cx="15.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/>',
+        'clipe' => '<path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>',
+        'voltar' => '<path d="M15 18l-6-6 6-6"/>',
+        'avancar' => '<path d="M9 18l6-6-6-6"/>',
     ];
     return '<svg class="ico" width="' . $tam . '" height="' . $tam . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$nome] ?? '') . '</svg>';
 }
@@ -1048,7 +1072,7 @@ function botao_atualizar(string $volta, string $dica = 'Atualizar agora: busca a
         . icone('atualizar', 16) . '</button></form>';
 }
 
-// Topo das telas sem filtro (Usuarios, API Kiwify): a conta mora na barra lateral, entao nada
+// Topo das telas sem filtro (Usuarios, Configuracoes): a conta mora na barra lateral, entao nada
 function topo_pagina(): void
 {
 }
@@ -1159,7 +1183,7 @@ function abas_filtro(string $aba, array $filtro): array
 }
 
 // Abas: titulo e as telas de dados a esquerda (com icone, como no CMS); as de
-// configuracao (API Kiwify e Usuarios) no canto direito. $filtro vazio: links sem filtro.
+// configuracao (Configuracoes) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
     $abas = ['geral' => ['Resumo', 'resumo'], 'painel' => ['Painel', 'grade'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
@@ -1178,9 +1202,7 @@ function abas_painel(string $aba, array $filtro = []): void
     if (is_file(__DIR__ . '/../../guia/index.php')) {
         echo '<a href="../guia/">' . icone('guia') . 'Guia</a>';
     }
-    echo '<a href="kiwify-api.php" class="' . ($aba === 'kiwify-api' ? 'atual' : '') . '">' . icone('chave') . 'API Kiwify</a>';
-    echo '<a href="meta-api.php" class="' . ($aba === 'meta-api' ? 'atual' : '') . '">' . icone('meta') . 'API Meta</a>';
-    echo '<a href="instagram-api.php" class="' . ($aba === 'instagram-api' ? 'atual' : '') . '">' . icone('instagram') . 'API Instagram</a>';
+    // As chaves da Kiwify, da Meta e do Instagram moram em Integracoes (barra lateral), desde 07/10/2026
     echo '<a href="configuracoes.php" class="' . ($aba === 'configuracoes' ? 'atual' : '') . '">' . icone('config') . 'Configurações</a></nav>';
 
     // Celular: barra fixa embaixo com as 4 telas mais usadas; o resto em "Mais"
@@ -1188,8 +1210,10 @@ function abas_painel(string $aba, array $filtro = []): void
     $item = fn(string $href, string $id, string $ico, string $rotulo) => '<a href="' . e($href) . '"' . ($aba === $id ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico, 20) . '<span>' . e($rotulo) . '</span></a>';
     $mais = [['painel', $link('painel'), 'grade', 'Painel'], ['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
         ['visitantes', $link('visitantes'), 'visitantes', 'Visitantes'], ['eventos', $link('eventos'), 'eventos', 'Eventos']];
-    $config = [['configuracoes', 'configuracoes.php', 'config', 'Configurações'], ['kiwify-api', 'kiwify-api.php', 'chave', 'API Kiwify'],
-        ['meta-api', 'meta-api.php', 'meta', 'API Meta'], ['instagram-api', 'instagram-api.php', 'instagram', 'API Instagram']];
+    $config = [['configuracoes', 'configuracoes.php', 'config', 'Configurações']];
+    if (usuario_pode('integracoes')) {
+        $config[] = ['integracoes', 'integracoes.php', 'clipe', 'Integrações'];
+    }
     if (usuario_pode('usuarios')) {
         $config[] = ['usuarios', admin_url('usuarios'), 'usuarios', 'Usuários'];
     }

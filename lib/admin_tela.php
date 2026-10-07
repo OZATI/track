@@ -200,6 +200,10 @@ function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms =
     if (usuario_pode('bio')) {
         $paineis['bio'] = ['Bio', $utm . 'bio.php', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>'];
     }
+    // Integracoes: as contas de fora (anuncios, vendas, organico), com o clipe (integracoes.php)
+    if (usuario_pode('integracoes')) {
+        $paineis['integracoes'] = ['Integrações', $utm . 'integracoes.php', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>'];
+    }
     $atual = $paineis[$aqui] ?? ['Admin', './', icone(['usuarios' => 'usuarios'][$aqui] ?? 'usuario', 20)];
     $marca = fn(string $tela) => $aqui === $tela ? ' atual" aria-current="page' : '';
     $h = '<nav class="lateral" aria-label="Admin" data-lateral><input type="hidden" id="csrf-painel" value="' . e(token_csrf()) . '">'

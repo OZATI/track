@@ -3,11 +3,11 @@
 // insights (alcance, visualizacoes, interacoes, toques nos links do perfil). Alimenta o bloco
 // "Perfil do Instagram" da aba Organico. Dois caminhos, com os mesmos numeros:
 //
-// - 'facebook': o proprio token da aba API Meta (usuario do sistema, nao vence), com
+// - 'facebook': o proprio token da tela Meta Ads (Integracoes) (usuario do sistema, nao vence), com
 //   instagram_basic e instagram_manage_insights e a conta do Instagram ligada a pagina do
 //   portfolio. Consultas em graph.facebook.com, na conta /<id do Instagram>.
 // - 'instagram': token do login do Instagram (IGAA...), gerado no painel de apps da Meta e
-//   colado na aba API Instagram. Consultas em graph.instagram.com, em /me. Vale 60 dias; o
+//   colado na tela Instagram (Integracoes). Consultas em graph.instagram.com, em /me. Vale 60 dias; o
 //   painel renova sozinho a cada 7.
 //
 // A chave secreta do app nao e usada. Mesma protecao contra bloqueio das outras APIs: limite
@@ -25,7 +25,7 @@ function ig_api_host(): string
     return rtrim(getenv('TRACK_IG_API') ?: 'https://graph.instagram.com', '/');
 }
 
-// Configuracao salva, ja com o token certo (no caminho 'facebook', o da aba API Meta)
+// Configuracao salva, ja com o token certo (no caminho 'facebook', o da tela Meta Ads (Integracoes))
 function ig_api_chave(): ?array
 {
     $k = track_config()['instagram_api'] ?? null;
@@ -206,7 +206,7 @@ function ig_api_testar(array $ctx): array
     return $r;
 }
 
-// Contas do Instagram que o token da aba API Meta enxerga, pelas paginas do portfolio.
+// Contas do Instagram que o token da tela Meta Ads (Integracoes) enxerga, pelas paginas do portfolio.
 // Devolve ['ok', 'erro', 'contas' => [['id', 'usuario', 'pagina']]].
 function ig_api_contas_meta(string $tokenMeta): array
 {

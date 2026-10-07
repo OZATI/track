@@ -7,8 +7,9 @@ require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/layout.php';
 require_once __DIR__ . '/lib/kiwify_api.php'; // mascarar()
 require_once __DIR__ . '/lib/meta_api.php';
+require_once __DIR__ . '/lib/integracoes.php';
 
-exigir_login();
+exigir_login('integracoes');
 $erros = [];
 $aviso = '';
 
@@ -79,10 +80,9 @@ function reais_simples(int $centavos, string $moeda): string
 }
 
 $chave = meta_api_chave();
-pagina_inicio('API Meta');
-casca_inicio();
-topo_pagina();
-abas_painel('meta-api');
+pagina_inicio('Meta Ads');
+casca_inicio('integracoes');
+integracoes_topo('anuncios', 'Meta Ads');
 ?>
 <main>
   <?php foreach ($erros as $erro): ?><p class="erro"><?= e($erro) ?></p><?php endforeach; ?>

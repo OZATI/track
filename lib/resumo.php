@@ -420,7 +420,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     }
     echo '</section>';
     if (!$temMeta) {
-        echo '<p class="aviso-meta">Sem a conta de anúncios conectada, gasto, lucro, ROI e o funil da Meta ficam zerados. Conecte na aba <a href="meta-api.php">API Meta</a>.</p>';
+        echo '<p class="aviso-meta">Sem a conta de anúncios conectada, gasto, lucro, ROI e o funil da Meta ficam zerados. Conecte em <a href="meta-api.php">Integrações → Meta Ads</a>.</p>';
     }
 
     // Numeros, pagamento e taxas (grade como a da UTMify)

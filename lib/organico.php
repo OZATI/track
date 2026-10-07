@@ -5,7 +5,7 @@
 // outros sites) e, a parte, o que chegou sem origem nenhuma.
 //
 // O perfil do Instagram (seguidores, alcance, toques nos links do perfil, posts e reels) vem
-// da API do Instagram (lib/instagram_sync.php), com o token da aba API Instagram; sem ele, o
+// da API do Instagram (lib/instagram_sync.php), com o token da tela Instagram (Integracoes); sem ele, o
 // bloco explica como conectar.
 
 require_once __DIR__ . '/resumo.php';
@@ -209,7 +209,7 @@ function organico_instagram(PDO $db, string $periodo, array $grupos): void
     if (!$perfil) {
         echo '<section class="bloco">' . titulo('Perfil do Instagram', $explica) . '<p class="suave">'
             . (ig_api_chave() ? e($estado['erro'] ?: 'Primeira busca no Instagram em andamento: os números aparecem em instantes.')
-                : 'Conecte o perfil na aba <a href="instagram-api.php">API Instagram</a> para ver aqui seguidores, alcance, toques no link da bio e os posts e reels que mais engajam, ao lado das visitas e vendas que vieram do perfil.')
+                : 'Conecte o perfil em <a href="instagram-api.php">Integrações → Instagram</a> para ver aqui seguidores, alcance, toques no link da bio e os posts e reels que mais engajam, ao lado das visitas e vendas que vieram do perfil.')
             . '</p></section>';
         return;
     }
