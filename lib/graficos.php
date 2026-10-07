@@ -207,7 +207,7 @@ function grafico_velocimetro(?float $roi, string $sub = ''): string
         $svg .= '<text x="' . $tx . '" y="' . round($ty + 4, 1) . '" text-anchor="middle" class="vel-marca">' . $marca . '</text>';
     }
     if ($roi !== null) {
-        [$px, $py] = $ponto($roi, $r - 34);
+        [$px, $py] = $ponto($roi, $r - 48);
         $svg .= '<line x1="' . $cx . '" y1="' . $cy . '" x2="' . $px . '" y2="' . $py . '" class="vel-ponteiro" style="--de:-' . round(max(0.0, min(4.0, $roi)) * 45) . 'deg"></line>';
     }
     $svg .= '<circle cx="' . $cx . '" cy="' . $cy . '" r="4" class="vel-centro"></circle>'
