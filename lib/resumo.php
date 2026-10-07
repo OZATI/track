@@ -151,10 +151,26 @@ function resumo_svg_barras(array $porHora, array $fatHora = []): string
     return $svg . '</svg>';
 }
 
-// Cartao de numero (como os da UTMify): nome e (i) em cima, valor grande embaixo
+// Icone de cada cartao de numero, pelo nome (Resumo, Financeiro, analise diaria, Trafego e Organico)
+const RESUMO_ICONES = [
+    'Faturamento líquido' => 'carteira', 'Faturamento bruto' => 'carteira', 'Faturamento' => 'carteira', 'Entradas' => 'carteira',
+    'Gasto com anúncios' => 'meta', 'Gasto' => 'meta', 'Anúncios' => 'meta', 'Imposto da Meta' => 'conferencia',
+    'ROI geral' => 'grafico', 'ROI rastreado' => 'grafico', 'ROI' => 'grafico', 'Lucro' => 'vendas', 'Saldo' => 'vendas', 'Margem' => 'atividade',
+    'CPA' => 'campanha', 'Custo por IC' => 'campanha', 'CPC' => 'campanha', 'CPM' => 'campanha', 'CTR' => 'link',
+    'Ticket médio' => 'usuario', 'Vendas pendentes' => 'calendario', 'Vendas reembolsadas' => 'restaurar', 'Taxas da Kiwify' => 'lista', 'Outras despesas' => 'lista',
+    'Compradores' => 'usuarios', 'Visitantes' => 'visitantes', 'Clicaram no checkout' => 'eventos', 'Vendas aprovadas' => 'ok',
+    'Alcance' => 'visitantes', 'Frequência' => 'repetir', 'Hook rate' => 'foco', 'Hold rate' => 'atividade',
+    'Mulheres' => 'usuario', 'Homens' => 'usuario', 'Faixa de idade principal' => 'calendario', 'Cidade principal' => 'direto',
+];
+
+// Cartao de numero (como os da UTMify): nome e (i) em cima, o icone no canto e o valor grande
+// embaixo
 function resumo_cartao(string $valor, string $rotulo, string $dica, string $classe = '', string $sub = '', string $larg = 'c3'): string
 {
-    return '<div class="rc ' . $larg . '"><div class="rc-cab"><span>' . e($rotulo) . '</span>' . info($dica) . '</div>'
+    $ico = RESUMO_ICONES[$rotulo] ?? '';
+    return '<div class="rc ' . $larg . '"><div class="rc-cab">' . ($ico !== ''
+            ? '<span class="rc-tit"><span>' . e($rotulo) . '</span>' . info($dica) . '</span><span class="kpi-ico" aria-hidden="true">' . icone($ico, 15) . '</span>'
+            : '<span>' . e($rotulo) . '</span>' . info($dica)) . '</div>'
         . '<b class="' . e($classe) . '">' . e($valor) . '</b>' . ($sub !== '' ? '<small>' . e($sub) . '</small>' : '') . '</div>';
 }
 

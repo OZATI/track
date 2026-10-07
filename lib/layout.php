@@ -599,6 +599,7 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .rgrade .c2{ grid-column:span 2; } .rgrade .c3{ grid-column:span 3; } .rgrade .c4{ grid-column:span 4; } .rgrade .c6{ grid-column:span 6; } .rgrade .c8{ grid-column:span 8; } .rgrade .c12{ grid-column:1 / -1; } .rgrade .r2{ grid-row:span 2; }
 .rc{ display:flex; flex-direction:column; gap:6px; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); }
 .rc-cab{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; color:var(--suave); font-size:13px; font-weight:500; }
+.rc-tit{ display:inline-flex; align-items:center; gap:6px; min-width:0; }
 .rc > b{ font-size:24px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .rc > small{ color:var(--suave); font-size:12px; }
 .rc-link{ margin-top:auto; font-size:13px; }
