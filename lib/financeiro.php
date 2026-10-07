@@ -5,6 +5,11 @@
 // (hospedagem, ferramentas, equipe...), unicas ou que se repetem todo mes ou todo ano.
 //   ROI geral = entradas / saidas   (o "ROI GERAL" da aba FLUXO; acima de 1, a empresa se paga)
 // O cadastro grava em gastos.php (POST com login e o token do formulario).
+// O caixa e uma tela montavel (lib/grade.php): numeros, graficos e o fluxo dia a dia em blocos que
+// cada pessoa arruma pelo lapis da barra lateral; o cadastro das despesas fica embaixo, fixo.
+
+require_once __DIR__ . '/grade.php';
+require_once __DIR__ . '/graficos.php';
 
 const FIN_REPETE = ['unico' => 'Só uma vez', 'mensal' => 'Todo mês', 'anual' => 'Todo ano'];
 const FIN_CATEGORIAS = ['Hospedagem', 'Ferramentas', 'Equipe', 'Impostos', 'Taxas', 'Outros'];
@@ -103,13 +108,13 @@ function fin_por_dia(PDO $db, string $dia1, string $dia2, array $gastos): array
     return $dias;
 }
 
-function financeiro_render(PDO $db, string $periodo): void
+// Dias do caixa no periodo: em "Tudo", do primeiro movimento (venda, gasto ou despesa) ate hoje,
+// no maximo 1 ano para tras
+function fin_dias(PDO $db, string $periodo, array $gastos): array
 {
-    $gastos = fin_gastos($db);
     $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
     [$dia1, $dia2] = gestor_dias($periodo);
     if ($periodo === 'tudo') {
-        // Do primeiro movimento (venda, gasto ou despesa) ate hoje, no maximo 1 ano para tras
         $primeiros = array_filter([
             consulta($db, 'SELECT MIN(dia) AS d FROM meta_gasto', [])[0]['d'] ?? null,
             ($v = consulta($db, 'SELECT MIN(recebida_em) AS d FROM vendas', [])[0]['d'] ?? null) ? data_local($v, 'Y-m-d') : null,
@@ -118,50 +123,161 @@ function financeiro_render(PDO $db, string $periodo): void
         $dia1 = max($primeiros ? min($primeiros) : $hoje, (new DateTime($hoje))->modify('-365 days')->format('Y-m-d'));
         $dia2 = $hoje;
     }
-    $porDia = fin_por_dia($db, $dia1, $dia2, $gastos);
+    return [$dia1, $dia2];
+}
+
+// Somas do caixa: entradas, anuncios, despesas, saldo e ROI (entradas / saidas)
+function fin_somas(array $porDia): array
+{
     $soma = fn(string $c) => array_sum(array_column($porDia, $c));
     $entradas = $soma('entradas');
-    $anuncios = $soma('anuncios');
-    $despesas = $soma('despesas');
-    $saidas = $anuncios + $despesas;
-    $saldo = $entradas - $saidas;
-    $roi = $saidas ? $entradas / $saidas : null;
-    $num = fn(float $v, int $c = 2) => number_format($v, $c, ',', '.');
+    $saidas = $soma('anuncios') + $soma('despesas');
+    return ['entradas' => $entradas, 'anuncios' => $soma('anuncios'), 'despesas' => $soma('despesas'), 'saldo' => $entradas - $saidas, 'roi' => $saidas ? $entradas / $saidas : null];
+}
+
+// Layout padrao do caixa no computador: [tipo, x, y, largura, altura]
+const FIN_PADRAO = [
+    ['CashIn', 0, 0, 3, 1], ['AdsCost', 3, 0, 3, 1], ['Expenses', 6, 0, 2, 1], ['Balance', 8, 0, 2, 1], ['CashRoi', 10, 0, 2, 1],
+    ['CashFlowChart', 0, 1, 8, 3], ['CashRoiGauge', 8, 1, 4, 3],
+    ['BalanceByDay', 0, 4, 6, 3], ['CumulativeBalance', 6, 4, 6, 3],
+    ['ExpensesByCategory', 0, 7, 4, 4], ['CashFlowTable', 4, 7, 8, 4],
+];
+
+// A tela do caixa para o motor (lib/grade.php): os numeros, os graficos e o fluxo dia a dia. O
+// cadastro das despesas fica embaixo, fora da grade.
+function financeiro_grade(): array
+{
+    $p = number_format(gestor_imposto_pct(), 2, ',', '.') . '%';
+    $num = [3, 1, 2, 1, 6, 1];
+    $graf = [6, 3, 4, 2, 12, 6];
+    return [
+        'id' => 'financeiro',
+        'titulo' => 'o Financeiro',
+        'acesso' => 'financeiro',
+        'categorias' => ['caixa' => 'Caixa', 'graficos' => 'Gráficos'],
+        'blocos' => [
+            'CashIn' => ['Entradas', 'caixa', 'numero', 'Faturamento líquido (o que a Kiwify repassa) de todas as vendas aprovadas no período, com order bump, de qualquer produto e origem.', $num, 'carteira'],
+            'AdsCost' => ['Anúncios', 'caixa', 'numero', 'O que a Meta cobrou: gasto + imposto de ' . $p . ' sobre ele.', $num, 'meta'],
+            'Expenses' => ['Outras despesas', 'caixa', 'numero', 'Despesas cadastradas aqui que caem no período (as que se repetem contam em cada mês ou ano).', $num, 'lista'],
+            'Balance' => ['Saldo', 'caixa', 'numero', 'Entradas − saídas (anúncios + outras despesas): o lucro de verdade da empresa no período.', $num, 'vendas'],
+            'CashRoi' => ['ROI geral', 'caixa', 'numero', 'Entradas ÷ saídas, como o ROI GERAL da aba FLUXO: quanto voltou para cada real que saiu, contando todas as despesas. Vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima.', [2, 1, 2, 1, 4, 1], 'grafico'],
+            'CashMargin' => ['Margem do caixa', 'caixa', 'numero', 'Saldo ÷ entradas: quanto de cada real que entrou sobra depois de todas as saídas.', [2, 1, 2, 1, 4, 1], 'atividade'],
+            'CashFlowChart' => ['Entradas × saídas por dia', 'graficos', 'grafico', 'O que entrou (vendas aprovadas, líquido) e o que saiu (anúncios com imposto + despesas) em cada dia com movimento.', [8, 3, 4, 2, 12, 6], 'grafico'],
+            'BalanceByDay' => ['Saldo por dia', 'graficos', 'grafico', 'Entradas − saídas de cada dia com movimento: verde sobrou, vermelho faltou.', $graf, 'vendas'],
+            'CumulativeBalance' => ['Saldo acumulado', 'graficos', 'grafico', 'A soma dos saldos desde o primeiro dia do período: mostra se o caixa cresce ou encolhe.', $graf, 'atividade'],
+            'CashRoiGauge' => ['ROI no mostrador', 'graficos', 'grafico', 'O ROI geral do caixa (entradas ÷ saídas) num mostrador de 0 a 4: vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima.', [4, 3, 3, 2, 6, 4], 'grafico'],
+            'ExpensesByCategory' => ['Despesas por categoria', 'graficos', 'grafico', 'As outras despesas do período (sem os anúncios) por categoria, e a fatia de cada uma.', [4, 4, 3, 3, 12, 6], 'lista'],
+            'CashFlowTable' => ['Fluxo de caixa', 'graficos', 'grafico', 'Um dia por linha, só os dias com movimento: entradas, saídas e o saldo acumulado desde o começo do período.', [8, 4, 6, 3, 12, 12], 'calendario'],
+        ],
+        'padrao' => FIN_PADRAO,
+        'desenhar' => 'financeiro_bloco',
+    ];
+}
+
+// Os numeros do caixa para os blocos: o periodo, o anterior (para a seta) e as despesas por categoria
+function financeiro_ctx(PDO $db, string $periodo, array $gastos): array
+{
+    [$dia1, $dia2] = fin_dias($db, $periodo, $gastos);
+    $porDia = fin_por_dia($db, $dia1, $dia2, $gastos);
+    $ctx = ['dia1' => $dia1, 'dia2' => $dia2, 'porDia' => $porDia, 'somas' => fin_somas($porDia), 'antes' => null, 'antesNome' => '', 'categorias' => []];
+    if (($ant = grade_periodo_anterior($periodo)) !== null) {
+        [$a1, $a2] = periodo_dias($ant);
+        $ctx['antes'] = fin_somas(fin_por_dia($db, $a1, $a2, $gastos));
+        $ctx['antesNome'] = periodo_rotulo($ant);
+    }
+    foreach ($gastos as $g) {
+        if ((int)($g['ativo'] ?? 1) && ($q = count(fin_ocorrencias($g, $dia1, $dia2)))) {
+            $cat = trim((string)$g['categoria']) !== '' ? (string)$g['categoria'] : 'Sem categoria';
+            $ctx['categorias'][$cat] = ($ctx['categorias'][$cat] ?? 0) + $q * (int)$g['valor'];
+        }
+    }
+    arsort($ctx['categorias']);
+    return $ctx;
+}
+
+// O miolo de cada bloco do caixa ($c: financeiro_ctx)
+function financeiro_bloco(string $tipo, array $c): string
+{
+    $s = $c['somas'];
+    $a = $c['antes'];
+    $n = fn(float $v, int $k = 2) => number_format($v, $k, ',', '.');
+    $num = fn(string $valor, string $classe = '', string $delta = '') => '<div class="pw-valor"><div class="pw-valor-txt"><b class="pw-num' . ($classe !== '' ? ' ' . $classe : '') . '">' . e($valor) . '</b>'
+        . ($delta !== '' ? '<small>' . $delta . '</small>' : '') . '</div></div>';
+    // Seta contra o periodo anterior do mesmo tamanho
+    $delta = fn(string $k, bool $menor = false, bool $neutro = false) => $a && ($s[$k] || $a[$k]) ? gestor_delta($s[$k] === null ? null : (float)$s[$k], $a[$k] === null ? null : (float)$a[$k], $menor, $neutro,
+        ($a[$k] === null ? 'N/A' : ($k === 'roi' ? $n($a[$k]) : reais((int)$a[$k]))) . ' (' . $c['antesNome'] . ')') : '';
+    $dias = array_keys($c['porDia']);
+    $col = fn(string $k) => array_values(array_map(fn($m) => $k === 'saidas' ? $m['anuncios'] + $m['despesas'] : ($k === 'saldo' ? $m['entradas'] - $m['anuncios'] - $m['despesas'] : $m[$k]), $c['porDia']));
+    $sinal = fn(int $v) => $v < 0 ? 'negativo' : ($v > 0 ? 'positivo' : '');
+    $nada = '<p class="suave">Nenhum movimento no período.</p>';
+    switch ($tipo) {
+        case 'CashIn':
+            return $num(reais($s['entradas']), '', $delta('entradas'));
+        case 'AdsCost':
+            return $num(reais($s['anuncios']), '', $delta('anuncios', false, true));
+        case 'Expenses':
+            return $num(reais($s['despesas']), '', $delta('despesas', true));
+        case 'Balance':
+            return $num(reais($s['saldo']), $sinal($s['saldo']), $delta('saldo'));
+        case 'CashRoi':
+            return $num($s['roi'] === null ? 'N/A' : $n($s['roi']), cor_roi($s['roi']), $delta('roi'));
+        case 'CashMargin':
+            return $num($s['entradas'] ? $n($s['saldo'] * 100 / $s['entradas'], 1) . '%' : '—', $s['entradas'] ? $sinal($s['saldo']) : '');
+        case 'CashFlowChart':
+            return $dias ? grafico_area($dias, [['Entradas', '#16A34A', $col('entradas')], ['Saídas', '#DC2626', $col('saidas')]], 'Entradas e saídas por dia') : $nada;
+        case 'BalanceByDay':
+            return $dias ? grafico_barras($dias, $col('saldo'), 'Saldo') : $nada;
+        case 'CumulativeBalance':
+            $acum = 0;
+            $serie = array_map(function ($v) use (&$acum) { return $acum += $v; }, $col('saldo'));
+            return $dias ? grafico_area($dias, [['Saldo acumulado', '#1D6FF2', $serie]], 'Saldo acumulado') : $nada;
+        case 'CashRoiGauge':
+            return grafico_velocimetro($s['roi'], 'Entradas ÷ saídas');
+        case 'ExpensesByCategory':
+            $tot = array_sum($c['categorias']);
+            return resumo_lista_aneis(array_map(fn($k, $v) => [e((string)$k), reais($v), $tot ? $v * 100 / $tot : null], array_keys($c['categorias']), $c['categorias']), 'Nenhuma despesa no período.');
+        case 'CashFlowTable':
+            $semana = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+            $h = '<div class="tabela gestor pw-tabela"><table><tr><th class="nome">Dia</th><th>' . com_info('Entradas', 'Vendas aprovadas do dia, líquido da Kiwify.') . '</th><th>' . com_info('Anúncios', 'Gasto na Meta + imposto.') . '</th><th>' . com_info('Despesas', 'Despesas cadastradas que caem no dia.') . '</th>'
+                . '<th>' . com_info('Saldo do dia', 'Entradas − anúncios − despesas.') . '</th><th>' . com_info('Acumulado', 'Soma dos saldos desde o primeiro dia do período.') . '</th><th>' . com_info('ROI do dia', 'Entradas ÷ saídas do dia.') . '</th></tr>';
+            $acum = 0;
+            foreach ($c['porDia'] as $dia => $m) {
+                $saiu = $m['anuncios'] + $m['despesas'];
+                $sd = $m['entradas'] - $saiu;
+                $acum += $sd;
+                $r = $saiu ? $m['entradas'] / $saiu : null;
+                $d = new DateTime($dia);
+                $h .= '<tr><td class="nome"><span class="suave">' . $semana[(int)$d->format('N')] . '</span> ' . e($d->format('d/m/Y')) . '</td><td>' . e(reais($m['entradas'])) . '</td><td>' . e(reais($m['anuncios'])) . '</td>'
+                    . '<td>' . ($m['despesas'] ? e(reais($m['despesas'])) : '<span class="suave">—</span>') . '</td><td><span class="' . $sinal($sd) . '">' . e(reais($sd)) . '</span></td>'
+                    . '<td><span class="' . ($acum < 0 ? 'negativo' : 'positivo') . '">' . e(reais($acum)) . '</span></td><td>' . ($r === null ? 'N/A' : '<span class="' . cor_roi($r) . '">' . $n($r) . '</span>') . '</td></tr>';
+            }
+            if (!$c['porDia']) {
+                $h .= '<tr><td colspan="7" class="suave">Nenhum movimento no período.</td></tr>';
+            }
+            return $h . '</table></div>';
+    }
+    return '';
+}
+
+function financeiro_render(PDO $db, string $periodo): void
+{
+    $gastos = fin_gastos($db);
+    $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
+    $ctx = financeiro_ctx($db, $periodo, $gastos);
+    [$dia1, $dia2] = [$ctx['dia1'], $ctx['dia2']];
     $volta = 'financeiro.php?' . http_build_query(['periodo' => $periodo]);
 
     if ($aviso = aviso_pegar()) {
         echo '<p class="' . ($aviso[1] === 'erro' ? 'erro' : 'aviso-ok') . '">' . e($aviso[0]) . '</p>';
     }
-    echo '<section class="bloco resumo-cab"><div class="resumo-topo"><h2>' . com_info('Financeiro', 'O caixa da empresa no período, como as abas FLUXO e LUCRO da planilha: tudo o que entrou (vendas aprovadas, líquido da Kiwify) e tudo o que saiu (Meta com imposto e as despesas cadastradas aqui embaixo). Vale para a empresa toda: o filtro de produto não entra aqui.') . '</h2>'
+    // Montando a tela (o lapis da barra lateral): so a barra de edicao e os blocos
+    if (grade_editando()) {
+        grade_render(financeiro_grade(), $ctx);
+        return;
+    }
+    echo '<section class="bloco resumo-cab"><div class="resumo-topo"><h2>' . com_info('Financeiro', 'O caixa da empresa no período, como as abas FLUXO e LUCRO da planilha: tudo o que entrou (vendas aprovadas, líquido da Kiwify) e tudo o que saiu (Meta com imposto e as despesas cadastradas aqui embaixo). Vale para a empresa toda: o filtro de produto não entra aqui. O lápis da barra lateral monta a tela.') . '</h2>'
         . '<span class="suave">' . e((new DateTime($dia1))->format('d/m/Y') . ($dia1 === $dia2 ? '' : ' a ' . (new DateTime($dia2))->format('d/m/Y'))) . '</span></div></section>';
-    echo '<div class="rgrade">'
-        . resumo_cartao(reais($entradas), 'Entradas', 'Faturamento líquido (o que a Kiwify repassa) de todas as vendas aprovadas no período, com order bump, de qualquer produto e origem.', '', '', 'c3')
-        . resumo_cartao(reais($anuncios), 'Anúncios', 'O que a Meta cobrou: gasto + imposto de ' . $num(gestor_imposto_pct()) . '% sobre ele.', '', '', 'c3')
-        . resumo_cartao(reais($despesas), 'Outras despesas', 'Despesas cadastradas aqui que caem no período (as que se repetem contam em cada mês ou ano).', '', '', 'c2')
-        . resumo_cartao(reais($saldo), 'Saldo', 'Entradas − saídas (anúncios + outras despesas): o lucro de verdade da empresa no período.', $saldo < 0 ? 'negativo' : ($saldo > 0 ? 'positivo' : ''), '', 'c2')
-        . resumo_cartao($roi === null ? 'N/A' : $num($roi), 'ROI geral', 'Entradas ÷ saídas, como o ROI GERAL da aba FLUXO: quanto voltou para cada real que saiu, contando todas as despesas. Vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima.', cor_roi($roi), '', 'c2')
-        . '</div>';
-
-    // Fluxo de caixa dia a dia (so os dias com movimento)
-    $semana = ['', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
-    echo titulo('Fluxo de caixa', 'Um dia por linha, só os dias com movimento: entradas, saídas e o saldo acumulado desde o começo do período.')
-        . '<div class="tabela gestor"><table><tr><th class="nome">Dia</th><th>' . com_info('Entradas', 'Vendas aprovadas do dia, líquido da Kiwify.') . '</th><th>' . com_info('Anúncios', 'Gasto na Meta + imposto.') . '</th><th>' . com_info('Despesas', 'Despesas cadastradas que caem no dia.') . '</th>'
-        . '<th>' . com_info('Saldo do dia', 'Entradas − anúncios − despesas.') . '</th><th>' . com_info('Acumulado', 'Soma dos saldos desde o primeiro dia do período.') . '</th><th>' . com_info('ROI do dia', 'Entradas ÷ saídas do dia.') . '</th></tr>';
-    $acum = 0;
-    foreach ($porDia as $dia => $m) {
-        $saiu = $m['anuncios'] + $m['despesas'];
-        $s = $m['entradas'] - $saiu;
-        $acum += $s;
-        $r = $saiu ? $m['entradas'] / $saiu : null;
-        $d = new DateTime($dia);
-        echo '<tr><td class="nome"><span class="suave">' . $semana[(int)$d->format('N')] . '</span> ' . e($d->format('d/m/Y')) . '</td><td>' . e(reais($m['entradas'])) . '</td><td>' . e(reais($m['anuncios'])) . '</td>'
-            . '<td>' . ($m['despesas'] ? e(reais($m['despesas'])) : '<span class="suave">—</span>') . '</td><td><span class="' . ($s < 0 ? 'negativo' : ($s > 0 ? 'positivo' : '')) . '">' . e(reais($s)) . '</span></td>'
-            . '<td><span class="' . ($acum < 0 ? 'negativo' : 'positivo') . '">' . e(reais($acum)) . '</span></td><td>' . ($r === null ? 'N/A' : '<span class="' . cor_roi($r) . '">' . $num($r) . '</span>') . '</td></tr>';
-    }
-    if (!$porDia) {
-        echo '<tr><td colspan="7" class="suave">Nenhum movimento no período.</td></tr>';
-    }
-    echo '</table></div>';
+    grade_render(financeiro_grade(), $ctx);
 
     // Despesas cadastradas e o formulario (novo ou editar)
     $editar = null;

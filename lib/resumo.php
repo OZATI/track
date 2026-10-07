@@ -96,7 +96,7 @@ function resumo_svg_linhas(array $series, int $ateHora): string
     $L = 1400; $A = 260; $esq = 80; $dir = 10; $cima = 12; $baixo = 26;
     $max = 1;
     foreach ($series as [, , $v]) {
-        $max = max($max, ...array_map('abs', $v));
+        $max = max($max, 0, ...array_map('abs', $v));
     }
     $min = 0;
     foreach ($series as [, , $v]) {
@@ -132,7 +132,7 @@ function resumo_svg_barras(array $porHora, array $fatHora = []): string
 {
     $L = 1400; $A = 190; $esq = 10; $baixo = 22; $cima = 18;
     $total = array_sum($porHora);
-    $max = max(1, ...array_values($porHora));
+    $max = max(1, 0, ...array_values($porHora)); // (o 0: sem venda nenhuma, max() com um numero so quebra)
     $larg = ($L - 2 * $esq) / 24;
     $svg = '<svg class="grafico" viewBox="0 0 ' . $L . ' ' . $A . '" role="img" aria-label="Vendas por horário">';
     for ($h = 0; $h < 24; $h++) {
@@ -224,7 +224,7 @@ function resumo_svg_colunas(array $itens, string $nome): string
 {
     $L = 460; $A = 200; $esq = 6; $baixo = 22; $cima = 18;
     $total = array_sum($itens);
-    $max = max(1, ...array_values($itens));
+    $max = max(1, 0, ...array_values($itens));
     $larg = ($L - 2 * $esq) / max(1, count($itens));
     $svg = '<svg class="grafico" viewBox="0 0 ' . $L . ' ' . $A . '" role="img" aria-label="' . e($nome) . '">';
     for ($i = 1; $i <= 4; $i++) {
@@ -381,11 +381,8 @@ function resumo_dados(PDO $db, string $periodo, string $de, string $ate, array $
 
 function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
 {
-    $pct = gestor_imposto_pct();
-    [$dia1, $dia2] = gestor_dias($periodo);
+    require_once __DIR__ . '/painel.php';
     $temMeta = (bool)meta_api_chave();
-    $num = fn(float $v, int $casas = 2) => number_format($v, $casas, ',', '.');
-    $tz = fuso();
 
     // Filtros das vendas: produto (no topo, vale para todas as telas) e fonte de trafego (aqui,
     // como na UTMify). O gasto e o funil da Meta sao da conta toda (a Meta nao divide o gasto
@@ -396,9 +393,11 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     // Fonte de trafego: varias de uma vez (canal[]); a forma antiga (canal=organico) ainda vale
     $fCanais = array_values(array_unique(array_filter(array_map('strval', (array)($_GET['canal'] ?? [])), fn($c) => isset($canaisNome[$c]))));
 
-    extract(resumo_dados($db, $periodo, $de, $ate, $fCanais));
-    $cor = fn(?float $v, float $limite = 0) => $v === null ? '' : ($v >= $limite ? 'positivo' : 'negativo');
-    $impostoTxt = number_format($pct, 2, ',', '.') . '%';
+    // Montando a tela (o lapis da barra lateral): so a barra de edicao e os blocos
+    if (grade_editando()) {
+        grade_render(resumo_grade(), resumo_ctx($db, $periodo, $de, $ate, $fCanais));
+        return;
+    }
 
     // Cabecalho: titulo, ultima atualizacao, Atualizar e os filtros
     $meta = meta_sync_estado();
@@ -406,7 +405,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     $vencida = meta_sync_vencida() || kiwify_sync_vencida();
     $datas = array_filter([$k['ok_em'], $meta['ok_em']]);
     $quando = $datas ? resumo_ha(min($datas)) : 'ainda não atualizado';
-    echo '<section class="bloco resumo-cab"><div class="resumo-topo"><h2>' . com_info('Resumo', 'Os números do período escolhido no topo. As vendas vêm da Kiwify (webhook e API), o gasto e o funil da Meta, e as visitas do próprio painel.') . '</h2>'
+    echo '<section class="bloco resumo-cab"><div class="resumo-topo"><h2>' . com_info('Resumo', 'Os números do período escolhido no topo. As vendas vêm da Kiwify (webhook e API), o gasto e o funil da Meta, e as visitas do próprio painel. O lápis da barra lateral monta a tela: arraste, aumente, tire e acrescente blocos. Cada pessoa tem a sua, uma para o computador e outra para o celular.') . '</h2>'
         . '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '><span data-sync-texto>' . e(ucfirst($quando)) . '</span>'
         . botao_atualizar('./?' . http_build_query(array_filter(['aba' => 'geral', 'periodo' => $periodo, 'canal' => $fCanais]))) . '</div></div>'
         . '<form class="resumo-filtros" method="get" action="./" data-auto><input type="hidden" name="aba" value="geral"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
@@ -423,138 +422,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         echo '<p class="aviso-meta">Sem a conta de anúncios conectada, gasto, lucro, ROI e o funil da Meta ficam zerados. Conecte em <a href="meta-api.php">Integrações → Meta Ads</a>.</p>';
     }
 
-    // Numeros, pagamento e taxas (grade como a da UTMify)
-    $taxa = fn(string $m) => !empty($tentativas[$m]) ? ($aprovPorMeio[$m] ?? 0) * 100 / $tentativas[$m] : null;
-    echo '<div class="rgrade">'
-        . resumo_cartao(reais($fat), 'Faturamento líquido', 'Soma do que a Kiwify repassa (depois das taxas) das vendas aprovadas no período, com order bump.', '', $aprovadas . ' venda' . ($aprovadas === 1 ? '' : 's') . ' aprovada' . ($aprovadas === 1 ? '' : 's'), 'c3')
-        . resumo_cartao(reais($gasto), 'Gasto com anúncios', 'Quanto a Meta cobrou pelos anúncios no período, sem o imposto.', '', 'investimento com imposto: ' . reais($investido), 'c3')
-        . resumo_cartao($roi === null ? 'N/A' : $num($roi), 'ROI geral', 'Tudo o que voltou ÷ o gasto com anúncios, com a conta da UTMify e do gestor: (faturamento líquido de todas as vendas aprovadas − imposto da Meta) ÷ gasto. Entram anúncio, orgânico e direto, rastreadas ou não. Vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima. O ROI com as outras despesas da empresa fica na aba Financeiro.', cor_roi($roi), '', 'c2')
-        . resumo_cartao($roiMeta === null ? 'N/A' : $num($roiMeta), 'ROI rastreado', 'Só as vendas com o ID de uma campanha da Meta: (faturamento delas − imposto) ÷ gasto. A diferença para o ROI geral é o retorno que veio de orgânico, direto ou venda sem etiqueta.', cor_roi($roiMeta), '', 'c2')
-        . resumo_cartao(reais($lucro), 'Lucro', 'Faturamento líquido − gasto − imposto da Meta (' . $num($pct) . '% sobre o gasto).', $lucro ? $cor((float)$lucro) : '', '', 'c2')
-        . '<section class="rc c4 r2"><div class="rc-cab"><span>Vendas por pagamento</span>' . info('Vendas aprovadas (sem contar order bump) por forma de pagamento.') . '</div>'
-        . resumo_rosca($porPagamento, ['Pix' => '#1D6FF2', 'Cartão' => '#60A5FA', 'Boleto' => '#F59E0B', 'Outros' => '#9CA3AF'], 'Total') . '</section>'
-        . resumo_cartao(($m = margem_pct($fat, $lucro, $imposto)) === null ? '—' : $num($m, 1) . '%', 'Margem', 'Lucro ÷ (faturamento líquido − imposto da Meta), como na UTMify e na planilha: quanto de cada real que voltou sobra.', $fat ? $cor((float)$lucro) : '', '', 'c2')
-        . resumo_cartao($aprovadas ? reais((int)round($gasto / $aprovadas)) : 'N/A', 'CPA', 'Gasto ÷ vendas aprovadas. Order bump não conta como outra venda.', '', '', 'c2')
-        . resumo_cartao(reais($imposto), 'Imposto da Meta', 'Impostos que a Meta cobra sobre o gasto com anúncios no Brasil: ' . $num($pct) . '%.', '', '', 'c2')
-        . resumo_cartao($aprovadas ? reais((int)round($fat / $aprovadas)) : 'N/A', 'Ticket médio', 'Faturamento líquido ÷ vendas aprovadas (quanto cada comprador deixa, com order bump). Na UTMify, ARPU.', '', '', 'c2')
-        . resumo_cartao(reais($pendValor), 'Vendas pendentes', 'Pix ou boleto gerado e ainda não pago, no valor cobrado.', '', $pendN . ' pedido' . ($pendN === 1 ? '' : 's'), 'c4')
-        . resumo_cartao(reais($reembValor), 'Vendas reembolsadas', 'Reembolsos e chargebacks no período, no valor cobrado.', $reembValor ? 'negativo' : '', $reembN . ' venda' . ($reembN === 1 ? '' : 's'), 'c4')
-        . '</div>';
-    // Faturamento bruto e taxas da Kiwify lado a lado (bruto - taxas = o liquido de cima). O
-    // imposto da Meta e outra coisa: vai junto com o gasto, no cartao dele
-    echo '<div class="rgrade">'
-        . resumo_cartao(reais($fatBruto), 'Faturamento bruto', 'Valor cobrado do comprador nas vendas aprovadas, antes das taxas da Kiwify, com order bump. Bruto − taxas = o faturamento líquido de cima, que é a base do lucro e do ROI.', '', '', 'c6')
-        . resumo_cartao(reais(max(0, $fatBruto - $fat)), 'Taxas da Kiwify', 'Faturamento bruto − líquido: o que a Kiwify ficou de taxa nas vendas aprovadas do período. O imposto da Meta (' . $impostoTxt . ' do gasto) é outra coisa: conta como custo do anúncio.', '', $fatBruto ? $num(max(0, $fatBruto - $fat) * 100 / $fatBruto, 1) . '% do bruto' : '', 'c6')
-        . '</div>';
-
-    // Taxa de aprovacao, produto e canal
-    arsort($porProduto);
-    $totProd = array_sum($porProduto);
-    uasort($porCanal, fn($a, $b) => $b['n'] <=> $a['n']);
-    echo '<div class="rgrade">'
-        . '<section class="rc c4"><div class="rc-cab"><span>Taxa de aprovação</span>' . info('Aprovadas ÷ pedidos criados com cada forma de pagamento (cartão recusado e Pix não pago derrubam a taxa).') . '</div>'
-        . resumo_lista_aneis(array_map(fn($m) => [e($m), (string)($aprovPorMeio[$m] ?? 0) . '/' . ($tentativas[$m] ?? 0), $taxa($m)], ['Cartão', 'Pix', 'Boleto'])) . '</section>'
-        . '<section class="rc c4"><div class="rc-cab"><span>Vendas por produto</span>' . info('Pedidos aprovados de cada produto, com os order bumps (cada bump conta no seu produto).') . '</div>'
-        . resumo_lista_aneis(array_map(fn($p, $n) => [e($p), $n, $totProd ? $n * 100 / $totProd : null], array_keys($porProduto), $porProduto)) . '</section>'
-        . '<section class="rc c4"><div class="rc-cab"><span>Vendas por canal</span>' . info('Vendas aprovadas pelo canal que o painel identificou na etiqueta. O (i) de cada canal diz quando a venda cai nele.') . '</div>'
-        . resumo_lista_aneis(array_map(fn($c) => [selo_canal($c['canal'], false), $c['n'], $aprovadas ? $c['n'] * 100 / $aprovadas : null], array_values($porCanal))) . '</section>'
-        . '</div>';
-
-    // Funis, dia da semana e qualidade do rastreio
-    echo '<div class="rgrade"><section class="bloco c8">' . titulo('Funil da Meta', 'Do clique no anúncio até a venda aprovada. Cliques, visualizações e inícios de checkout vêm da Meta; vendas, da Kiwify (só as com o ID de uma campanha).')
-        . resumo_funil([
-            'Cliques' => [(int)$g['cliques'], 'Cliques no link do anúncio (Meta).'],
-            "Visuali\u{00AD}zações" => [(int)$g['vis'], 'Visualizações da página de destino que a Meta contou (a página carregou).'],
-            'Inícios de checkout' => [(int)$g['ics'], 'InitiateCheckout contados pela Meta (checkout aberto na Kiwify).'],
-            'Vendas iniciadas' => [$metaIniciadas, 'Pedidos criados na Kiwify vindos de anúncio, pagos ou não.'],
-            'Vendas aprovadas' => [$metaAprovadas, 'Pedidos aprovados vindos de anúncio.'],
-        ]) . '</section>'
-        . '<section class="bloco c4">' . titulo('Vendas por dia da semana', 'Vendas aprovadas em cada dia da semana (dia da aprovação, horário de Brasília), em % do período.')
-        . resumo_svg_colunas($porSemana, 'Vendas por dia da semana') . '</section></div>';
-    $fora = './?' . http_build_query(['aba' => 'vendas', 'periodo' => $periodo, 'filtro' => 'fora']);
-    echo '<div class="rgrade"><section class="bloco c8">' . titulo('Funil do site', 'Medido pelo próprio painel (t.js nas páginas), sem depender da Meta. Vale para qualquer origem.')
-        . resumo_funil([
-            'Visitantes' => [$visitantes, 'Aparelhos diferentes que abriram as páginas com o painel.'],
-            'Clicaram no checkout' => [$clicaram, 'Visitantes que clicaram no botão de compra.'],
-            'Vendas iniciadas' => [$siteIniciadas, 'Pedidos criados na Kiwify que o painel ligou a um visitante.'],
-            'Vendas aprovadas' => [$siteAprovadas, 'Desses, os aprovados.'],
-        ]) . '</section>'
-        . '<section class="rc c4"><div class="rc-cab"><span>Qualidade do rastreio</span>' . info('Quanto das vendas aprovadas o painel conseguiu explicar. Quanto maior, mais dá para confiar no ROI rastreado e nas decisões por campanha. É o que a UTMify chama de vendas trackeadas, com a origem orgânica e a do site junto.') . '</div>'
-        . resumo_lista_aneis([
-            ['Com origem identificada ' . info('Vendas com etiqueta de anúncio, orgânica ou de outra origem: tudo menos "Direto / sem origem".'), $comOrigem, $aprovadas ? $comOrigem * 100 / $aprovadas : null],
-            ['Ligadas a uma campanha ' . info('Vendas com o ID de uma campanha da Meta: entram no gestor de anúncios e no ROI rastreado.'), $metaAprovadas, $aprovadas ? $metaAprovadas * 100 / $aprovadas : null],
-            ['Ligadas a um visitante ' . info('Vendas que o painel ligou a um aparelho que visitou as páginas (parâmetro sck no checkout).'), $siteAprovadas, $aprovadas ? $siteAprovadas * 100 / $aprovadas : null],
-            ['Sem origem ' . info('Chegaram sem etiqueta nenhuma: link de checkout enviado à mão, e-mail, troca de aparelho.'), $semOrigem, $aprovadas ? $semOrigem * 100 / $aprovadas : null],
-        ], 'Nenhuma venda aprovada no período.')
-        . '<a class="rc-link" href="' . e($fora) . '">Ver as vendas fora de anúncio</a></section></div>';
-    echo '<div class="rgrade"><section class="rc c4"><div class="rc-cab"><span>Vendas fora de anúncio</span>' . info('Vendas aprovadas sem o ID de uma campanha da Meta (a UTMify chama de não trackeadas), pelo tipo: orgânico (bio, stories, WhatsApp, Google...), anúncio compartilhado (link do anúncio aberto fora da entrega paga), direto (sem etiqueta nenhuma, como link de checkout mandado à mão) e outras origens.') . '</div>'
-        . (array_sum($foraTipo) ? resumo_rosca($foraTipo, ['Orgânico' => '#16A34A', 'Anúncio compartilhado' => '#1D6FF2', 'Direto / sem origem' => '#9CA3AF', 'Outras origens' => '#F59E0B'], 'Fora')
-            : '<p class="suave">Nenhuma venda fora de anúncio no período.</p>')
-        . '<a class="rc-link" href="' . e($fora) . '">Ver cada uma e o motivo</a></section></div>';
-
-    // Funil da VSL (quando houver interações com a VSL no período)
-    $paginasVsl = consulta($db, "SELECT DISTINCT pagina FROM eventos WHERE nome LIKE 'VSL_%' AND em >= ? AND em < ? ORDER BY pagina", [$de, $ate]);
-    $totalVslPlay = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_Play' AND em >= ? AND em < ?", [$de, $ate]);
-
-    if ($totalVslPlay > 0) {
-        if (count($paginasVsl) > 1) {
-            $vsl50 = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_50' AND em >= ? AND em < ?", [$de, $ate]);
-            $vslPitch = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_Pitch' AND em >= ? AND em < ?", [$de, $ate]);
-            $vslCk = (int)valor($db, "SELECT COUNT(DISTINCT e.visitante) FROM eventos e
-                                      JOIN eventos v ON v.visitante = e.visitante AND v.nome = 'VSL_Play' AND v.em >= ? AND v.em < ?
-                                      WHERE e.nome = 'CliqueCheckout' AND e.em >= ? AND e.em < ?", [$de, $ate, $de, $ate]);
-            $vslAprov = (int)valor($db, "SELECT COUNT(DISTINCT vd.visitante) FROM vendas vd
-                                         JOIN eventos e ON e.visitante = vd.visitante AND e.nome = 'VSL_Play' AND e.em >= ? AND e.em < ?
-                                         WHERE vd.aprovada_em IS NOT NULL AND vd.aprovada_em >= ? AND vd.aprovada_em < ?", [$de, $ate, $dia1 . ' 00:00:00', $dia2 . ' 23:59:59']);
-            echo '<div class="rgrade"><section class="bloco c12">' . titulo('Funil da VSL — Geral (Todas as Páginas)', 'Retenção do vídeo e conversão em vendas acumulada de todas as páginas com VSL.')
-                . resumo_funil([
-                    'Deu play / som' => [$totalVslPlay, 'Visitantes únicos que iniciaram ou ativaram o som da VSL.'],
-                    'Metade (50%)' => [$vsl50, 'Visitantes únicos que assistiram pelo menos 50% do vídeo.'],
-                    'Oferta (Pitch)' => [$vslPitch, 'Visitantes únicos que assistiram até o momento da oferta.'],
-                    'Clicou no checkout' => [$vslCk, 'Visitantes que assistiram à VSL e clicaram no botão de compra.'],
-                    'Comprou (aprovada)' => [$vslAprov, 'Vendas aprovadas de visitantes que assistiram à VSL.'],
-                ]) . '</section></div>';
-        }
-
-        foreach ($paginasVsl as $row) {
-            $pPath = $row['pagina'];
-            $pNome = $pPath;
-            if (in_array($pPath, ['/drivedeprojetos', '/drivedeprojetos/', '/drivedeprojetos/index.html'], true)) {
-                $pNome = 'Drive de Projetos (Principal · R$ 67)';
-            } elseif (str_contains($pPath, '/vsl')) {
-                $pNome = 'Drive de Projetos (VSL Teste · R$ 97)';
-            }
-
-            $pPlay = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_Play' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $de, $ate]);
-            if ($pPlay === 0) continue;
-
-            $p50 = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_50' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $de, $ate]);
-            $pPitch = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'VSL_Pitch' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $de, $ate]);
-            $pCk = (int)valor($db, "SELECT COUNT(DISTINCT e.visitante) FROM eventos e
-                                    JOIN eventos v ON v.visitante = e.visitante AND v.nome = 'VSL_Play' AND v.pagina = ? AND v.em >= ? AND v.em < ?
-                                    WHERE e.nome = 'CliqueCheckout' AND e.pagina = ? AND e.em >= ? AND e.em < ?", [$pPath, $de, $ate, $pPath, $de, $ate]);
-            $pAprov = (int)valor($db, "SELECT COUNT(DISTINCT vd.visitante) FROM vendas vd
-                                       JOIN eventos e ON e.visitante = vd.visitante AND e.nome = 'VSL_Play' AND e.pagina = ? AND e.em >= ? AND e.em < ?
-                                       WHERE vd.aprovada_em IS NOT NULL AND vd.aprovada_em >= ? AND vd.aprovada_em < ?", [$pPath, $de, $ate, $dia1 . ' 00:00:00', $dia2 . ' 23:59:59']);
-
-            $tituloFunil = (count($paginasVsl) > 1 ? 'Funil da VSL: ' . $pNome : 'Funil da VSL (' . $pNome . ')');
-            echo '<div class="rgrade"><section class="bloco c12">' . titulo($tituloFunil, 'Métricas de retenção da VSL e conversão exclusiva na página ' . $pPath)
-                . resumo_funil([
-                    'Deu play / som' => [$pPlay, 'Visitantes que iniciaram ou ativaram o som da VSL nesta página.'],
-                    'Metade (50%)' => [$p50, 'Assistiram pelo menos 50% do vídeo nesta página.'],
-                    'Oferta (Pitch)' => [$pPitch, 'Assistiram até a oferta (pitch) nesta página.'],
-                    'Clicou no checkout' => [$pCk, 'Clicaram no checkout nesta página após assistir.'],
-                    'Comprou (aprovada)' => [$pAprov, 'Vendas aprovadas de quem assistiu à VSL nesta página.'],
-                ]) . '</section></div>';
-        }
-    }
-
-    // Graficos por hora
-    $hoje = $periodo === 'hoje';
-    $ateHora = $hoje ? (int)(new DateTime('now', $tz))->format('G') : 23;
-    echo '<section class="bloco">' . titulo('Vendas por horário', 'Percentual das vendas aprovadas em cada hora do dia (hora da aprovação, no horário de Brasília).')
-        . resumo_svg_barras($porHora, $fatHora) . '</section>';
-    echo '<section class="bloco">' . titulo('Faturamento × investimento × lucro por hora (acumulado)', 'Soma hora a hora ao longo do dia' . ($hoje ? '' : ' (os dias do período somados pela hora)') . '. Investimento = gasto na Meta; lucro já desconta o imposto.')
-        . '<p class="legenda-grafico"><i style="background:#D97706"></i>Investimento <i style="background:#1D6FF2"></i>Faturamento <i style="background:#16A34A"></i>Lucro</p>'
-        . resumo_svg_linhas([['Faturamento', '#1D6FF2', $acF], ['Investimento', '#D97706', $acG], ['Lucro', '#16A34A', $acL]], $ateHora) . '</section>';
+    // Os blocos: a grade que cada pessoa monta (lib/grade.php e lib/painel.php; o lapis da barra
+    // lateral abre o modo de montar)
+    grade_render(resumo_grade(), resumo_ctx($db, $periodo, $de, $ate, $fCanais));
 }

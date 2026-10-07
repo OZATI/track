@@ -31,7 +31,7 @@ Regras de sempre:
 
 | Peça | Onde | O que faz |
 |---|---|---|
-| Configuração e dados | `lib/config.php`, `lib/db.php` | Pasta de dados fora do `public_html` (`track-dados/`, ou `TRACK_DADOS`). SQLite com migrações numeradas (`track_migrar_para`, hoje v14). `ajustes` guarda as escolhas do painel (chave e valor). |
+| Configuração e dados | `lib/config.php`, `lib/db.php` | Pasta de dados fora do `public_html` (`track-dados/`, ou `TRACK_DADOS`). SQLite com migrações numeradas (`track_migrar_para`, hoje v15). `ajustes` guarda as escolhas do painel (chave e valor). |
 | Utilitários | `lib/util.php` | Escape (`e()`), texto de fora (`texto()`), sessão, CSRF, limite de tentativas, períodos e fuso, `exigir_login($acesso)`. |
 | Acessos | `lib/admin.php` | `TRACK_ACESSOS` (cms, utm, usuarios, bio, financeiro, integracoes); `config['acessos'][usuario]`; quem não tem lista abre tudo. `track_acessos_migrar()` dá um acesso novo, uma vez, a quem já tinha o que ele substitui (`acessos_v`). Endereços das telas do núcleo (`admin_url`), na raiz do admin quando existem as pastas `conta/` e `usuarios/`. Regra da senha. |
 | Visual comum | `lib/admin_tela.php` | `admin_css_base()` (tokens do tema, barra lateral, cartões, tabela inteligente, menu "..."), `admin_lateral()` (painéis liberados e a conta) e `admin_cabecalho()`. O CMS do site usa os mesmos. |
@@ -39,7 +39,8 @@ Regras de sempre:
 | Telas do núcleo | `conta.php`, `usuarios.php`, `entrar.php`, `sair.php`, `instalar.php` | Minha conta (foto, senha, aparência, sair), Usuários (quem entra e o que abre), login e instalação. |
 | Componentes | `lib/componentes.php`, `tabela.js` | `cartao_kpi`/`cartoes_kpi`; a tabela inteligente (`tabela_card_inicio`/`fim`: busca, Filtros por `data-filtro`, Ocultos, Por página, restaurar); células prontas (selo, situação, anel, mini gráfico, data, prazo); `menu_linha` (o "...", que abre por cima da tabela). `Tabela.lembrar()` guarda busca, filtros e página quando a tela é redesenhada. |
 | Integrações | `integracoes.php`, `lib/integracoes.php` | As contas de fora num lugar só (barra lateral, clipe, acesso `integracoes`), no desenho da UTMify: abas Anúncios, Vendas, Orgânico e Rastreio, e um cartão por plataforma com o estado (conectado, conta, última busca, erro). As telas de cada uma (`meta-api.php`, `kiwify-api.php`, `instagram-api.php`) abrem dentro dela, com `integracoes_topo()`. **Plataforma nova:** uma entrada em `integracoes_registro()` (aba, tela ou `null` para "em breve", função de estado) e o logo em `integracao_logo()`. **Aba nova:** uma linha em `INTEGRACOES_ABAS`. O que cada plataforma exige (políticas e validação): `docs/PLATAFORMAS.md`. |
-| Navegação suave | `painel.js` | Troca a tela sem recarregar (GET busca; POST envia e segue o redirecionamento), guarda a rolagem e a página das tabelas, e liga os componentes de novo a cada troca (`iniciar()`). |
+| Navegação suave | `painel.js` | Troca a tela sem recarregar (GET busca; POST envia e segue o redirecionamento), guarda a rolagem e a página das tabelas, e liga os componentes de novo a cada troca (`iniciar()`). A barra de carregando corre no alto também quando abre outra página inteira, e a tela nova entra com uma animação curta. |
+| Telas montáveis | `lib/grade.php`, `lib/graficos.php`, `painel-salvar.php` | Qualquer tela vira blocos que cada pessoa monta pelo lápis da barra lateral (GridStack no modo de montar, CSS Grid para ver). Layout por pessoa, tela e aparelho (`painel_layouts`, chave `<tela>:<aparelho>`). A tela descreve os blocos num array (título, categoria, a conta no (i), tamanhos, ícone, integração de que depende) e o motor faz o resto. Hoje: Resumo (`resumo_grade()`, `lib/painel.php`) e Financeiro (`financeiro_grade()`). Gráficos que enchem o bloco: área, barras, mapa de calor, mostrador do ROI e a linhazinha dos números, com a seta contra o período anterior. |
 | Segurança | `.htaccess`, todas as telas | CSP com `script-src 'self'` (nenhum script embutido nem `onclick`), CSRF em todo POST, POST seguido de redirecionamento, SQL só com parâmetros, `lib/`, `tests/`, `scripts/` e dados bloqueados. |
 
 ## 3. Módulos
@@ -56,7 +57,8 @@ Regras de sempre:
   - as Ações das marcadas (Gerenciador, ativar/desativar, orçamento por valor ou %);
   - o orçamento programado (`cron.php`).
 - **Orgânico e Instagram:** `lib/organico*.php` e `lib/instagram_*.php`.
-- **Financeiro:** virou módulo próprio em 07/10/2026 (`financeiro.php`, acesso `financeiro`, na barra lateral), com o caixa e as despesas (`lib/financeiro.php`, `gastos.php`). É onde entram os pagamentos próprios.
+- **Resumo:** tela montável (o antigo Painel, aba própria por um dia, virou o Resumo em 07/10/2026; o endereço `?aba=painel` leva para ele).
+- **Financeiro:** virou módulo próprio em 07/10/2026 (`financeiro.php`, acesso `financeiro`, na barra lateral), com o caixa em blocos montáveis e o cadastro das despesas (`lib/financeiro.php`, `gastos.php`). É onde entram os pagamentos próprios.
 - **Notificações e app:** `lib/push.php`, `sw.php`, `manifest.php` e `notificacoes.php`.
 
 ### Bio
@@ -98,6 +100,8 @@ Regras de sempre:
 5. **Testes:** em `tests/fluxo.sh`, com serviços de fora simulados (`tests/*-falsa.php`). Nunca tocar em site, conta ou API real.
 
 ## 6. Próximos passos de produto
+
+- **Mais telas montáveis:** Orgânico, Bio e Tráfego entram no mesmo motor: uma função `<tela>_grade()`, a entrada em `GRADE_TELAS` e `grade_lapis('<tela>')` antes de `casca_inicio()`. Tabelas de cadastro (despesas, links da Bio) ficam fora da grade.
 
 - **Módulos por site:** hoje um módulo aparece para quem tem o acesso. Falta ligar e desligar o módulo por site (`config['modulos']`) e esconder o acesso dele em Usuários quando estiver desligado.
 - **Financeiro como módulo próprio:** caixa, despesas, impostos, taxas, recorrência e relatórios, com painel na barra lateral. O estudo está em `docs/PAINEL_PERSONALIZAVEL.md`.

@@ -22,6 +22,7 @@ $periodo = periodo_valido($periodo) ? $periodo : 'mes';
 $db = track_db();
 
 pagina_inicio('Financeiro');
+grade_lapis('financeiro'); // o caixa e montavel: o lapis aparece na barra lateral
 casca_inicio('financeiro');
 $periodos = ['hoje' => 'Hoje', '7d' => '7 dias', 'mes' => 'Este mês', 'mes_passado' => 'Mês passado', '30d' => '30 dias', 'tudo' => 'Tudo'];
 echo '<nav class="abas abas-nucleo" aria-label="Financeiro"><span class="abas-titulo">Financeiro · Caixa da empresa</span>'

@@ -131,11 +131,19 @@ fieldset.acessos{ border:1px solid var(--linha); border-radius:var(--r-sm); padd
 fieldset.acessos legend{ padding:0 4px; font-size:12px; color:var(--suave); }
 label.acesso{ display:inline-flex !important; flex-direction:row !important; align-items:center; gap:6px; font-size:13px !important; color:var(--texto) !important; cursor:pointer; }
 .usuario-nome{ white-space:nowrap; } .usuario-nome .avatar{ vertical-align:middle; margin-right:6px; }
-/* Navegacao suave: enquanto a tela nova chega, uma linha corre no alto e o conteudo esmaece */
-.navegando body::after{ content:""; position:fixed; z-index:100; top:0; left:0; width:35%; height:2px; background:var(--marca); animation:navegando 1s ease-in-out infinite; }
-.navegando main{ opacity:.6; transition:opacity .15s .12s; }
-@keyframes navegando{ from{ transform:translateX(-100%); } to{ transform:translateX(300%); } }
-@media (prefers-reduced-motion:reduce){ .navegando body::after{ animation:none; width:100%; opacity:.6; } }
+/* Carregando: ao trocar de tela (navegacao suave ou pagina inteira, painel.js) uma barra com brilho
+   corre no alto e o conteudo esmaece com um brilho passando por cima; a tela nova entra subindo de
+   leve. Na mesma tela (filtro, ordenar: classe "fica") os numeros so trocam, sem a entrada. */
+.navegando body::before{ content:""; position:fixed; z-index:101; top:0; left:0; right:0; height:3px; background:color-mix(in srgb, var(--marca) 16%, transparent); }
+.navegando body::after{ content:""; position:fixed; z-index:102; top:0; left:0; width:42%; height:3px; border-radius:0 3px 3px 0; background:linear-gradient(90deg, transparent, var(--marca) 45%, color-mix(in srgb, var(--marca) 50%, #fff)); box-shadow:0 0 10px var(--marca); animation:navegando 1.1s cubic-bezier(.4,0,.2,1) infinite; }
+.navegando main{ position:relative; opacity:.55; pointer-events:none; transition:opacity .15s .1s; }
+.navegando main::after{ content:""; position:absolute; inset:0; background:linear-gradient(100deg, transparent 35%, color-mix(in srgb, var(--cartao) 75%, transparent) 50%, transparent 65%); background-size:250% 100%; animation:brilho 1.2s linear infinite; pointer-events:none; }
+@keyframes navegando{ from{ transform:translateX(-100%); } to{ transform:translateX(250%); } }
+@keyframes brilho{ from{ background-position:120% 0; } to{ background-position:-120% 0; } }
+main{ animation:entrar .32s cubic-bezier(.2,.7,.2,1) both; }
+.fica main{ animation:none; }
+@keyframes entrar{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce){ .navegando body::after{ animation:none; width:100%; opacity:.6; } .navegando main::after, main{ animation:none; } }
 /* Topo: filtros a esquerda, conta a direita */
 .topo{ position:sticky; top:0; z-index:5; background:var(--cartao); border-bottom:1px solid var(--linha); padding:10px 24px; display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
 .topo label, .gestor-filtros label, .topo .campo{ display:flex; flex-direction:column; font-size:12px; color:var(--suave); gap:3px; }
@@ -287,7 +295,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 .gg-legenda i{ width:10px; height:10px; border-radius:3px; background:var(--gg); }
 .gg-legenda b{ font-weight:600; font-variant-numeric:tabular-nums; }
 .gg-c0{ --gg:#2563EB; } .gg-c1{ --gg:#16A34A; } .gg-c2{ --gg:#EA580C; } .gg-c3{ --gg:#9333EA; } .gg-c4{ --gg:#DB2777; }
-/* Painel editavel (lib/painel.php). Ver: CSS Grid com a posicao de cada cartao (--c --r --w --h no
+/* Telas montaveis (lib/grade.php). Ver: CSS Grid com a posicao de cada cartao (--c --r --w --h no
    computador, --mc --mr --mw --mh no celular). Editar: GridStack, a biblioteca do lado e a barra */
 .painel-cab{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; margin-bottom:12px; }
 .painel-cab h2{ margin:0; }
@@ -348,6 +356,61 @@ td.quebra{ white-space:normal; min-width:220px; }
 .grid-stack-item:hover .pw .kpi-ico{ visibility:hidden; }
 @media (hover:none){ .painel-tirar{ opacity:1; } }
 .grid-stack-placeholder > .placeholder-content{ background:var(--realce) !important; border:2px dashed var(--marca); border-radius:var(--r-md); }
+/* Lapis da barra lateral (lib/grade.php): aceso enquanto a tela esta sendo montada */
+.lateral .lapis-tela.atual{ background:var(--marca); color:#fff; }
+/* Numero do bloco: o valor, a seta contra o periodo anterior e a linhazinha do periodo */
+.pw-valor{ display:flex; align-items:flex-end; justify-content:space-between; gap:10px; min-width:0; }
+.pw-valor-txt{ display:flex; flex-direction:column; min-width:0; }
+.pw-valor-txt > small{ color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pw-valor-txt .delta{ font-size:11.5px; font-weight:600; }
+.pw-mini{ flex:none; width:min(44%, 130px); height:34px; overflow:visible; cursor:help; }
+.pw-mini .mini-linha{ fill:none; stroke:var(--marca); stroke-width:2; stroke-linejoin:round; }
+.pw-mini .mini-area{ fill:color-mix(in srgb, var(--marca) 14%, transparent); stroke:none; }
+.pw-mini.ruim .mini-linha{ stroke:var(--erro); } .pw-mini.ruim .mini-area{ fill:color-mix(in srgb, var(--erro) 12%, transparent); }
+.pw-mini:focus{ outline:none; }
+@container (max-width:230px){ .pw-mini{ display:none; } }
+.pw-sub{ display:flex; align-items:center; gap:6px; margin:12px 0 4px; font-size:13px; font-weight:600; }
+.pw-sub:first-child{ margin-top:0; }
+.pw-corpo .pw-tabela{ margin:0; }
+/* Graficos dos blocos (lib/graficos.php): enchem o bloco; o desenho estica e os rotulos sao HTML */
+.pw-graf{ display:flex; flex-direction:column; gap:6px; height:100%; min-height:120px; }
+.graf-legenda{ display:flex; flex-wrap:wrap; gap:4px 14px; margin:0; color:var(--suave); font-size:12px; flex:none; }
+.graf-legenda span{ display:inline-flex; align-items:center; gap:6px; }
+.graf-legenda i{ display:inline-block; width:12px; height:3px; border-radius:2px; }
+.graf-corpo{ flex:1; min-height:0; display:grid; grid-template-columns:auto minmax(0, 1fr); grid-template-rows:minmax(0, 1fr); padding-top:8px; }
+.graf-y{ position:relative; min-width:50px; margin:0 8px 20px 0; }
+.graf-y span{ position:absolute; right:0; transform:translateY(-50%); font-size:11px; color:var(--suave); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.graf-plot{ position:relative; min-width:0; min-height:0; }
+.graf-plot svg{ position:absolute; top:0; left:0; display:block; width:100%; height:calc(100% - 20px); overflow:visible; }
+.graf-x{ position:absolute; left:0; right:0; bottom:0; height:20px; overflow:visible; }
+.graf-x span{ position:absolute; top:4px; transform:translateX(-50%); font-size:11px; line-height:14px; color:var(--suave); white-space:nowrap; }
+.graf-x span.fim{ transform:translateX(-100%); }
+.graf-plot polygon, .graf-plot polyline{ pointer-events:none; }
+.graf-plot .graf-linha{ fill:none; stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
+.graf-plot .grade-l{ stroke:var(--linha); stroke-width:1; }
+.graf-plot .grade-zero{ stroke:var(--linha-forte); stroke-width:1.2; }
+.graf-plot .vela-alvo{ fill:transparent; cursor:help; }
+.graf-plot .vela-alvo:hover, .graf-plot .vela-alvo:focus, .graf-plot .dia-graf:hover .vela-alvo, .graf-plot .dia-graf:focus .vela-alvo{ fill:var(--hover); }
+.graf-plot .vela-alvo:focus, .graf-plot .dia-graf:focus{ outline:none; }
+/* Mapa de calor: dia da semana x hora em casas */
+.mapa-calor{ display:grid; grid-template-columns:34px repeat(24, minmax(0, 1fr)); grid-template-rows:repeat(7, minmax(0, 1fr)) 16px; gap:3px; }
+.mapa-calor i{ min-height:8px; border-radius:4px; background:var(--cartao-2); cursor:help; }
+.mapa-calor i.calor{ background:var(--marca); opacity:var(--q); }
+.mapa-calor i:hover, .mapa-calor i:focus{ outline:2px solid var(--marca); outline-offset:1px; opacity:1; }
+.calor-dia{ align-self:center; font-size:11px; color:var(--suave); }
+.calor-hora{ font-size:10.5px; color:var(--suave); white-space:nowrap; }
+/* Mostrador do ROI: o ponteiro entra girando do zero */
+.vel-caixa{ align-items:center; justify-content:center; gap:2px; }
+.velocimetro{ display:block; flex:1; min-height:0; width:100%; height:100%; }
+.velocimetro path{ fill:none; stroke-width:16; stroke-linecap:round; }
+.vel-ruim{ stroke:var(--erro); } .vel-medio{ stroke:var(--laranja); } .vel-bom{ stroke:var(--ok); }
+.vel-marca{ font:11px var(--f-texto); fill:var(--suave); }
+.vel-ponteiro{ stroke:var(--texto); stroke-width:3.5; stroke-linecap:round; transform-box:view-box; transform-origin:120px 116px; animation:ponteiro .9s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes ponteiro{ from{ transform:rotate(var(--de, 0deg)); } to{ transform:none; } }
+.vel-centro{ fill:var(--texto); }
+.vel-valor{ font:600 22px var(--f-texto); fill:var(--texto); } .vel-valor.positivo{ fill:var(--ok); } .vel-valor.medio{ fill:var(--laranja); } .vel-valor.negativo{ fill:var(--erro); }
+.vel-sub{ flex:none; color:var(--suave); font-size:12px; }
+@media (prefers-reduced-motion:reduce){ .vel-ponteiro{ animation:none; } }
 @media (max-width:900px){ .painel-edicao{ grid-template-columns:1fr; } .painel-biblioteca{ position:static; max-height:none; } }
 /* Painel da Bio (bio.php) */
 .bio-topo{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 14px; }
@@ -1111,7 +1174,7 @@ function cor_roi(?float $roi): string
 // sentido), periodo (prontos ou de uma data a outra) e produto. A conta fica a direita.
 function barra_topo(array $filtro, array $dominios, array $paginas, string $aba, array $produtos = []): void
 {
-    $soPeriodo = in_array($aba, ['gestor', 'campanha', 'geral', 'painel', 'organico', 'financeiro'], true); // nessas telas, site e pagina nao se aplicam
+    $soPeriodo = in_array($aba, ['gestor', 'campanha', 'geral', 'organico', 'financeiro'], true); // nessas telas, site e pagina nao se aplicam
     $comProduto = !in_array($aba, ['visitantes', 'eventos', 'financeiro'], true); // telas sem venda (e o Financeiro, que e a empresa toda)
     $marcados = $filtro['produto'] ?? [];
     $datas = periodo_datas($filtro['periodo']);
@@ -1178,7 +1241,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
 // Organico eles nao entram na conta, e o endereco nao deve sugerir o contrario)
 function abas_filtro(string $aba, array $filtro): array
 {
-    $leva = in_array($aba, ['gestor', 'campanha', 'geral', 'painel', 'organico', 'financeiro'], true) ? ['periodo' => 1, 'produto' => 1] : ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1];
+    $leva = in_array($aba, ['gestor', 'campanha', 'geral', 'organico', 'financeiro'], true) ? ['periodo' => 1, 'produto' => 1] : ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1];
     return array_intersect_key($filtro, $leva);
 }
 
@@ -1186,7 +1249,7 @@ function abas_filtro(string $aba, array $filtro): array
 // configuracao (Configuracoes) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
-    $abas = ['geral' => ['Resumo', 'resumo'], 'painel' => ['Painel', 'grade'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
+    $abas = ['geral' => ['Resumo', 'resumo'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
         'visitantes' => ['Visitantes', 'visitantes'], 'eventos' => ['Eventos', 'eventos']];
     if (!usuario_pode('utm')) {
         return;
@@ -1208,7 +1271,7 @@ function abas_painel(string $aba, array $filtro = []): void
     // Celular: barra fixa embaixo com as 4 telas mais usadas; o resto em "Mais"
     $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + abas_filtro($id, $filtro));
     $item = fn(string $href, string $id, string $ico, string $rotulo) => '<a href="' . e($href) . '"' . ($aba === $id ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico, 20) . '<span>' . e($rotulo) . '</span></a>';
-    $mais = [['painel', $link('painel'), 'grade', 'Painel'], ['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
+    $mais = [['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
         ['visitantes', $link('visitantes'), 'visitantes', 'Visitantes'], ['eventos', $link('eventos'), 'eventos', 'Eventos']];
     $config = [['configuracoes', 'configuracoes.php', 'config', 'Configurações']];
     if (usuario_pode('integracoes')) {

@@ -837,7 +837,7 @@ confere "$(tem 'Confira a despesa' "$r")" "valor inválido é recusado"
 r=$(gasto "$csrf" salvar --data-urlencode "descricao=Hospedagem" --data-urlencode "categoria=Hospedagem" --data-urlencode "valor=R\$ 40,00" --data-urlencode "repete=mensal" --data-urlencode "inicio=$HOJE")
 confere "$(tem 'Despesa cadastrada.' "$r")" "cadastrar despesa que se repete todo mês"
 confere "$(tem 'Outras despesasR$ 40,00' "$(sem_tags "$r")")" "despesa entra nas saídas do período"
-confere "$(tem 'ROI geral</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="medio">1,88</b>' "$r")" "ROI geral com as despesas (entradas ÷ saídas), em laranja entre 1 e 2"
+confere "$(tem '<span>ROI geral</span><span class="info".*<b class="pw-num medio">1,88</b>' "$r")" "ROI geral com as despesas (entradas ÷ saídas), em laranja entre 1 e 2"
 confere "$(tem 'SaldoR$ 94,71' "$(sem_tags "$r")")" "saldo: entradas − anúncios − despesas"
 confere "$(tem 'data-confirma="Apagar a despesa &quot;Hospedagem&quot;?"' "$r")" "apagar pede confirmação"
 ID=$(grep -o 'name="id" value="[0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[0-9]*')
@@ -875,11 +875,11 @@ echo "Resumo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'Faturamento líquidoR$ 202,00' "$(sem_tags "$r")")" "faturamento líquido do período (com order bump)"
 confere "$(tem 'Gasto com anúnciosR$ 60,00' "$(sem_tags "$r")")" "gasto com anúncios"
-confere "$(tem 'Lucro</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="positivo">R$ 134,71</b>' "$r")" "lucro com imposto da Meta"
-confere "$(tem 'ROI geral</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="positivo">3,25</b>' "$r")" "ROI geral: (todo o faturamento − imposto) ÷ gasto, como no gestor e na UTMify"
+confere "$(tem '<span>Lucro</span><span class="info".*<b class="pw-num positivo">R$ 134,71</b>' "$r")" "lucro com imposto da Meta"
+confere "$(tem '<span>ROI geral</span><span class="info".*<b class="pw-num positivo">3,25</b>' "$r")" "ROI geral: (todo o faturamento − imposto) ÷ gasto, como no gestor e na UTMify"
 confere "$(tem 'ROI rastreado' "$(sem_tags "$r")")" "ROI rastreado ao lado, para comparar"
-confere "$(tem 'Margem</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="positivo">69,2%</b>' "$r")" "margem: lucro ÷ (faturamento − imposto)"
-confere "$(tem 'Vendas pendentes</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="">R$ 67,00</b>' "$r")" "pendentes no valor cobrado"
+confere "$(tem '<span>Margem</span><span class="info".*<b class="pw-num positivo">69,2%</b>' "$r")" "margem: lucro ÷ (faturamento − imposto)"
+confere "$(tem '<span>Vendas pendentes</span><span class="info".*<b class="pw-num">R$ 67,00</b>' "$r")" "pendentes no valor cobrado"
 confere "$(tem 'class="rosca"' "$r")" "vendas por pagamento em rosca, como na UTMify"
 confere "$(tem 'aria-label="Vendas por dia da semana"' "$r")" "vendas por dia da semana"
 confere "$(tem 'Qualidade do rastreio' "$(sem_tags "$r")")" "qualidade do rastreio: quanto das vendas o painel explica"
@@ -898,8 +898,8 @@ confere "$(tem 'Funil do site' "$(sem_tags "$r")")" "funil do site"
 confere "$(tem '<div class="fluxo" style="--n:5">' "$r")" "funil da Meta em fluxo, com os 5 passos"
 confere "$(tem '<b class="dentro">100,0%</b>' "$r")" "primeiro passo do funil com 100% dentro da faixa"
 confere "$(tem 'class="grafico"' "$r")" "gráficos por hora em SVG"
-confere "$(tem 'data-dica="Tudo o que voltou ÷ o gasto com anúncios' "$r")" "número do Resumo tem o (i) com a conta"
-confere "$(tem 'class="info" tabindex="0" role="button" aria-label="Tudo o que voltou' "$r")" "(i) é um botão acessível com a explicação"
+confere "$(tem 'data-dica="(Faturamento líquido − imposto da Meta) ÷ gasto, a conta da UTMify' "$r")" "número do Resumo tem o (i) com a conta"
+confere "$(tem 'class="info" tabindex="0" role="button" aria-label="(Faturamento líquido − imposto da Meta)' "$r")" "(i) é um botão acessível com a explicação"
 confere "$(grep -q '<title>' < <(printf '%s\n' "${r#*</head>}"); [ $? -ne 0 ]; echo $?)" "gráficos sem dica nativa (title) por cima da nossa"
 confere "$(tem 'data-dica-titulo="[0-9][0-9]h às [0-9][0-9]h" data-dica="[0-9]* venda' "$r")" "vendas por horário: dica com o horário, as vendas e a parte do período"
 
@@ -1272,47 +1272,77 @@ fi
 r=$(curl -s -b "$JAR" "$URL/index.php")
 confere "$(tem 'class="avatar avatar-letra"' "$r")" "sem foto, a bolinha mostra a inicial"
 
-echo "Painel editável"
-r=$(curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo")
-confere "$(tem 'class="painel-grade"' "$r")" "aba Painel com a grade"
-confere "$(tem 'href="./?aba=painel' "$r")" "Painel nas abas"
-confere "$(tem 'data-tipo="NetRevenue"' "$r")" "painel padrão com o faturamento líquido"
-confere "$(tem 'data-tipo="RevenueInvestmentProfitByHour"' "$r")" "painel padrão com faturamento, investimento e lucro por hora"
-confere "$(tem 'style="--c:1;--r:1;--w:4;--h:1;--mc:1;--mr:1;--mw:1;--mh:1;"' "$r")" "cada cartão com a posição no computador e no celular"
-vp=$(sem_tags "$r" | grep -o 'Faturamento líquidoR\$ [0-9.,]*' | head -1)
-vr=$(sem_tags "$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")" | grep -o 'Faturamento líquidoR\$ [0-9.,]*' | head -1)
-confere "$([ -n "$vp" ] && [ "$vp" = "$vr" ]; echo $?)" "painel e Resumo com o mesmo faturamento ($vp)"
-confere "$(tem 'editar=1" data-recarrega' "$r")" "botão Editar painel"
-confere "$(grep -q 'gridstack.js' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem editar, o painel não carrega o GridStack"
-r=$(curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo&editar=1")
-confere "$(tem 'data-painel-editar data-painel-colunas="12"' "$r")" "modo edição numa grade de 12 colunas"
-confere "$(tem 'Métricas disponíveis' "$r")" "biblioteca de métricas no modo edição"
-confere "$(tem 'gridstack.js?v=' "$r")" "modo edição carrega o GridStack"
-confere "$(tem '<template data-painel-modelo="GrossRevenue">' "$r")" "modelo de cada métrica para arrastar"
-confere "$(tem 'class="grid-stack-item painel-novo usado" data-tipo="NetRevenue"[^>]* aria-disabled="true"' "$r")" "métrica que já está no painel fica apagada na lista"
-confere "$(tem 'data-tipo="GrossRevenue"[^>]*data-dica-titulo="Faturamento bruto" data-dica="Valor cobrado do comprador' "$r")" "cada métrica da lista mostra a conta ao passar o mouse"
-confere "$(tem 'data-dica-titulo="ROAS" data-dica="[^"]*Precisa: API Meta.' "$r")" "a lista diz de que integração a métrica depende"
-confere "$(tem 'class="grid-stack-item painel-novo" data-tipo="GrossRevenue"[^>]*gs-w="4" gs-h="1"' "$r")" "métrica da lista com o tamanho padrão"
+echo "Telas montáveis (Resumo e Financeiro)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem 'class="painel-grade" data-grade="resumo"' "$r")" "Resumo montado na grade"
+confere "$(grep -q 'aba=painel' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem a aba Painel (virou o Resumo)"
+confere "$(grep -q 'Editar painel' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem o botão Editar painel no cabeçalho"
+confere "$(tem 'class="conta-icone lapis-tela" href="[^"]*aba=geral&amp;periodo=tudo&amp;montar=1" data-recarrega' "$r")" "lápis na barra lateral monta o Resumo"
+confere "$(tem 'data-tipo="NetRevenue"' "$r")" "Resumo padrão com o faturamento líquido"
+confere "$(tem 'data-tipo="RevenueInvestmentProfitByHour"' "$r")" "Resumo padrão com faturamento, investimento e lucro por hora"
+confere "$(tem 'style="--c:1;--r:1;--w:3;--h:1;--mc:1;--mr:1;--mw:1;--mh:1;"' "$r")" "cada bloco com a posição no computador e no celular"
+confere "$(tem 'data-tipo="RevenueByDay".*class="graf-legenda"' "$r")" "gráfico novo: faturamento × investimento por dia"
+confere "$(tem 'data-tipo="ProfitByDay".*class="barra-ok"' "$r")" "gráfico novo: lucro por dia, em barras"
+confere "$(tem 'class="pw-graf mapa-calor"' "$r")" "gráfico novo: mapa de calor das vendas (dia da semana × hora)"
+confere "$(tem 'class="velocimetro".*class="vel-valor [a-z]*">[0-9],[0-9][0-9]<' "$r")" "gráfico novo: ROI no mostrador"
+confere "$(tem 'data-tipo="NetRevenue".*class="pw-mini"' "$r")" "linhazinha do período no cartão do faturamento"
+confere "$(grep -q 'gridstack.js' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem montar, a tela não carrega o GridStack"
+r7=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=7d")
+confere "$(tem 'class="delta[^"]*" title="Antes: R\$ [0-9.,]* ([0-9/]* a [0-9/]*)"' "$r7")" "seta contra o período anterior do mesmo tamanho"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(grep -q 'class="conta-icone lapis-tela' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "tela que não é montável não mostra o lápis"
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo&editar=1")
+confere "$(tem 'aba=geral&periodo=tudo&montar=1$' "$destino")" "endereço antigo do Painel abre o Resumo para montar ($destino)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&montar=1")
+confere "$(tem 'data-painel-editar data-painel-colunas="12"' "$r")" "montar o Resumo numa grade de 12 colunas"
+confere "$(tem 'class="conta-icone lapis-tela atual"' "$r")" "lápis aceso enquanto monta (sair da edição)"
+confere "$(tem 'Você está montando o Resumo para:' "$r")" "barra de edição diz qual tela"
+confere "$(tem 'Blocos disponíveis' "$r")" "biblioteca de blocos no modo de montar"
+confere "$(tem 'gridstack.js?v=' "$r")" "montar carrega o GridStack"
+confere "$(tem '<template data-painel-modelo="Visitors">' "$r")" "modelo de cada bloco para arrastar"
+confere "$(tem 'class="grid-stack-item painel-novo usado" data-tipo="NetRevenue"[^>]* aria-disabled="true"' "$r")" "bloco que já está na tela fica apagado na lista"
+confere "$(tem 'data-tipo="GrossRevenue"[^>]*data-dica-titulo="Faturamento bruto" data-dica="Valor cobrado do comprador' "$r")" "cada bloco da lista mostra a conta ao passar o mouse"
+confere "$(tem 'data-dica-titulo="ROAS" data-dica="[^"]*Precisa: API Meta.' "$r")" "a lista diz de que integração o bloco depende"
+confere "$(tem 'class="grid-stack-item painel-novo" data-tipo="ApprovedSales"[^>]*gs-w="3" gs-h="1"' "$r")" "bloco da lista com o tamanho padrão"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/gridstack.js")
 confere "$([ "$code" = "200" ]; echo $?)" "gridstack.js servido ($code)"
 cp=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
-salvar() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "aparelho=$2" --data-urlencode "periodo=tudo" --data-urlencode "layout=$3" "$URL/painel-salvar.php"; curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo"; }
-r=$(salvar "$cp" computador '[{"tipo":"Profit","x":0,"y":0,"w":12,"h":1},{"tipo":"Inexistente","x":0,"y":1,"w":3,"h":1},{"tipo":"SalesByHour","x":0,"y":1,"w":12,"h":3},{"tipo":"Profit","x":0,"y":5,"w":3,"h":1}]')
-confere "$(tem 'Painel salvo (computador, 2 cartões)' "$r")" "salvar o painel: tipo desconhecido e repetido ficam de fora"
-confere "$(tem 'data-tipo="Profit"' "$r")" "o painel salvo mostra o lucro"
-confere "$(tem 'style="--c:1;--r:1;--w:4;--h:1;' "$r")" "largura limitada ao máximo da métrica (lucro até 4 colunas)"
-confere "$(grep -q 'data-tipo="NetRevenue"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "métrica que saiu some do painel"
-r=$(curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo&editar=1&aparelho=celular")
+salvar() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "tela=$2" --data-urlencode "aparelho=$3" --data-urlencode "volta=$4" --data-urlencode "layout=$5" "$URL/painel-salvar.php"; curl -s -b "$JAR" "$URL/$6"; }
+r=$(salvar "$cp" resumo computador './?aba=geral&periodo=tudo' '[{"tipo":"Profit","x":0,"y":0,"w":12,"h":1},{"tipo":"Inexistente","x":0,"y":1,"w":3,"h":1},{"tipo":"SalesByHour","x":0,"y":1,"w":12,"h":3},{"tipo":"Profit","x":0,"y":5,"w":3,"h":1}]' 'index.php?aba=geral&periodo=tudo')
+confere "$(tem 'O Resumo salvo (computador, 2 blocos)' "$r")" "salvar o Resumo: bloco desconhecido e repetido ficam de fora"
+confere "$(tem 'data-tipo="Profit"' "$r")" "o Resumo salvo mostra o lucro"
+confere "$(tem 'style="--c:1;--r:1;--w:6;--h:1;' "$r")" "largura limitada ao máximo do bloco (lucro até 6 colunas)"
+confere "$(grep -q 'data-tipo="NetRevenue"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "bloco que saiu some da tela"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&montar=1&aparelho=celular")
 confere "$(tem 'data-painel-editar data-painel-colunas="2"' "$r")" "celular numa grade de 2 colunas"
 confere "$(tem 'gs-id="Profit"[^>]*gs-x="0" gs-y="0" gs-w="1" gs-h="1"' "$r")" "celular sai do computador: número na metade da largura"
-r=$(salvar "$cp" celular '[{"tipo":"SalesByHour","x":0,"y":0,"w":2,"h":3}]')
-confere "$(tem 'Painel salvo (celular, 1 cartão)' "$r")" "salvar o painel do celular"
+r=$(salvar "$cp" resumo celular './?aba=geral&periodo=tudo' '[{"tipo":"SalesByHour","x":0,"y":0,"w":2,"h":3}]' 'index.php?aba=geral&periodo=tudo')
+confere "$(tem 'O Resumo salvo (celular, 1 bloco)' "$r")" "salvar o Resumo do celular"
 confere "$(tem 'class="painel-item so-computador"' "$r")" "computador e celular com layouts separados (lucro só no computador)"
-r=$(salvar "" computador '[]')
-confere "$(tem 'Sessão expirada' "$r")" "salvar o painel sem o token do formulário é recusado"
-for ap in computador celular; do curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "aparelho=$ap" --data-urlencode "acao=padrao" "$URL/painel-salvar.php"; done
-r=$(curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo")
+r=$(salvar "" resumo computador './?aba=geral&periodo=tudo' '[]' 'index.php?aba=geral&periodo=tudo')
+confere "$(tem 'Sessão expirada' "$r")" "salvar sem o token do formulário é recusado"
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "tela=resumo" --data-urlencode "volta=https://outro.site/" --data-urlencode "layout=[]" "$URL/painel-salvar.php")
+confere "$([ -n "$destino" ] && ! printf '%s' "$destino" | grep -q 'outro.site'; echo $?)" "volta para fora do painel é recusada ($destino)"
+for ap in computador celular; do curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "tela=resumo" --data-urlencode "aparelho=$ap" --data-urlencode "acao=padrao" "$URL/painel-salvar.php"; done
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'data-tipo="NetRevenue"' "$r")" "voltar ao padrão"
+# Financeiro: a mesma grade, com os blocos do caixa
+r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo")
+confere "$(tem 'class="painel-grade" data-grade="financeiro"' "$r")" "Financeiro montado na grade"
+confere "$(tem 'data-tipo="CashFlowTable"' "$r")" "fluxo de caixa num bloco"
+confere "$(tem 'data-tipo="CashRoiGauge"' "$r")" "ROI do caixa no mostrador"
+confere "$(tem 'class="conta-icone lapis-tela" href="financeiro.php?periodo=tudo&amp;montar=1"' "$r")" "lápis na barra lateral monta o Financeiro"
+r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo&montar=1")
+confere "$(tem 'name="tela" value="financeiro"' "$r")" "montar o Financeiro grava a tela do Financeiro"
+confere "$(grep -q 'data-tabela="despesas"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "montando, o cadastro de despesas sai da frente"
+r=$(salvar "$cp" financeiro computador 'financeiro.php?periodo=tudo' '[{"tipo":"Balance","x":0,"y":0,"w":3,"h":1}]' 'financeiro.php?periodo=tudo')
+confere "$(tem 'O Financeiro salvo (computador, 1 bloco)' "$r")" "salvar o Financeiro"
+confere "$(grep -q 'data-tipo="CashIn"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro salvo só com o saldo"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem 'data-tipo="NetRevenue"' "$r")" "cada tela com o seu layout (o Resumo não mudou)"
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "tela=financeiro" --data-urlencode "aparelho=computador" --data-urlencode "acao=padrao" "$URL/painel-salvar.php"
+r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo")
+confere "$(tem 'data-tipo="CashIn"' "$r")" "Financeiro de volta ao padrão"
 
 echo "Painel da Bio"
 r=$(curl -s -b "$JAR" "$URL/bio.php?periodo=tudo")

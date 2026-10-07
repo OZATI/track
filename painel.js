@@ -670,9 +670,9 @@
     aplicarFix();
     contar();
   }
-  // ---------------------------------------------------------------- painel editavel
-  // Modo edicao do Painel (lib/painel.php): GridStack na grade, as metricas da biblioteca entram
-  // arrastando, o X (ou arrastar de volta para a lista) tira, e o layout vai no formulario de
+  // ---------------------------------------------------------------- telas montaveis
+  // Modo de montar a tela (lib/grade.php, o lapis da barra lateral): GridStack na grade, os blocos
+  // da biblioteca entram arrastando, o X (ou arrastar de volta para a lista) tira, e o layout vai no formulario de
   // Salvar. Esc cancela, Ctrl+S salva; sair com mudanca sem salvar pergunta antes.
   var pEd = document.querySelector('[data-painel-editar]');
   if (pEd && window.GridStack) {
@@ -692,7 +692,7 @@
       var t = document.querySelector('template[data-painel-modelo="' + tipo + '"]');
       return t ? t.innerHTML : '';
     };
-    // Na lista, a metrica que ja esta no painel fica apagada (nao arrasta de novo); ao sair, volta
+    // Na lista, o bloco que ja esta na tela fica apagado (nao arrasta de novo); ao sair, volta
     var pNaLista = function (tipo, livre) {
       var it = pEd.querySelector('.painel-novo[data-tipo="' + tipo + '"]');
       if (!it) { return; }
@@ -702,7 +702,7 @@
       if (!livre && !marca) {
         marca = document.createElement('small');
         marca.className = 'painel-novo-usado';
-        marca.textContent = 'no painel';
+        marca.textContent = 'na tela';
         it.firstElementChild.appendChild(marca);
       } else if (livre && marca) { marca.parentNode.removeChild(marca); }
     };
@@ -728,7 +728,7 @@
       var b = e.target.closest && e.target.closest('[data-painel-tirar]');
       if (b) { e.preventDefault(); pGrid.removeWidget(b.closest('.grid-stack-item')); }
     });
-    // Busca na biblioteca: pelo nome da metrica (as que ja estao no painel continuam escondidas)
+    // Busca na biblioteca: pelo nome do bloco
     var pBusca = pEd.querySelector('[data-painel-busca]');
     if (pBusca) {
       pBusca.addEventListener('input', function () {
@@ -743,7 +743,7 @@
     var pPadrao = document.querySelector('[data-painel-padrao]');
     if (pPadrao) {
       pPadrao.addEventListener('click', function () {
-        if (!window.confirm('Voltar este painel ao padrão? As mudanças só valem depois de Salvar.')) { return; }
+        if (!window.confirm('Voltar esta tela ao padrão? As mudanças só valem depois de Salvar.')) { return; }
         var padrao = [];
         try { padrao = JSON.parse(pEd.getAttribute('data-padrao') || '[]'); } catch (x) { padrao = []; }
         // removeAll com o evento: no GridStack 14, sem ele os cartoes saem da grade mas ficam na tela
@@ -777,11 +777,12 @@
     // Sair com mudanca sem salvar: pergunta antes (Cancelar, trocar de aparelho, fechar a aba)
     Array.prototype.forEach.call(document.querySelectorAll('[data-painel-cancelar], [data-painel-troca]'), function (a) {
       a.addEventListener('click', function (e) {
-        if (pSujo && !window.confirm('Sair sem salvar? As mudanças deste painel se perdem.')) { e.preventDefault(); return; }
+        if (pSujo && !window.confirm('Sair sem salvar? As mudanças desta tela se perdem.')) { e.preventDefault(); return; }
         pSujo = false;
       });
     });
-    ouvir(window, 'beforeunload', function (e) { if (pSujo) { e.preventDefault(); e.returnValue = ''; } });
+    // (o navegador pergunta; ficando na tela, a barra de carregando nao pode ficar)
+    ouvir(window, 'beforeunload', function (e) { if (pSujo) { document.documentElement.classList.remove('navegando'); e.preventDefault(); e.returnValue = ''; } });
     ouvir(document, 'keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S') && pForm) {
         e.preventDefault();
@@ -1580,6 +1581,8 @@
         if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
       }
       trocar(doc);
+      // Outra tela entra com a animacao (CSS em main); a mesma tela (filtro, ordenar) so troca os numeros
+      if (manter) { document.documentElement.classList.add('fica'); }
       ultima = semAncora(location.href);
       iniciar();
       var ancora = res[0].hash && document.getElementById(res[0].hash.slice(1));
@@ -1597,14 +1600,25 @@
       if (seq === navegacao) { document.documentElement.classList.remove('navegando'); }
     });
   }
+  // Carregando outra pagina inteira (outro modulo da barra lateral, o lapis, Configuracoes): a
+  // mesma barra do alto ate a pagina nova chegar. Voltar pelo historico (bfcache) tira a barra.
+  var saindo = function () {
+    document.documentElement.classList.add('navegando');
+    setTimeout(function () { document.documentElement.classList.remove('navegando'); }, 15000);
+  };
+  window.addEventListener('pageshow', function () { document.documentElement.classList.remove('navegando'); });
   // Links da mesma pagina do painel (abas, niveis do gestor, ordenar, trilha...). Depois dos
   // ouvintes da tela (a dica do (i) num link cancela o clique).
   window.addEventListener('click', function (e) {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) { return; }
     var a = e.target.closest && e.target.closest('a[href]');
-    if (!a || a.target || a.hasAttribute('download') || a.hasAttribute('data-recarrega')) { return; }
+    if (!a || a.target || a.hasAttribute('download')) { return; }
     var u = new URL(a.href, location.href);
-    if (!mesmaPagina(u)) { return; }
+    var soAncora = u.hash && u.pathname === location.pathname && u.search === location.search;
+    if (a.hasAttribute('data-recarrega') || !mesmaPagina(u)) {
+      if (u.origin === location.origin && !soAncora) { saindo(); }
+      return;
+    }
     if (u.hash && u.search === location.search) { return; } // ancora na mesma tela
     e.preventDefault();
     navegar(u.href);
@@ -1613,6 +1627,7 @@
   // atualizar...) enviam e mostram a tela para onde o painel voltaria. Depois da confirmacao.
   window.addEventListener('submit', function (e) {
     var f = e.target;
+    if (!e.defaultPrevented && f && f.tagName === 'FORM' && !f.target && f.hasAttribute('data-recarrega')) { saindo(); }
     if (e.defaultPrevented || !f || f.tagName !== 'FORM' || f.target || f.hasAttribute('data-recarrega')) { return; }
     var botao = e.submitter || null;
     var metodo = ((botao && botao.getAttribute('formmethod')) || f.getAttribute('method') || 'get').toLowerCase();

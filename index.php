@@ -36,6 +36,11 @@ if ($aba === 'financeiro') {
     header('Location: financeiro.php?' . http_build_query(['periodo' => $periodo]));
     exit;
 }
+// O Painel editavel (aba propria por um dia) virou o proprio Resumo, montado pelo lapis da barra lateral
+if ($aba === 'painel') {
+    header('Location: ./?' . http_build_query(['aba' => 'geral', 'periodo' => $periodo] + (($_GET['editar'] ?? '') === '1' ? ['montar' => 1] : [])));
+    exit;
+}
 
 $dominios = $db->query('SELECT DISTINCT dominio FROM eventos ORDER BY dominio')->fetchAll(PDO::FETCH_COLUMN);
 $dominio = in_array($escolhido('dominio'), $dominios, true) ? $escolhido('dominio') : '';
@@ -233,6 +238,9 @@ function rotulo_origem(array $ev): string
 }
 
 pagina_inicio('Painel');
+if ($aba === 'geral') {
+    grade_lapis('resumo'); // o Resumo e montavel: o lapis aparece na barra lateral
+}
 casca_inicio();
 barra_topo($filtro, $dominios, $paginas, $aba, $produtosConhecidos);
 echo '<main>';
@@ -392,12 +400,7 @@ if ($aba === 'trafego') {
     }
 }
 
-// ---------------------------------------------------------------- resumo (tela inicial)
-// ---------------------------------------------------------------- painel editavel
-if ($aba === 'painel') {
-    painel_render($db, $periodo, $de, $ate);
-}
-
+// ---------------------------------------------------------------- resumo (tela inicial, montavel)
 if ($aba === 'geral') {
     resumo_render($db, $periodo, $de, $ate);
 }

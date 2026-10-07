@@ -215,6 +215,8 @@ function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms =
     }
     $aquiUrl = destino_seguro((string)($_SERVER['REQUEST_URI'] ?? ''));
     $h .= '</div><div class="lateral-conta">';
+    // Lapis: monta a tela aberta, quando ela e montavel (lib/grade.php)
+    $h .= function_exists('grade_lapis_html') ? grade_lapis_html() : '';
     if (usuario_pode('usuarios')) {
         $h .= '<a class="conta-icone' . $marca('usuarios') . '" href="' . e(admin_url('usuarios', $utm)) . '" title="Usuários: quem entra e o que cada um pode abrir" aria-label="Usuários">' . icone('usuarios', 19) . '</a>';
     }
