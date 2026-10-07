@@ -1026,7 +1026,7 @@
   if (foto) {
     foto.addEventListener('change', function () {
       var arq = foto.files && foto.files[0];
-      var aviso = foto.form.querySelector('[data-foto-aviso]');
+      var aviso = document.querySelector('[data-foto-aviso]');
       var dizer = function (t) { if (aviso) { aviso.textContent = t; } };
       if (!arq) { return; }
       dizer('Preparando a foto…');
@@ -1035,18 +1035,37 @@
         dados.set('foto', jpeg, 'perfil.jpg');
         dizer('Enviando…');
         navegar(foto.form.action, { corpo: dados, manter: true });
-      }).catch(function () { dizer('Não consegui abrir essa imagem. Tente uma foto em JPEG ou PNG.'); });
+      }).catch(function () { dizer('Este navegador não abriu essa imagem. Tente uma foto em JPEG ou PNG (no iPhone, Ajustes › Câmera › Formatos › Mais compatível).'); });
     });
   }
   }
 
-  function comprimirFoto(arq, limite) {
+  // A CSP do painel (img-src 'self' data:) nao deixa abrir imagem de endereco blob:. Por isso o
+  // arquivo e decodificado direto (createImageBitmap, ja na orientacao certa da foto do celular)
+  // ou, em navegador antigo, lido como data: URL.
+  function abrirImagem(arq) {
+    if (window.createImageBitmap) {
+      return createImageBitmap(arq, { imageOrientation: 'from-image' }).catch(function () { return createImageBitmap(arq); }).catch(function () { return lerComoDados(arq); });
+    }
+    return lerComoDados(arq);
+  }
+  function lerComoDados(arq) {
     return new Promise(function (ok, falha) {
-      var img = new Image();
-      var url = URL.createObjectURL(arq);
-      img.onload = function () {
-        URL.revokeObjectURL(url);
-        var lado = Math.min(img.naturalWidth, img.naturalHeight);
+      var leitor = new FileReader();
+      leitor.onload = function () {
+        var img = new Image();
+        img.onload = function () { ok(img); };
+        img.onerror = falha;
+        img.src = leitor.result;
+      };
+      leitor.onerror = falha;
+      leitor.readAsDataURL(arq);
+    });
+  }
+  function comprimirFoto(arq, limite) {
+    return abrirImagem(arq).then(function (img) { return new Promise(function (ok, falha) {
+        var largura = img.naturalWidth || img.width, altura = img.naturalHeight || img.height;
+        var lado = Math.min(largura, altura);
         if (!lado) { falha(); return; }
         var tentar = function (tam, q) {
           var c = document.createElement('canvas');
@@ -1055,7 +1074,7 @@
           g.imageSmoothingQuality = 'high';
           g.fillStyle = '#fff';
           g.fillRect(0, 0, tam, tam);
-          g.drawImage(img, (img.naturalWidth - lado) / 2, (img.naturalHeight - lado) / 2, lado, lado, 0, 0, tam, tam);
+          g.drawImage(img, (largura - lado) / 2, (altura - lado) / 2, lado, lado, 0, 0, tam, tam);
           c.toBlob(function (b) {
             if (!b) { falha(); return; }
             if (b.size <= limite) { ok(b); return; }
@@ -1065,10 +1084,7 @@
           }, 'image/jpeg', q);
         };
         tentar(Math.min(512, lado), 0.9);
-      };
-      img.onerror = function () { URL.revokeObjectURL(url); falha(); };
-      img.src = url;
-    });
+    }); });
   }
 
   // ---------------------------------------------------------------- navegacao suave

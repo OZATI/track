@@ -86,17 +86,19 @@ abas_painel('configuracoes');
   <div class="cfg-grade">
     <section class="cartao" id="perfil">
       <h2><?= com_info('Perfil', 'A foto aparece na bolinha da barra lateral. Só quem entrou no admin vê. Qualquer imagem, de qualquer tamanho: o navegador corta no centro, reduz para 512 x 512 e comprime até 64 KB, sem ficar feia nem na tela do iPhone.') ?></h2>
-      <div class="perfil-linha"><?= avatar_html($usuario, 64) ?><div><b><?= e($usuario) ?></b>
-        <form method="post" action="configuracoes.php" enctype="multipart/form-data" class="perfil-acoes" data-foto>
+      <div class="perfil-linha">
+        <form method="post" action="configuracoes.php" enctype="multipart/form-data" class="perfil-foto" data-foto>
           <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="foto">
-          <label class="botao-arquivo"><input type="file" name="foto" accept="image/*" data-foto-arquivo> Escolher foto</label>
+          <?= avatar_html($usuario, 72) ?>
+          <label class="perfil-lapis" title="Trocar a foto"><input type="file" name="foto" accept="image/*" data-foto-arquivo aria-label="Trocar a foto do perfil"><?= icone('lapis', 14) ?></label>
           <noscript><button type="submit" class="discreto neutro">Enviar</button></noscript>
-          <span class="suave" data-foto-aviso aria-live="polite"></span>
         </form>
-        <?php if (is_file(avatar_arquivo($usuario))): ?>
-        <form method="post" action="configuracoes.php"><input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="tirar_foto"><button type="submit" class="discreto">Tirar a foto</button></form>
-        <?php endif; ?>
-      </div></div>
+        <div class="perfil-info"><b><?= e($usuario) ?></b>
+          <span class="suave" data-foto-aviso aria-live="polite">Toque no lápis para trocar a foto.</span>
+          <?php if (is_file(avatar_arquivo($usuario))): ?>
+          <form method="post" action="configuracoes.php"><input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="tirar_foto"><button type="submit" class="discreto">Tirar a foto</button></form>
+          <?php endif; ?>
+        </div></div>
       <form method="post" action="sair.php" id="form-sair" class="perfil-sair"><input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
         <button type="submit" class="discreto neutro" title="Encerrar a sessão neste navegador"><?= icone('sair', 14) ?> Sair do painel</button></form>
     </section>

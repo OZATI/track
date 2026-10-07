@@ -11,6 +11,8 @@ require_once __DIR__ . '/perfil.php';
 function admin_css_base(): string
 {
     return <<<'CSS'
+/* hidden sempre esconde: o display:inline-flex dos botoes e o flex dos rotulos passavam por cima */
+[hidden]{ display:none !important; }
 :root{
   --fundo:#F7F8FA; --cartao:#FFFFFF; --cartao-2:#F3F4F6; --hover:#F7F9FC;
   --texto:#111827; --suave:#6B7280; --apagado:#9CA3AF; --linha:#E5E7EB; --linha-forte:#D1D5DB;
@@ -545,10 +547,18 @@ a.conta-nome:hover{ background:var(--hover); text-decoration:none; }
 a.conta-nome .conta-cfg{ color:var(--suave); font-size:12px; }
 @media (max-width:640px){ a.conta-nome .conta-cfg{ display:none; } }
 /* Configuracoes: perfil (foto) e o Sair */
-.perfil-linha{ display:flex; align-items:center; gap:14px; margin:0 0 14px; }
-.perfil-linha b{ display:block; font-size:15px; margin:0 0 6px; }
-.perfil-acoes{ display:inline-flex; margin:0 8px 0 0; }
+.perfil-linha{ display:flex; align-items:center; gap:16px; margin:0 0 14px; }
+.perfil-linha b{ display:block; font-size:15px; margin:0 0 4px; }
 .perfil-linha form{ display:inline-flex; }
+/* Foto do perfil: o lapis na borda da bolinha troca a foto */
+.perfil-foto{ position:relative; display:inline-flex; flex:none; margin:0; }
+.perfil-foto .avatar{ box-shadow:0 0 0 1px var(--linha); }
+.perfil-lapis{ position:absolute; right:-2px; bottom:-2px; display:inline-flex !important; align-items:center; justify-content:center; width:28px; height:28px; margin:0 !important; border-radius:50%; background:var(--marca); color:#fff !important; border:2px solid var(--cartao); cursor:pointer; }
+.perfil-lapis:hover{ background:var(--marca-hover); }
+.perfil-lapis:focus-within{ outline:2px solid var(--marca); outline-offset:2px; }
+.perfil-lapis input{ position:absolute; width:1px; height:1px; opacity:0; }
+.perfil-info{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
+.perfil-info .discreto{ min-height:28px; padding:0 10px; font-size:12px; }
 .botao-arquivo{ display:inline-flex !important; flex-direction:row !important; align-items:center; gap:6px; margin:0 !important; min-height:var(--alt); padding:0 14px; background:var(--marca); color:#fff !important; border-radius:var(--r-sm); font-weight:500; font-size:13px !important; cursor:pointer; }
 .botao-arquivo:hover{ background:var(--marca-hover); }
 .botao-arquivo input{ position:absolute; width:1px; height:1px; opacity:0; }
