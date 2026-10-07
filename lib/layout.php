@@ -174,6 +174,8 @@ th{ font-size:12px; font-weight:500; color:var(--suave); background:var(--cartao
 tr:hover td{ background:var(--hover); }
 tr:last-child td{ border-bottom:0; }
 td.quebra{ white-space:normal; min-width:220px; }
+/* Nas listas (Vendas, Eventos) o texto longo (conferencia, motivo) ganha mais largura: linhas mais baixas */
+.tcard-corpo.lista td.quebra{ min-width:340px; }
 .selo{ display:inline-block; padding:0 6px; border-radius:4px; font-size:12px; font-weight:500; line-height:20px; }
 .selo.ok{ color:var(--ok); background:var(--fundo-ok); } .selo.alerta{ color:var(--alerta); background:var(--fundo-alerta); }
 .selo.erro{ color:var(--erro); background:var(--fundo-erro); } .selo.neutro{ color:var(--suave); background:var(--cartao-2); }

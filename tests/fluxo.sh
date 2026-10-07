@@ -200,7 +200,7 @@ confere "$(tem 'Clique no checkout <b>1</b>' "$r")" "resumo conta os eventos por
 confere "$(tem '<span class="selo ok">Comprou</span>' "$r")" "visitante com venda aprovada aparece como Comprou"
 confere "$(tem 'Compraram <b>1</b>' "$r")" "resumo mostra quantos compraram"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&evento=compraram")
-confere "$(tem 'Eventos de quem comprou <span class="suave">(1–2 de 2)' "$r")" "Compraram mostra só o caminho de quem comprou"
+confere "$(tem 'Eventos de quem comprou (1–2 de 2)' "$(sem_tags "$r")")" "Compraram mostra só o caminho de quem comprou"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&evento=CliqueCheckout")
 confere "$(grep -q 'Visualização</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "filtro por tipo de evento mostra só os cliques no checkout"
 confere "$(tem 'Clique no checkout</strong>' "$r")" "filtro por tipo de evento mantém o evento escolhido"
@@ -229,6 +229,8 @@ confere "$(tem 'Bate' "$r")" "detalhe do visitante mostra a venda conferida"
 echo "Usuários e login do admin"
 r=$(curl -s -b "$JAR" "$URL/usuarios.php")
 confere "$(tem 'kenio <span class="suave">(você)' "$r")" "tela de usuários lista quem entra"
+confere "$(tem 'data-tabela="usuarios" data-por-pagina="25">' "$r")" "Usuários na tabela inteligente"
+confere "$(tem 'Podem abrir UTM</span><span class="kpi-ico"' "$r")" "Usuários: cartões de quem pode abrir cada parte"
 csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 r=$(curl -s -b "$JAR" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" "$URL/usuarios.php")
 confere "$(tem 'Sessão expirada' "$r")" "criar acesso sem o token é recusado"
@@ -348,7 +350,7 @@ r=$(curl -s -b "$JAR" -X POST -H "X-CSRF: $csrf" "$URL/sincronizar.php")
 confere "$(tem '"buscou":false' "$r")" "nova busca automática espera 10 minutos"
 confere "$(grep -rq 'cliente-api@exemplo.com\|Nome Da API\|99999999999' "$DADOS"/track.sqlite*; [ $? -ne 0 ]; echo $?)" "dados do comprador vindos da API não são gravados (LGPD)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
-confere "$(tem 'Vendas (5 pedidos)' "$(sem_tags "$r")")" "vendas da API somam com as do webhook, sem duplicar"
+confere "$(tem 'data-tabela="vendas" data-por-pagina="25">.*data-tabela-conta>5</span>' "$r")" "vendas da API somam com as do webhook, sem duplicar"
 confere "$(tem 'RefDois2' "$r")" "pedido aparece pela referência curta da Kiwify"
 confere "$(tem 'Só pela API' "$r")" "venda que só a API trouxe fica marcada"
 confere "$(tem 'Webhook + API' "$r")" "venda que chegou pelos dois caminhos fica marcada"
@@ -368,7 +370,16 @@ confere "$(grep -q 'Última busca na API falhou\|Muitas buscas' < <(printf '%s\n
 r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
 confere "$(tem 'chamada(s) no último minuto' "$r")" "aba API Kiwify mostra o uso da API"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
-confere "$(tem 'Vendas (5 pedidos)' "$(sem_tags "$r")")" "busca completa de novo não duplica"
+confere "$(tem 'data-tabela="vendas" data-por-pagina="25">.*data-tabela-conta>5</span>' "$r")" "busca completa de novo não duplica"
+confere "$(tem 'Aprovadas</span><span class="kpi-ico"' "$r")" "Vendas: cartões com ícone (pedidos, aprovadas, faturamento e aguardando)"
+confere "$(tem '<th data-filtro data-col="situacao">' "$r")" "Vendas: filtro por situação na tabela inteligente"
+confere "$(tem '<div class="tabela tcard-corpo lista">' "$r")" "Vendas: no celular, cada pedido vira um cartão"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=visitantes&periodo=tudo")
+confere "$(tem 'data-tabela="visitantes" data-por-pagina="25">' "$r")" "Visitantes na tabela inteligente"
+confere "$(tem '<th data-filtro data-col="venda">' "$r")" "Visitantes: filtro por quem comprou"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo")
+confere "$(tem 'data-tabela="eventos" data-por-pagina="0">' "$r")" "Eventos na tabela inteligente (os 200 da página, todos à mostra)"
+confere "$(tem '<th data-filtro data-col="evento">' "$r")" "Eventos: filtro por tipo de evento na tabela"
 curl -s --data '{"order_id":"api-2","order_ref":"RefDois2","order_status":"paid","webhook_event_type":"order_approved"}' "$URL/kiwify.php?chave=$CHAVE" >/dev/null
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
 confere "$(tem 'Só pela API</td><td>0 (0%)' "$r")" "webhook atrasado junta com a venda da API (Webhook + API)"
@@ -479,7 +490,7 @@ curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&rank=lucr
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
 confere "$(tem '<span>Anúncio compartilhado</span>' "$r")" "etiqueta com {{placement}} vira anúncio compartilhado"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo&filtro=fora")
-confere "$(tem 'Vendas fora de anúncio (1)' "$(sem_tags "$r")")" "link do aviso lista só as vendas fora de anúncio"
+confere "$(tem 'data-tabela="vendas-fora" data-por-pagina="25">.*data-tabela-conta>1</span>' "$r")" "link do aviso lista só as vendas fora de anúncio"
 confere "$(tem 'Venda orgânica (WhatsApp): não veio de anúncio' "$r")" "cada venda fora de anúncio mostra o motivo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=gasto&cols[]=cpm&cols[]=impressoes")
 confere "$(tem '>CPM</a>' "$r")" "escolher colunas mostra a coluna pedida"

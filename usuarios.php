@@ -108,28 +108,34 @@ admin_cabecalho('usuarios');
   <?php foreach ($erros as $erro): ?><p class="erro"><?= e($erro) ?></p><?php endforeach; ?>
   <?php if ($aviso): ?><p class="aviso-ok"><?= e($aviso) ?></p><?php endif; ?>
 
-  <section class="cartao">
-    <h2><?= com_info('Quem entra', 'Um login só para o admin inteiro. Marque o que cada pessoa pode abrir: ' . implode(', ', $todosAcessos) . '. "Usuários" é esta tela, de dar e tirar acessos. Marcar ou desmarcar já salva.') ?></h2>
-    <div class="tabela"><table>
-      <tr><th>Usuário</th><th>Pode abrir</th><th></th></tr>
-      <?php foreach (array_keys(track_usuarios()) as $u): ?>
+  <?php
+  // Cartoes (quantos entram e o que podem abrir) e a tabela inteligente de quem entra
+  $nomes = array_keys(track_usuarios());
+  $podem = fn(string $a) => count(array_filter($nomes, fn($u) => usuario_pode($a, $u)));
+  $cartoes = [cartao_kpi('Usuários', (string)count($nomes), 'com login no admin', 'usuarios')];
+  foreach ($todosAcessos as $k => $rot) {
+      $cartoes[] = cartao_kpi('Podem abrir ' . $rot, (string)$podem($k), 'de ' . count($nomes), ['cms' => 'resumo', 'utm' => 'trafego', 'usuarios' => 'chave'][$k] ?? 'ok');
+  }
+  echo cartoes_kpi($cartoes);
+  echo tabela_card_inicio('usuarios', 'Quem entra', count($nomes), ['icone' => 'usuarios', 'busca' => 'Buscar usuário', 'filtros' => false, 'ocultos' => false,
+      'dica' => 'Um login só para o admin inteiro. Marque o que cada pessoa pode abrir: ' . implode(', ', $todosAcessos) . '. "Usuários" é esta tela, de dar e tirar acessos. Marcar ou desmarcar já salva.']);
+  ?>
+    <table>
+      <thead><tr><th class="nome">Usuário</th><th>Pode abrir</th><th class="acoes"></th></tr></thead><tbody>
+      <?php foreach ($nomes as $u): ?>
         <tr><td class="usuario-nome"><?= avatar_html($u, 24, admin_base()) ?> <?= e($u) ?><?= $u === $eu ? ' <span class="suave">(você)</span>' : '' ?></td>
           <td><form method="post" action="" class="acessos" data-auto>
               <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="acessos"><input type="hidden" name="usuario" value="<?= e($u) ?>">
               <?= $caixas($u, usuario_acessos($u)) ?>
               <noscript><button type="submit" class="discreto neutro">Salvar</button></noscript>
             </form></td>
-          <td><?php if ($u !== $eu): ?>
-            <form method="post" action="" data-confirma="<?= e('Tirar o acesso de ' . $u . ' ao admin?') ?>">
-              <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
-              <input type="hidden" name="acao" value="remover">
-              <input type="hidden" name="usuario" value="<?= e($u) ?>">
-              <button type="submit" class="discreto">Tirar acesso</button>
-            </form>
-          <?php endif; ?></td></tr>
+          <td class="acoes"><?php if ($u !== $eu): ?><?= menu_linha([
+              '<form method="post" action="" data-confirma="' . e('Tirar o acesso de ' . $u . ' ao admin?') . '"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
+              . '<input type="hidden" name="acao" value="remover"><input type="hidden" name="usuario" value="' . e($u) . '"><button type="submit" class="perigo">' . icone('lixo', 14) . 'Tirar acesso</button></form>',
+          ], 'Ações de ' . $u) ?><?php endif; ?></td></tr>
       <?php endforeach; ?>
-    </table></div>
-  </section>
+    </tbody></table>
+  <?= tabela_card_fim('usuário', 'usuários') ?>
 
   <section class="cartao">
     <h2>Dar acesso a alguém</h2>

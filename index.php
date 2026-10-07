@@ -529,37 +529,52 @@ if ($aba === 'vendas') {
         $vendas = array_values(array_filter($vendas, fn($v) => aprovada($v) && !eh_bump($v) && gestor_id_utm($v['utm_campaign']) === null));
         echo '<p class="suave"><a href="' . e('./?' . http_build_query(['aba' => 'vendas'] + $parLink)) . '">← Todas as vendas</a></p>';
     }
-    echo ($soFora
-            ? titulo('Vendas fora de anúncio (' . count($vendas) . ')', 'Vendas aprovadas sem o ID de uma campanha da Meta na etiqueta. A UTMify chama de "não trackeadas". Orgânica é normal ficar fora; as outras mostram o que ajustar.')
-            : titulo('Vendas (' . count($vendas) . ' pedidos)', 'Todos os pedidos do período, pagos ou não, com o canal, as etiquetas e como chegaram.'))
-        . '<div class="tabela lista"><table><tr><th>' . com_info('Quando', 'Quando a venda chegou ao painel (horário de Brasília).') . '</th><th>' . com_info('Pedido', 'Código do pedido na Kiwify.') . '</th><th>' . com_info('Produto', 'Produto comprado. Order bump aparece como pedido próprio.') . '</th><th>' . com_info('Valor', 'Valor cobrado do comprador (antes das taxas da Kiwify).') . '</th><th>' . com_info('Situação', 'Situação do pagamento na Kiwify: aprovada, aguardando, recusada, reembolsada.') . '</th><th>Chegou por ' . info('Canal pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto...') . '</th>'
-        . '<th data-secundaria>' . com_info('Etiquetas na Kiwify', 'As UTMs que a Kiwify gravou no pedido (source / medium / campaign / content / term).') . '</th><th data-secundaria>Visitante ' . info('Quem o painel reconheceu na página antes da compra (pelo sck). Clique para ver o caminho.') . '</th>'
-        . ($soFora ? '<th>' . com_info('Por quê', 'Motivo de a venda não estar ligada a uma campanha.') . '</th>' : '<th>Conferência ' . info('Compara a campanha do clique na página com a que a Kiwify gravou. Bate = origem confirmada.') . '</th>')
-        . '<th data-secundaria>Recebida via ' . info('Como a venda chegou ao painel: webhook da Kiwify, busca pela API ou os dois.') . '</th></tr>';
+    // Cartoes do periodo (como os do Financeiro): pedidos, aprovadas, faturamento e aguardando
+    if (!$soFora) {
+        $aprovadas = array_filter($vendas, fn($v) => aprovada($v));
+        echo cartoes_kpi([
+            cartao_kpi('Pedidos', (string)count($vendas), 'no período, pagos ou não', 'vendas'),
+            cartao_kpi('Aprovadas', (string)count(array_filter($aprovadas, fn($v) => !eh_bump($v))), 'vendas, sem contar o order bump', 'ok'),
+            cartao_kpi('Faturamento', reais(array_sum(array_map(fn($v) => (int)$v['valor'], $aprovadas))), 'cobrado nas aprovadas, com order bump', 'carteira'),
+            cartao_kpi('Aguardando', (string)count(array_filter($vendas, fn($v) => !eh_bump($v) && situacao($v)[0] === 'Aguardando pagamento')), 'Pix ou boleto gerado e não pago', 'calendario'),
+        ]);
+    }
+    echo tabela_card_inicio($soFora ? 'vendas-fora' : 'vendas', $soFora ? 'Vendas fora de anúncio' : 'Vendas', count($vendas), ['icone' => 'vendas', 'classe' => 'lista',
+            'busca' => 'Buscar pedido, produto, etiqueta ou visitante',
+            'dica' => $soFora ? 'Vendas aprovadas sem o ID de uma campanha da Meta na etiqueta. A UTMify chama de "não trackeadas". Orgânica é normal ficar fora; as outras mostram o que ajustar.'
+                : 'Todos os pedidos do período (até 500), pagos ou não, com o canal, as etiquetas e como chegaram. Filtros por produto, situação, canal e caminho.'])
+        . '<table><thead><tr><th>' . com_info('Quando', 'Quando a venda chegou ao painel (horário de Brasília).') . '</th><th>' . com_info('Pedido', 'Código do pedido na Kiwify.') . '</th><th data-filtro data-col="produto">' . com_info('Produto', 'Produto comprado. Order bump aparece como pedido próprio.') . '</th><th data-col="valor">' . com_info('Valor', 'Valor cobrado do comprador (antes das taxas da Kiwify).') . '</th><th data-filtro data-col="situacao">' . com_info('Situação', 'Situação do pagamento na Kiwify: aprovada, aguardando, recusada, reembolsada.') . '</th><th data-filtro data-col="canal">Chegou por ' . info('Canal pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto...') . '</th>'
+        . '<th data-secundaria data-col="etiquetas">' . com_info('Etiquetas na Kiwify', 'As UTMs que a Kiwify gravou no pedido (source / medium / campaign / content / term).') . '</th><th data-secundaria data-col="visitante">Visitante ' . info('Quem o painel reconheceu na página antes da compra (pelo sck). Clique para ver o caminho.') . '</th>'
+        . ($soFora ? '<th data-col="motivo">' . com_info('Por quê', 'Motivo de a venda não estar ligada a uma campanha.') . '</th>' : '<th data-filtro data-col="conferencia">Conferência ' . info('Compara a campanha do clique na página com a que a Kiwify gravou. Bate = origem confirmada.') . '</th>')
+        . '<th data-secundaria data-filtro data-col="via">Recebida via ' . info('Como a venda chegou ao painel: webhook da Kiwify, busca pela API ou os dois.') . '</th></tr></thead><tbody>';
     foreach ($vendas as $v) {
         [$sit, $cls] = situacao($v);
         [$via, $vcls] = chegada($v['fonte'] ?? null);
         $vis = $v['visitante']
             ? '<a href="' . e(link_visitante($v['visitante'], $parLink)) . '">' . e(substr($v['visitante'], 0, 8)) . '</a> <span class="suave">' . e($v['dispositivo'] . ' · ' . $v['navegador']) . '</span>'
             : '<span class="suave">—</span>';
+        $confValor = '';
         if ($soFora) {
             $confCel = '<span class="suave">' . e(gestor_motivo_fora($v)[1]) . '</span>';
         } elseif (eh_bump($v)) {
             $confCel = '<span class="suave">Order bump: conferido no pedido principal</span>';
+            $confValor = 'Order bump';
         } else {
             [$conf, $ccls, $explica] = conferir($db, $v);
             $confCel = '<span class="selo ' . $ccls . '">' . e($conf) . '</span> <span class="suave">' . e($explica) . '</span>';
+            $confValor = $conf;
         }
+        $cn = canal($v['utm_source'], $v['utm_medium'], $v['utm_term'], null, $v['utm_campaign']);
         echo '<tr><td>' . e(data_local($v['recebida_em'])) . '</td><td><code>' . e($v['referencia'] ?: $v['pedido']) . '</code></td>'
-            . '<td>' . e($v['produto']) . (eh_bump($v) ? ' <span class="selo neutro">order bump</span>' : '') . '</td><td>' . e(reais($v['valor'])) . '</td>'
-            . '<td><span class="selo ' . $cls . '">' . e($sit) . '</span></td><td>' . selo_canal(canal($v['utm_source'], $v['utm_medium'], $v['utm_term'], null, $v['utm_campaign'])) . '</td>'
+            . '<td data-valor="' . e((string)$v['produto']) . '">' . e($v['produto']) . (eh_bump($v) ? ' <span class="selo neutro">order bump</span>' : '') . '</td><td>' . e(reais($v['valor'])) . '</td>'
+            . '<td><span class="selo ' . $cls . '">' . e($sit) . '</span></td><td data-valor="' . e($cn[1]) . '">' . selo_canal($cn) . '</td>'
             . '<td class="suave">' . e(origem($v['utm_source'], $v['utm_medium'], $v['utm_campaign'])) . '</td>'
-            . '<td>' . $vis . '</td><td class="quebra">' . $confCel . '</td><td><span class="selo ' . $vcls . '">' . e($via) . '</span></td></tr>';
+            . '<td>' . $vis . '</td><td class="quebra"' . ($confValor !== '' ? ' data-valor="' . e($confValor) . '"' : '') . '>' . $confCel . '</td><td><span class="selo ' . $vcls . '">' . e($via) . '</span></td></tr>';
     }
     if (!$vendas) {
         echo '<tr><td colspan="10" class="suave">Nenhuma venda no período. As vendas chegam pelo webhook da Kiwify e, com a chave cadastrada, pela API.</td></tr>';
     }
-    echo '</table></div>';
+    echo '</tbody></table>' . tabela_card_fim('pedido', 'pedidos');
 }
 
 // ---------------------------------------------------------------- visitantes
@@ -567,7 +582,9 @@ if ($aba === 'visitantes') {
     $lista = consulta($db, "SELECT e.visitante, MIN(e.em) AS primeiro, MAX(e.em) AS ultimo, COUNT(*) AS total,
                                    SUM(e.nome = 'CliqueCheckout') AS cliques, SUM(e.nome = 'WhatsApp') AS whats
                             FROM eventos e WHERE $condEv GROUP BY e.visitante ORDER BY ultimo DESC LIMIT 300", $parEv);
-    echo titulo('Visitantes (' . count($lista) . ')', 'Cada aparelho que abriu as páginas no período. Clique no visitante para ver o caminho dele.') . '<div class="tabela lista"><table><tr><th>' . com_info('Última atividade', 'O último evento deste aparelho no período.') . '</th><th>' . com_info('Visitante', 'Identificador anônimo do aparelho (cookie trk_vid).') . '</th><th>' . com_info('Aparelho', 'Sistema e navegador do aparelho (ex.: iPhone · Instagram).') . '</th><th data-secundaria>' . com_info('IP', 'IP parcial (sem o último número), só para diferenciar aparelhos.') . '</th><th>' . com_info('Chegou por', 'Canal e origem da primeira visita no período.') . '</th><th>' . com_info('Eventos', 'Quantos eventos este aparelho teve.') . '</th><th>' . com_info('Checkout', 'Se clicou no botão de compra.') . '</th>' . ($temWhats ? '<th>' . com_info('WhatsApp', 'Se clicou no WhatsApp.') . '</th>' : '') . '<th>' . com_info('Venda', 'Se tem venda ligada a ele (pelo sck do checkout).') . '</th></tr>';
+    echo tabela_card_inicio('visitantes', 'Visitantes', count($lista), ['icone' => 'visitantes', 'classe' => 'lista', 'busca' => 'Buscar visitante, aparelho ou origem',
+            'dica' => 'Cada aparelho que abriu as páginas no período (os 300 mais recentes). Clique no visitante para ver o caminho dele. Filtros por aparelho, canal, checkout e venda.'])
+        . '<table><thead><tr><th>' . com_info('Última atividade', 'O último evento deste aparelho no período.') . '</th><th>' . com_info('Visitante', 'Identificador anônimo do aparelho (cookie trk_vid).') . '</th><th data-filtro data-col="aparelho">' . com_info('Aparelho', 'Sistema e navegador do aparelho (ex.: iPhone · Instagram).') . '</th><th data-secundaria data-col="ip">' . com_info('IP', 'IP parcial (sem o último número), só para diferenciar aparelhos.') . '</th><th data-filtro data-col="canal">' . com_info('Chegou por', 'Canal e origem da primeira visita no período.') . '</th><th data-col="eventos">' . com_info('Eventos', 'Quantos eventos este aparelho teve.') . '</th><th data-filtro data-col="checkout">' . com_info('Checkout', 'Se clicou no botão de compra.') . '</th>' . ($temWhats ? '<th data-filtro data-col="whatsapp">' . com_info('WhatsApp', 'Se clicou no WhatsApp.') . '</th>' : '') . '<th data-filtro data-col="venda">' . com_info('Venda', 'Se tem venda ligada a ele (pelo sck do checkout).') . '</th></tr></thead><tbody>';
     foreach ($lista as $l) {
         $st = $db->prepare('SELECT * FROM visitantes WHERE id = ?');
         $st->execute([$l['visitante']]);
@@ -577,16 +594,18 @@ if ($aba === 'visitantes') {
         $primeiro = $st->fetch();
         $chegou = origem($primeiro['utm_source'] ?? null, $primeiro['utm_medium'] ?? null, $primeiro['utm_campaign'] ?? null) ?: ($primeiro['referrer'] ?? '') ?: 'direto / sem origem';
         $temVenda = (int)valor($db, 'SELECT COUNT(*) FROM vendas WHERE visitante = ?', [$l['visitante']]);
+        $cn = canal($primeiro['utm_source'] ?? null, $primeiro['utm_medium'] ?? null, $primeiro['utm_term'] ?? null, $primeiro['referrer'] ?? null, $primeiro['utm_campaign'] ?? null);
+        $simNao = fn(int $n) => ' data-valor="' . ($n ? 'Sim' : 'Não') . '"';
         echo '<tr><td>' . e(data_local($l['ultimo'])) . '</td><td><a href="' . e(link_visitante($l['visitante'], $parLink)) . '">' . e(substr($l['visitante'], 0, 8)) . '</a></td>'
-            . '<td>' . e(($vis['dispositivo'] ?? '') . ' · ' . ($vis['navegador'] ?? '')) . '</td><td>' . e($vis['ip'] ?? '') . '</td><td>'
-            . com_icone_canal(canal($primeiro['utm_source'] ?? null, $primeiro['utm_medium'] ?? null, $primeiro['utm_term'] ?? null, $primeiro['referrer'] ?? null, $primeiro['utm_campaign'] ?? null), $chegou) . '</td>'
-            . '<td>' . (int)$l['total'] . '</td><td>' . ((int)$l['cliques'] ? (int)$l['cliques'] : '') . '</td>' . ($temWhats ? '<td>' . ((int)$l['whats'] ? (int)$l['whats'] : '') . '</td>' : '')
-            . '<td>' . ($temVenda ? '<span class="selo ok">' . $temVenda . '</span>' : '') . '</td></tr>';
+            . '<td data-valor="' . e((string)($vis['dispositivo'] ?? '')) . '">' . e(($vis['dispositivo'] ?? '') . ' · ' . ($vis['navegador'] ?? '')) . '</td><td>' . e($vis['ip'] ?? '') . '</td>'
+            . '<td data-valor="' . e($cn[1]) . '">' . com_icone_canal($cn, $chegou) . '</td>'
+            . '<td>' . (int)$l['total'] . '</td><td' . $simNao((int)$l['cliques']) . '>' . ((int)$l['cliques'] ? (int)$l['cliques'] : '') . '</td>' . ($temWhats ? '<td' . $simNao((int)$l['whats']) . '>' . ((int)$l['whats'] ? (int)$l['whats'] : '') . '</td>' : '')
+            . '<td' . $simNao($temVenda) . '>' . ($temVenda ? '<span class="selo ok">' . $temVenda . '</span>' : '') . '</td></tr>';
     }
     if (!$lista) {
         echo '<tr><td colspan="9" class="suave">Nenhum visitante no período.</td></tr>';
     }
-    echo '</table></div>';
+    echo '</tbody></table>' . tabela_card_fim('visitante', 'visitantes');
 }
 
 // ---------------------------------------------------------------- eventos
@@ -632,23 +651,28 @@ if ($aba === 'eventos') {
 
     $de1 = $total ? ($pg - 1) * $porPagina + 1 : 0;
     $titulo = $soCompradores ? 'Eventos de quem comprou' : ($evento !== '' ? nome_evento($evento) : 'Eventos');
-    echo '<h2>' . e($titulo) . ' <span class="suave">(' . $de1 . '–' . (($pg - 1) * $porPagina + count($lista)) . ' de ' . $total . ')</span> ' . info('Cada coisa que alguém fez nas páginas com o painel, da mais nova para a mais antiga, 200 por página.') . '</h2>';
-    echo '<div class="tabela lista"><table><tr><th>' . com_info('Quando', 'Quando aconteceu (horário de Brasília).') . '</th><th>' . com_info('Evento', 'O que a pessoa fez: abriu a página, clicou num botão, no checkout ou no WhatsApp.') . '</th><th>' . com_info('Página', 'Página onde aconteceu.') . '</th><th>' . com_info('Canal', 'Canal pela etiqueta do endereço ou pelo site de origem.') . '</th><th>' . com_info('Campanha · anúncio · posicionamento', 'Da etiqueta do anúncio, quando a visita veio de anúncio.') . '</th><th>' . com_info('Veio de', 'O site de onde a pessoa veio (referrer), sem os parâmetros.') . '</th><th>' . com_info('Aparelho', 'Sistema e navegador do aparelho (ex.: iPhone · Instagram).') . '</th><th>' . com_info('Visitante', 'Identificador anônimo do aparelho. Clique para ver o caminho dele.') . '</th></tr>';
+    // Tabela inteligente com os 200 eventos desta pagina (busca, filtros e colunas na hora); as
+    // paginas de 200 continuam embaixo (Mais recentes, Mais antigos)
+    echo tabela_card_inicio('eventos', $titulo . ' (' . $de1 . '–' . (($pg - 1) * $porPagina + count($lista)) . ' de ' . $total . ')', count($lista), ['icone' => 'eventos', 'classe' => 'lista', 'por_pagina' => 0,
+            'busca' => 'Buscar página, campanha, origem ou visitante',
+            'dica' => 'Cada coisa que alguém fez nas páginas com o painel, da mais nova para a mais antiga, 200 por vez. Filtros por evento, página, canal e aparelho.'])
+        . '<table><thead><tr><th>' . com_info('Quando', 'Quando aconteceu (horário de Brasília).') . '</th><th data-filtro data-col="evento">' . com_info('Evento', 'O que a pessoa fez: abriu a página, clicou num botão, no checkout ou no WhatsApp.') . '</th><th data-filtro data-col="pagina">' . com_info('Página', 'Página onde aconteceu.') . '</th><th data-filtro data-col="canal">' . com_info('Canal', 'Canal pela etiqueta do endereço ou pelo site de origem.') . '</th><th data-col="anuncio">' . com_info('Campanha · anúncio · posicionamento', 'Da etiqueta do anúncio, quando a visita veio de anúncio.') . '</th><th data-col="referrer">' . com_info('Veio de', 'O site de onde a pessoa veio (referrer), sem os parâmetros.') . '</th><th data-filtro data-col="aparelho">' . com_info('Aparelho', 'Sistema e navegador do aparelho (ex.: iPhone · Instagram).') . '</th><th data-col="visitante">' . com_info('Visitante', 'Identificador anônimo do aparelho. Clique para ver o caminho dele.') . '</th></tr></thead><tbody>';
     foreach ($lista as $ev) {
         $anuncio = implode(' · ', array_filter([nome_curto($ev['utm_campaign']), nome_curto($ev['utm_content']), $ev['utm_term'] ? str_replace('_', ' ', $ev['utm_term']) : null]));
         $aparelho = implode(' · ', array_filter([$ev['dispositivo'], ($ev['sistema'] ?? '') !== 'Outro' ? $ev['sistema'] : null, $ev['ip']]));
-        echo '<tr><td>' . e(data_local($ev['em'])) . '</td><td><strong>' . e(nome_evento($ev['nome'])) . '</strong>' . ($ev['detalhe'] ? ' <span class="suave">' . e($ev['detalhe']) . '</span>' : '') . '</td>'
+        $cn = canal($ev['utm_source'], $ev['utm_medium'], $ev['utm_term'], $ev['referrer'], $ev['utm_campaign']);
+        echo '<tr><td>' . e(data_local($ev['em'])) . '</td><td data-valor="' . e(nome_evento($ev['nome'])) . '"><strong>' . e(nome_evento($ev['nome'])) . '</strong>' . ($ev['detalhe'] ? ' <span class="suave">' . e($ev['detalhe']) . '</span>' : '') . '</td>'
             . '<td>' . e($ev['dominio'] . $ev['pagina']) . '</td>'
-            . '<td>' . selo_canal(canal($ev['utm_source'], $ev['utm_medium'], $ev['utm_term'], $ev['referrer'], $ev['utm_campaign'])) . '</td>'
+            . '<td data-valor="' . e($cn[1]) . '">' . selo_canal($cn) . '</td>'
             . '<td class="quebra">' . ($anuncio !== '' ? e($anuncio) : '<span class="suave">—</span>') . '</td>'
-            . '<td>' . e($ev['referrer']) . '</td><td>' . e($aparelho) . '</td>'
+            . '<td>' . e($ev['referrer']) . '</td><td data-valor="' . e((string)$ev['dispositivo']) . '">' . e($aparelho) . '</td>'
             . '<td><a href="' . e(link_visitante($ev['visitante'], $parLink)) . '">' . e(substr($ev['visitante'], 0, 8)) . '</a>'
             . (isset($compradores[$ev['visitante']]) ? ' <span class="selo ok">Comprou</span>' : '') . '</td></tr>';
     }
     if (!$lista) {
         echo '<tr><td colspan="8" class="suave">Nenhum evento no período.</td></tr>';
     }
-    echo '</table></div>';
+    echo '</tbody></table>' . tabela_card_fim('evento', 'eventos');
     if ($total > $porPagina) {
         echo '<p class="linha-botoes">'
             . ($pg > 1 ? '<a href="' . e($linkEventos(($soCompradores ? ['evento' => 'compraram'] : ($evento !== '' ? ['evento' => $evento] : [])) + ['p' => $pg - 1])) . '">← Mais recentes</a>' : '')

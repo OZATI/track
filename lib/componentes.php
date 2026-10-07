@@ -28,10 +28,11 @@ function cartoes_kpi(array $cartoes): string
 
 // Comeco da tabela inteligente. $chave: guarda as escolhas (colunas ocultas, por pagina) neste
 // navegador. $o: icone, busca (o texto de exemplo), dica (o (i) do titulo), acoes (HTML antes da
-// busca), por_pagina (padrao 25; 0 = todas), filtros e ocultos (true ou false).
+// busca), por_pagina (padrao 25; 0 = todas), filtros e ocultos (true ou false) e classe ("lista":
+// no celular, cada linha vira um cartao).
 function tabela_card_inicio(string $chave, string $titulo, int $total, array $o = []): string
 {
-    $o += ['icone' => 'lista', 'busca' => 'Buscar', 'dica' => '', 'acoes' => '', 'por_pagina' => 25, 'filtros' => true, 'ocultos' => true];
+    $o += ['icone' => 'lista', 'busca' => 'Buscar', 'dica' => '', 'acoes' => '', 'por_pagina' => 25, 'filtros' => true, 'ocultos' => true, 'classe' => ''];
     return '<section class="tcard" data-tabela="' . e($chave) . '" data-por-pagina="' . (int)$o['por_pagina'] . '">'
         . '<header class="tcard-cab"><span class="tcard-ico" aria-hidden="true">' . icone($o['icone'], 16) . '</span>'
         . '<h2>' . ($o['dica'] !== '' ? com_info($titulo, $o['dica']) : e($titulo)) . '</h2>'
@@ -41,7 +42,7 @@ function tabela_card_inicio(string $chave, string $titulo, int $total, array $o 
         . ($o['filtros'] ? '<button type="button" class="discreto neutro" data-tabela-filtros hidden>' . icone('filtro', 14) . '<span>Filtros</span><span class="tcard-n" data-tabela-n-filtros hidden></span></button>' : '')
         . ($o['ocultos'] ? '<button type="button" class="discreto neutro" data-tabela-ocultos hidden>' . icone('olho-fechado', 14) . '<span>Ocultos</span><span class="tcard-n" data-tabela-n-ocultos>0</span></button>' : '')
         . '<button type="button" class="discreto neutro tcard-icone" data-tabela-restaurar hidden aria-label="Restaurar a tabela" data-dica="Restaurar: sem busca, sem filtro e com todas as colunas" data-dica-botao>' . icone('restaurar', 15) . '</button>'
-        . '</div></header><div class="tabela tcard-corpo">';
+        . '</div></header><div class="tabela tcard-corpo' . ($o['classe'] !== '' ? ' ' . e($o['classe']) : '') . '">';
 }
 
 // Fim da tabela inteligente. $um e $varios: como contar ("custo", "custos")
