@@ -81,6 +81,50 @@ function orc_mudar(string $id, int $novo, string $quem): array
     return [true, 'Orçamento de "' . $nome . '" mudou de ' . reais($atual) . ' para ' . reais($novo) . ' por dia na Meta.'];
 }
 
+// Muda o orcamento diario de varias de uma vez (menu Acoes das marcadas): o mesmo valor para
+// todas ou um percentual sobre o de cada uma. As sem orcamento diario proprio (orcamento na
+// campanha, ou total) ficam como estao. [tudo certo, mensagem]
+function orc_mudar_varios(array $ids, string $modo, string $valor, string $quem): array
+{
+    if (!gestor_pode_editar()) {
+        return [false, 'O token da API Meta só lê. Para mudar o orçamento pelo painel, gere um token com ads_management.'];
+    }
+    $pct = 0.0;
+    $fixo = null;
+    if ($modo === 'pct') {
+        $t = str_replace(',', '.', (string)preg_replace('/[^\d,.+-]/', '', $valor));
+        if (!is_numeric($t) || (float)$t <= -90 || (float)$t > 300) {
+            return [false, 'Confira o percentual (ex.: 15 para subir 15%, -10 para descer 10%).'];
+        }
+        $pct = (float)$t;
+    } elseif (($fixo = fin_centavos($valor)) === null) {
+        return [false, 'Confira o novo orçamento (ex.: 45,00).'];
+    }
+    $feitos = 0;
+    $pulados = 0;
+    $erros = [];
+    foreach ($ids as $id) {
+        $obj = orc_objeto((string)$id);
+        if (!$obj) {
+            $pulados++;
+            continue;
+        }
+        $novo = $fixo ?? (int)round((int)$obj['orcamento_diario'] * (1 + $pct / 100));
+        [$ok, $msg] = orc_mudar((string)$id, $novo, $quem);
+        if ($ok) {
+            $feitos++;
+        } else {
+            $erros[] = $msg;
+        }
+    }
+    $n = count($ids) - $pulados;
+    if (!$n) {
+        return [false, 'Nenhuma das marcadas tem orçamento diário próprio: mude na campanha (orçamento da campanha) ou no Gerenciador de Anúncios.'];
+    }
+    return [!$erros, 'Orçamento mudado na Meta: ' . $feitos . ' de ' . $n . '.' . ($pulados ? ' ' . $pulados . ' sem orçamento diário próprio ficaram como estavam.' : '')
+        . ($erros ? ' ' . $erros[0] . (count($erros) > 1 ? ' (e mais ' . (count($erros) - 1) . ')' : '') : '')];
+}
+
 // Texto de uma mudanca de orcamento no historico ("orc:3000" -> "R$ 30,00")
 function orc_rotulo(?string $v): ?string
 {

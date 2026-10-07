@@ -7,7 +7,10 @@
 // - Restaurar: sem busca, sem filtro, todas as colunas.
 // As colunas ocultas e o por pagina ficam guardados neste navegador, por tabela. A linha do
 // total (tr.total) e a da tabela vazia (td com colspan) ficam sempre. Quem reordena as linhas
-// (o painel.js, ao clicar no titulo) avisa com o evento "tabela:mudou" na <table>.
+// (o painel.js, ao clicar no titulo) avisa com o evento "tabela:mudou" na <table>; a linha com a
+// classe "fora-filtro" (posta por quem filtra por fora, ex.: so as marcadas do gestor) fica de fora.
+// Tabela.lembrar() guarda a pagina de cada tabela para a proxima tela (depois de ligar, pausar ou
+// mudar o orcamento, a tabela volta na mesma pagina).
 (function () {
   'use strict';
   function sem(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); }
@@ -19,6 +22,7 @@
     return c.textContent.replace(/\s+/g, ' ').replace(/[↑↓]/g, '').trim();
   }
   var aberto = null;
+  var paginasGuardadas = {};
   function fecharPop() { if (aberto) { aberto.pop.hidden = true; aberto.botao.setAttribute('aria-expanded', 'false'); aberto = null; } }
   document.addEventListener('click', function (e) { if (aberto && !aberto.pop.contains(e.target) && !aberto.botao.contains(e.target)) { fecharPop(); } });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && aberto) { var b = aberto.botao; fecharPop(); b.focus(); } });
@@ -33,7 +37,9 @@
     var padraoPorPagina = parseInt(card.getAttribute('data-por-pagina') || '25', 10);
     var cab = tabela.tHead && tabela.tHead.rows.length ? tabela.tHead.rows[0] : tabela.rows[0];
     var ths = Array.prototype.slice.call(cab.cells);
-    var estado = { busca: '', filtros: {}, ocultas: salvo.ocultas || [], porPagina: salvo.porPagina !== undefined ? salvo.porPagina : padraoPorPagina, pagina: 0 };
+    var estado = { busca: '', filtros: {}, ocultas: salvo.ocultas || [], porPagina: salvo.porPagina !== undefined ? salvo.porPagina : padraoPorPagina, pagina: paginasGuardadas[chave] || 0 };
+    delete paginasGuardadas[chave];
+    card.__estado = estado;
     var busca = card.querySelector('[data-tabela-busca]');
     var porPagina = card.querySelector('[data-tabela-por-pagina]');
     var mostrando = card.querySelector('[data-tabela-mostrando]');
@@ -70,6 +76,7 @@
       var q = sem(estado.busca);
       var todas = linhas();
       var visiveis = todas.filter(function (tr) {
+        if (tr.classList.contains('fora-filtro')) { return false; }
         if (q && sem(tr.textContent).indexOf(q) === -1) { return false; }
         for (var k in estado.filtros) {
           if (estado.filtros[k].length && estado.filtros[k].indexOf(valorFiltro(tr, +k)) === -1) { return false; }
@@ -208,7 +215,11 @@
       porPagina.value = String(estado.porPagina);
       if (porPagina.value !== String(estado.porPagina)) { porPagina.value = String(padraoPorPagina); estado.porPagina = padraoPorPagina; }
       porPagina.dispatchEvent(new Event('change'));
-      porPagina.addEventListener('change', function () { estado.porPagina = parseInt(porPagina.value, 10) || 0; estado.pagina = 0; aplicar(); });
+      porPagina.addEventListener('change', function () {
+        var pp = parseInt(porPagina.value, 10) || 0;
+        if (pp !== estado.porPagina) { estado.porPagina = pp; estado.pagina = 0; }
+        aplicar();
+      });
     }
     if (bRestaurar) {
       bRestaurar.addEventListener('click', function () {
@@ -224,6 +235,11 @@
   }
 
   window.Tabela = {
-    ligar: function (raiz) { Array.prototype.forEach.call((raiz || document).querySelectorAll('[data-tabela]'), ligarCard); }
+    ligar: function (raiz) { Array.prototype.forEach.call((raiz || document).querySelectorAll('[data-tabela]'), ligarCard); },
+    lembrar: function () {
+      Array.prototype.forEach.call(document.querySelectorAll('[data-tabela]'), function (card) {
+        if (card.__estado) { paginasGuardadas[card.getAttribute('data-tabela')] = card.__estado.pagina; }
+      });
+    }
   };
 })();

@@ -118,9 +118,11 @@ function celula_prazo(?string $fim): string
     return $fim ? celula_data((new DateTime($fim))->format('d/m/Y')) : '<span class="prazo">' . icone('infinito', 13) . 'Sem prazo</span>';
 }
 
-// O "..." da linha, com as acoes (links ou formularios ja montados)
-function menu_linha(array $itens, string $rotulo = 'Ações'): string
+// O "..." da linha, com as acoes (links ou formularios ja montados). $icone e $classe: o mesmo
+// menu num botao de icone (Ordenar e Acoes do gestor). O painel abre junto do botao, por cima da
+// tabela (sem ser cortado pela rolagem dela).
+function menu_linha(array $itens, string $rotulo = 'Ações', string $icone = 'reticencias', string $classe = ''): string
 {
-    return '<details class="menu-linha"><summary aria-label="' . e($rotulo) . '" title="' . e($rotulo) . '">' . icone('reticencias', 16) . '</summary>'
+    return '<details class="menu-linha' . ($classe !== '' ? ' ' . e($classe) : '') . '"><summary aria-label="' . e($rotulo) . '" title="' . e($rotulo) . '">' . icone($icone, 16) . '</summary>'
         . '<div class="menu-linha-painel" role="menu">' . implode('', $itens) . '</div></details>';
 }

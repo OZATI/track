@@ -1,5 +1,6 @@
 <?php
-// Orcamento pelo painel (lib/orcamento.php): mudar agora, programar e apagar programacao, e
+// Orcamento pelo painel (lib/orcamento.php): mudar agora (uma ou as marcadas no gestor, por valor
+// ou percentual, ate 25 de uma vez), programar e apagar programacao, e
 // volta para a tela de antes com o resultado. So POST, com login e o token do formulario; a
 // confirmacao (com o aviso de mais de 20%) aparece antes, na tela (painel.js).
 
@@ -27,6 +28,11 @@ if (!csrf_valido()) {
     $id = (string)($_POST['objeto'] ?? '');
     $valor = fin_centavos((string)($_POST['valor'] ?? ''));
     [$ok, $msg] = preg_match('/^\d{3,25}$/', $id) && $valor !== null ? orc_mudar($id, $valor, $usuario) : [false, 'Confira o novo orçamento (ex.: 45,00).'];
+    aviso_definir($msg, $ok ? 'ok' : 'erro');
+} elseif ($acao === 'mudar_varios') {
+    $ids = gestor_ids_post($_POST['ids'] ?? []);
+    [$ok, $msg] = !$ids ? [false, 'Marque ao menos uma na tabela.']
+        : (count($ids) > 25 ? [false, 'Marque até 25 de uma vez.'] : orc_mudar_varios($ids, (string)($_POST['modo'] ?? ''), (string)($_POST['valor'] ?? ''), $usuario));
     aviso_definir($msg, $ok ? 'ok' : 'erro');
 } elseif ($acao === 'programar') {
     [$ok, $msg] = orc_programar($_POST, $usuario);

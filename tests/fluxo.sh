@@ -409,7 +409,7 @@ curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "v
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
 confere "$(tem 'gasto da Meta atualizado em' "$r")" "botão Atualizar busca o gasto na Meta"
 confere "$(tem '<strong>TL 1</strong>' "$r")" "campanha aparece com o nome da Meta"
-tab=${r#*'<div class="tabela gestor">'}
+tab=${r#*'<div class="tabela gestor tcard-corpo">'}
 linha=$(grep -o '<strong>TL 1</strong>.*</tr>' < <(printf '%s\n' "$tab") | head -1 | sed 's#</tr>.*##')
 confere "$(tem 'R$ 40,00<br><span class="suave">Diário' "$linha")" "orçamento diário da campanha"
 confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$linha")" "gasto, 2 vendas (bump fora) e faturamento líquido com bump"
@@ -422,10 +422,10 @@ confere "$(tem 'data-dica="Vendas aprovadas sem o ID de uma campanha da Meta (a 
 confere "$(tem 'data-dica="Faturamento − gasto − imposto da Meta (12,15%).' "$r")" "coluna Lucro tem o (i) com a conta"
 confere "$(grep -q 'name="dominio"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "no gestor o topo só tem o período"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos")
-confere "$(tem '<strong>conjunto 5</strong></a><a class="analise"[^>]*><svg.*</svg></a><br><span class="suave">TL 1</span>' "$r")" "conjunto mostra a campanha dele"
+confere "$(tem '<strong>conjunto 5</strong></a><span class="linha-acoes"><a class="analise"[^>]*><svg.*</details></span><br><span class="suave">TL 1</span>' "$r")" "conjunto mostra a campanha dele"
 confere "$(tem 'class="analise" href="./?aba=campanha&amp;nivel=conjunto&amp;id=111111&amp;periodo=tudo"' "$r")" "conjunto tem o botão da análise diária (público)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios")
-confere "$(tem '<strong>cv 05</strong><a class="analise"[^>]*><svg.*</svg></a><br><span class="suave">conjunto 5</span></td><td><span class="suave">—</span></td><td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "anúncio com as vendas que têm o ID dele (a API completou a do webhook)"
+confere "$(tem '<strong>cv 05</strong><span class="linha-acoes"><a class="analise"[^>]*><svg.*</details></span><br><span class="suave">conjunto 5</span></td><td><span class="suave">—</span></td><td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "anúncio com as vendas que têm o ID dele (a API completou a do webhook)"
 confere "$(tem 'class="analise" href="./?aba=campanha&amp;nivel=anuncio&amp;id=222222&amp;periodo=tudo"' "$r")" "anúncio tem o botão da análise diária (criativo)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&cols[]=gasto&cols[]=hook&cols[]=hold&cols[]=ret25&cols[]=ret100")
 confere "$(tem '<td>R$ 50,00</td><td>25,0%</td><td>25,0%</td><td>60,0%</td><td>15,0%</td>' "$r")" "colunas do vídeo no gestor: hook rate (3 s ÷ impressões), hold rate (ThruPlay ÷ 3 s) e retenção (÷ play)"
@@ -447,11 +447,11 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&cam
 confere "$(tem '<strong>cv 05</strong>' "$r")" "abrir o conjunto mostra só os anúncios dele"
 confere "$(grep -q '<strong>cv free</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "anúncios de outro conjunto ficam de fora"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
-tab=${r#*'<div class="tabela gestor">'}
+tab=${r#*'<div class="tabela gestor tcard-corpo">'}
 confere "$([ "$(grep -o '<strong>\(TL 1\|FREE\)</strong>' < <(printf '%s\n' "$tab") | head -1)" = '<strong>TL 1</strong>' ]; echo $?)" "ordem padrão: maior gasto primeiro"
 confere "$(tem '>Gasto ↓</a>' "$r")" "coluna ordenada marcada com a seta"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&ordem=gasto&dir=asc")
-tab=${r#*'<div class="tabela gestor">'}
+tab=${r#*'<div class="tabela gestor tcard-corpo">'}
 confere "$([ "$(grep -o '<strong>\(TL 1\|FREE\)</strong>' < <(printf '%s\n' "$tab") | head -1)" = '<strong>FREE</strong>' ]; echo $?)" "clicar no título inverte a ordem"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d")
 confere "$(tem 'As setas comparam com o período anterior' "$r")" "com 7 dias, o gestor compara com os 7 dias anteriores"
@@ -466,10 +466,10 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=hoje")
 confere "$(tem 'Sem comparação' "$(sem_tags "$r")")" "hoje não compara (o dia ainda não terminou)"
 # Ranking (painel de bolsa): da melhor para a pior, embaixo da tabela (pedido da reunião de 30/09)
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
-rk=${r#*'<div class="tabela gestor">'}
+rk=${r#*'<div class="tabela gestor tcard-corpo">'}
 rk=${rk#*'</table>'}
 confere "$(tem 'Ranking das campanhas' "$(sem_tags "$rk")")" "ranking das campanhas embaixo da tabela"
-cima=${r%%'<div class="tabela gestor">'*}
+cima=${r%%'<div class="tabela gestor tcard-corpo">'*}
 confere "$(grep -q 'Ranking das campanhas' < <(sem_tags "$cima"); [ $? -ne 0 ]; echo $?)" "ranking não fica mais em cima da tabela"
 confere "$([ "$(grep -o '<ol class="ranking">.*' < <(printf '%s\n' "$rk") | grep -o '<strong>[^<]*</strong>' | head -1)" = '<strong>TL 1</strong>' ]; echo $?)" "ranking por lucro: TL 1 (lucro) na frente da FREE (prejuízo)"
 confere "$(tem 'rk-pos">1º' "$rk")" "ranking com a posição"
@@ -483,7 +483,7 @@ confere "$(tem 'Vendas fora de anúncio (1)' "$(sem_tags "$r")")" "link do aviso
 confere "$(tem 'Venda orgânica (WhatsApp): não veio de anúncio' "$r")" "cada venda fora de anúncio mostra o motivo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=gasto&cols[]=cpm&cols[]=impressoes")
 confere "$(tem '>CPM</a>' "$r")" "escolher colunas mostra a coluna pedida"
-tab=${r#*'<div class="tabela gestor">'}
+tab=${r#*'<div class="tabela gestor tcard-corpo">'}
 tab=${tab%%'</table>'*}
 confere "$(grep -q '>Lucro</a>' < <(printf '%s\n' "$tab"); [ $? -ne 0 ]; echo $?)" "escolher colunas esconde as outras"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
@@ -502,6 +502,7 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
 confere "$(tem 'Campanhas<span class="info"[^>]*data-dica="Cada campanha' "$r")" "níveis do gestor com o (i)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
 confere "$(tem 'class="chave ligada" role="switch" aria-checked="true" aria-label="Pausar" title="O token da API Meta só lê' "$r")" "token só de leitura: chave aparece, sem clique"
+confere "$(tem 'Ativar, desativar e mudar o orçamento por aqui pedem um token da API Meta com ads_management' "$r")" "token só de leitura: o menu Ações explica por que não ativa nem pausa"
 status() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "id=$2" --data-urlencode "status=$3" --data-urlencode "volta=./?aba=gestor&periodo=tudo" "$URL/meta-status.php"; curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo"; }
 r=$(status "$csrf" 120120 PAUSED)
 confere "$(tem 'O token da API Meta só lê' "$(sem_tags "$r")")" "sem ads_management, a Meta nem é chamada"
@@ -526,6 +527,43 @@ r=$(status "$csrf" 120120 ACTIVE)
 confere "$(tem 'A campanha &quot;TL 1&quot; foi ligada na Meta.' "$r")" "ligar de novo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos&campanha=120120")
 confere "$(grep -q 'title="CAMPAIGN_PAUSED"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "conjunto volta com a campanha"
+# Gestor no padrão da UTMify (pedido de 06/10): barra numa linha só, Ações das marcadas, foco
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem '<header class="tcard-cab gestor-cab"><form class="gestor-filtros"' "$r")" "barra do gestor numa linha só, em cima da tabela"
+confere "$(tem 'placeholder="Nome da campanha"' "$r")" "busca com o nome do nível (Nome da campanha)"
+confere "$(tem '<span>Status da campanha</span>' "$r")" "status com o nome do nível"
+confere "$(tem 'class="atual"><svg class="ico"' "$r")" "níveis do gestor com ícone"
+confere "$(grep -q 'class="gestor-sel"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem a linha de marcados embaixo da barra"
+confere "$(tem 'data-gerenciador="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=587364236934346" data-gerenciador-campo="selected_campaign_ids"' "$r")" "Ações: abrir as marcadas no Gerenciador da Meta"
+confere "$(tem 'href="https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=587364236934346&amp;selected_campaign_ids=120120" target="_blank" rel="noopener"' "$r")" "o ... da linha abre a campanha no Gerenciador"
+confere "$(tem '<button type="submit" form="form-sel" name="nivel" value="conjuntos" data-precisa-sel>' "$r")" "Ações: ver os conjuntos das marcadas"
+confere "$(tem 'data-massa="Pausar"' "$r")" "Ações: desativar as marcadas"
+confere "$(tem 'name="acao" value="mudar_varios"' "$r")" "Ações: alterar o orçamento das marcadas"
+confere "$(tem 'data-foco aria-pressed="false"' "$r")" "botão do modo foco"
+confere "$(tem 'data-tabela="gestor-campanhas" data-por-pagina="25"' "$r")" "linhas por página no gestor, com rolagem por dentro"
+confere "$(tem '<tfoot><tr class="total">' "$r")" "total fixo embaixo da tabela"
+confere "$(tem '<tr data-id="120120">' "$r")" "linha com o ID (fixar no topo)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos")
+confere "$(tem 'manage/adsets?act=587364236934346&amp;selected_adset_ids=111111' "$r")" "conjunto abre no Gerenciador na tela de conjuntos"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d")
+confere "$(tem 'data-grafico hidden data-serie="{&quot;dias&quot;:' "$r")" "gráfico comparativo com a série dia a dia (7 dias)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(grep -q 'data-serie=' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "em Tudo, sem série (o gráfico pede um período de 2 a 92 dias)"
+massa() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "status=$2" "${@:3}" --data-urlencode "volta=./?aba=gestor&periodo=tudo" "$URL/meta-status.php"; curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo"; }
+r=$(massa "$csrf" PAUSED --data-urlencode "ids[]=120120" --data-urlencode "ids[]=222222")
+confere "$(tem 'Pausados na Meta: 2 de 2.' "$r")" "desativar as marcadas de uma vez"
+confere "$(tem 'class="chave" role="switch" aria-checked="false" aria-label="Ligar"' "$r")" "campanha marcada fica desligada"
+r=$(massa "$csrf" ACTIVE --data-urlencode "ids[]=120120" --data-urlencode "ids[]=222222" --data-urlencode "ids[]=999999")
+confere "$(tem 'Ligados na Meta: 2 de 3. Não encontrei esse item' "$(sem_tags "$r")")" "ativar as marcadas: conta as feitas e diz o que não deu"
+confere "$(tem 'class="chave ligada" role="switch" aria-checked="true" aria-label="Pausar" title="Ligado na Meta' "$r")" "campanha volta a ficar ligada"
+r=$(massa "$csrf" PAUSED --data-urlencode "ids[]=abc")
+confere "$(tem 'Marque ao menos uma na tabela.' "$r")" "sem marcadas válidas não muda nada"
+muitos=()
+for i in $(seq 100 125); do muitos+=(--data-urlencode "ids[]=${i}0000"); done
+r=$(massa "$csrf" PAUSED "${muitos[@]}")
+confere "$(tem 'Marque até 25 de uma vez.' "$r")" "no máximo 25 de uma vez"
+r=$(massa "" PAUSED --data-urlencode "ids[]=120120")
+confere "$(tem 'Sessão expirada' "$r")" "desativar as marcadas sem o token do formulário é recusado"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&campanhas[]=555555")
 confere "$(tem 'name="campanhas\[\]" value="555555" data-sel checked' "$r")" "campanha marcada continua marcada"
 confere "$(tem 'href="./?aba=gestor&amp;periodo=tudo&amp;nivel=conjuntos&amp;campanhas%5B0%5D=555555"' "$r")" "aba Conjuntos leva a seleção"
@@ -564,6 +602,16 @@ confere "$(tem '<details class="orc-inline"><summary class="campanha-orc"[^>]*><
 confere "$(tem 'class="orc-inline-form" data-orcamento>.*name="objeto" value="120120" data-atual="4800">.*name="valor"[^>]*value="48,00"' "$r")" "o lápis abre o campo na linha, com o valor de agora"
 confere "$(grep -q '<h3>Mudar agora</h3>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem o \"Mudar agora\" embaixo (fica o lápis)"
 confere "$(tem '<details class="orc-novo"><summary>.*Nova programação</span></summary>' "$r")" "programar abre num botão, embaixo"
+orcm() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=mudar_varios" "${@:2}" --data-urlencode "volta=./?aba=gestor&periodo=tudo" "$URL/meta-orcamento.php"; curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo"; }
+r=$(orcm "$csrf" --data-urlencode "ids[]=120120" --data-urlencode "ids[]=222222" --data-urlencode "modo=pct" --data-urlencode "valor=10")
+confere "$(tem 'Orçamento mudado na Meta: 1 de 1. 1 sem orçamento diário próprio ficaram como estavam.' "$r")" "orçamento das marcadas em %: +10% (o anúncio, sem orçamento próprio, fica como está)"
+confere "$(tem 'R$ 52,80<br><span class="suave">Diário' "$r")" "R$ 48,00 + 10% = R$ 52,80"
+r=$(orcm "$csrf" --data-urlencode "ids[]=120120" --data-urlencode "modo=valor" --data-urlencode "valor=48,00")
+confere "$(tem 'R$ 48,00<br><span class="suave">Diário' "$r")" "orçamento das marcadas pelo valor"
+r=$(orcm "$csrf" --data-urlencode "ids[]=222222" --data-urlencode "modo=valor" --data-urlencode "valor=48,00")
+confere "$(tem 'Nenhuma das marcadas tem orçamento diário próprio' "$r")" "só anúncio marcado: nada a mudar"
+r=$(orcm "$csrf" --data-urlencode "ids[]=120120" --data-urlencode "modo=pct" --data-urlencode "valor=-95")
+confere "$(tem 'Confira o percentual' "$r")" "percentual fora do razoável é recusado"
 r=$(orc "$csrf" mudar --data-urlencode "objeto=120120" --data-urlencode "valor=500")
 confere "$(tem 'o teto de R$ 300,00 por dia' "$r")" "acima do teto (R$ 300,00 por dia) é recusado"
 r=$(orc "$csrf" mudar --data-urlencode "objeto=999999" --data-urlencode "valor=50")
@@ -631,7 +679,7 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=2026-13-40_2026-01-01")
 confere "$(tem '<option value="7d" selected>' "$r")" "data inválida no endereço cai nos 7 dias"
 P2='produto[]=Drive%20de%20Projetos%202.0'
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&$P2")
-tab=${r#*'<div class="tabela gestor">'}
+tab=${r#*'<div class="tabela gestor tcard-corpo">'}
 linha=$(grep -o '<strong>TL 1</strong>.*</tr>' < <(printf '%s\n' "$tab") | head -1 | sed 's#</tr>.*##')
 confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 110,00</td>' "$linha")" "filtro de produto: só o Drive 2.0, sem o order bump no faturamento"
 confere "$(tem '<span class="positivo">2,08</span>' "$linha")" "ROI só do produto principal (como o Allan filtra na UTMify)"

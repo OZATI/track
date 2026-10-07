@@ -503,44 +503,29 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     $sel = array_filter(['campanhas' => $selCamp, 'conjuntos' => $selConj]);
     $atuais = $base + array_filter(['nivel' => $nivel, 'q' => $busca, 'st' => $stFiltro, 'campanha' => $fCamp, 'conjunto' => $fConj, 'ordem' => $ordem, 'dir' => $dir]) + $sel;
     $link = fn(array $mudar) => './?' . http_build_query(array_filter($mudar + $atuais, fn($v) => $v !== null && $v !== '' && $v !== []));
-
-    // Abas de nivel levam a selecao junto (marcou campanhas, Conjuntos mostra so os delas)
-    echo '<div class="gestor-niveis">';
+    $singular = ['contas' => 'Conta', 'campanhas' => 'Campanha', 'conjuntos' => 'Conjunto', 'anuncios' => 'Anúncio'][$nivel];
+    $fem = in_array($nivel, ['contas', 'campanhas'], true);
+    // Caixas de marcar (menos em Contas): as marcadas vao para o menu Acoes; em campanhas e
+    // conjuntos, levam a selecao ao proximo nivel (as abas de cima e o "Ver" das Acoes)
+    $campoSel = $nivel === 'contas' ? null : $nivel;
+    $marcadas = ['campanhas' => $selCamp, 'conjuntos' => $selConj][$nivel] ?? [];
+    $volta = $link([]);
     $icones = ['contas' => 'conta', 'campanhas' => 'campanha', 'conjuntos' => 'conjunto', 'anuncios' => 'anuncio'];
+
+    // Gerenciador de Anuncios da Meta: o nivel, ja com as marcadas (ou a linha) selecionadas
+    $contaMeta = preg_replace('/\D/', '', (string)(meta_api_chave()['conta'] ?? ''));
+    $gerTela = ['conjuntos' => 'adsets', 'anuncios' => 'ads'][$nivel] ?? 'campaigns';
+    $gerCampo = ['campanhas' => 'selected_campaign_ids', 'conjuntos' => 'selected_adset_ids', 'anuncios' => 'selected_ad_ids'][$nivel] ?? '';
+    $gerBase = $contaMeta !== '' ? 'https://adsmanager.facebook.com/adsmanager/manage/' . $gerTela . '?act=' . $contaMeta : '';
+
+    // Linha de cima: os niveis (com icone) e, a direita, as vendas fora de anuncio, quando foi a
+    // ultima busca na Meta e o Atualizar. As abas levam a selecao junto (marcou campanhas,
+    // Conjuntos mostra so os delas).
+    echo '<div class="gestor-topo"><nav class="gestor-niveis" aria-label="Níveis do gestor">';
     foreach (GESTOR_NIVEIS as $n => [$rot]) {
-        echo '<a href="' . e('./?' . http_build_query($base + ['nivel' => $n] + $sel)) . '" class="' . ($nivel === $n ? 'atual' : '') . '">' . icone($icones[$n], 18) . e($rot) . info(GESTOR_NIVEIS_DICA[$n]) . '</a>';
+        echo '<a href="' . e('./?' . http_build_query($base + ['nivel' => $n] + $sel)) . '" class="' . ($nivel === $n ? 'atual' : '') . '">' . icone($icones[$n], 16) . e($rot) . info(GESTOR_NIVEIS_DICA[$n]) . '</a>';
     }
-    echo '</div>';
-    if ($aviso = aviso_pegar()) {
-        echo '<p class="' . ($aviso[1] === 'erro' ? 'erro' : 'aviso-ok') . '">' . e($aviso[0]) . '</p>';
-    }
-
-    // Comparar com: o periodo que as setas da tabela e o ranking usam (fica lembrado)
-    $modos = gestor_comparar_modos($periodo);
-    $dataCurta = fn(string $d) => (new DateTime($d))->format('d/m');
-    echo '<form class="gestor-comparar" method="get" action="./" data-auto>';
-    foreach ($atuais as $k => $v) {
-        foreach ((array)$v as $item) {
-            echo '<input type="hidden" name="' . e(is_array($v) ? $k . '[]' : $k) . '" value="' . e((string)$item) . '">';
-        }
-    }
-    if ($modos) {
-        echo '<label><span>' . com_info('Comparar com','As setas ▲▼ da tabela e o movimento do ranking comparam cada campanha com este período. Período anterior: os dias logo antes, do mesmo tamanho. Semana ou mês passado: os mesmos dias, uma semana ou um mês antes. Verde = melhorou, vermelho = piorou (em custo, cair é bom), cinza = gasto (nem bom nem ruim). "novo" = não rodou no período comparado; "de 0" = antes era zero. Passe o mouse na seta para ver o valor de antes.')
-            . '</span><select name="comparar">';
-        foreach ($modos as $m) {
-            echo '<option value="' . e($m) . '"' . ($m === $modoComp ? ' selected' : '') . '>' . e(GESTOR_COMPARAR[$m][0]) . '</option>';
-        }
-        echo '</select></label><span class="suave">' . ($anterior
-            ? e($dataCurta($dia1) . ' a ' . $dataCurta($dia2)) . ' <b>×</b> ' . e($dataCurta($anterior[0]) . ' a ' . $dataCurta($anterior[1]))
-            : 'Sem comparação: as setas e o movimento do ranking ficam escondidos.') . '</span>';
-    } else {
-        echo '<span class="suave">' . com_info('Sem comparação', $periodo === 'hoje'
-            ? 'Hoje ainda não terminou, e o gasto da Meta vem por dia inteiro: comparar agora daria números enganosos. Escolha outro período no topo (ontem, 7 dias, este mês, de uma data a outra...).'
-            : 'Em Tudo não existe um período anterior para comparar. Escolha outro período no topo (ontem, 7 dias, este mês, de uma data a outra...).')
-            . ' neste período</span>';
-    }
-    echo '<noscript><button type="submit">Aplicar</button></noscript></form>';
-
+    echo '</nav>';
     $meta = meta_sync_estado();
     $vencida = meta_sync_vencida() || kiwify_sync_vencida();
     echo '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '>';
@@ -556,7 +541,10 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     }
     $quando = $meta['ok_em'] ? 'gasto da Meta atualizado em ' . data_local($meta['ok_em'], 'd/m H:i') : ($temMeta ? 'primeira busca na Meta ainda não feita' : '');
     echo '<span data-sync-texto>' . e($quando) . '</span>';
-    echo botao_atualizar($link([]), 'Atualizar agora: busca o gasto na Meta e as vendas na Kiwify', 'meta') . '</div>';
+    echo botao_atualizar($volta, 'Atualizar agora: busca o gasto na Meta e as vendas na Kiwify', 'meta') . '</div></div>';
+    if ($aviso = aviso_pegar()) {
+        echo '<p class="' . ($aviso[1] === 'erro' ? 'erro' : 'aviso-ok') . '">' . e($aviso[0]) . '</p>';
+    }
     if (!$temMeta) {
         echo '<p class="aviso-meta">Sem a conta de anúncios conectada, o gestor mostra só as vendas por campanha. Para ver gasto, lucro, CPA e ROI, conecte na aba <a href="meta-api.php">API Meta</a>.</p>';
     } elseif ($meta['adiada']) {
@@ -602,22 +590,155 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         return $html;
     };
 
-    // Filtros do nivel e escolha de colunas
-    // Status e nome aplicam sozinhos (status ao escolher, nome ao sair da caixa ou dar Enter)
-    echo '<div class="gestor-barra"><form class="gestor-filtros" method="get" action="./" data-auto><input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
-        . '<input type="hidden" name="nivel" value="' . e($nivel) . '">'
-        . ($fCamp !== '' ? '<input type="hidden" name="campanha" value="' . e($fCamp) . '">' : '')
-        . ($fConj !== '' ? '<input type="hidden" name="conjunto" value="' . e($fConj) . '">' : '')
-        . '<input type="hidden" name="ordem" value="' . e($ordem) . '"><input type="hidden" name="dir" value="' . e($dir) . '">'
-        . '<label><span>' . com_info('Nome', 'Mostra só as que têm este texto no nome. Aplica ao sair da caixa ou com Enter.') . '</span><input type="search" name="q" value="' . e($busca) . '" placeholder="Filtrar por nome"></label>'
-        . '<label><span>' . com_info('Status', 'Situação na Meta agora: ativos (rodando) ou pausados. Aplica na hora.') . '</span><select name="st"><option value="">Todos</option><option value="ativos"' . ($stFiltro === 'ativos' ? ' selected' : '') . '>Ativos</option>'
-        . '<option value="pausados"' . ($stFiltro === 'pausados' ? ' selected' : '') . '>Pausados</option></select></label>'
-        . '<noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript>'
-        . '</form>';
-    // Seletor de colunas, com os modelos Campanha, Conjunto e Criativo
-    echo gestor_colunas_seletor($todas, $colunas, ['contas' => 'Conta', 'campanhas' => 'Campanha', 'conjuntos' => 'Conjunto', 'anuncios' => 'Anúncio'][$nivel],
+    // Barra da tabela, numa linha so (como a da UTMify). A esquerda, o nome e o status do nivel e
+    // o Comparar com, que aplicam sozinhos (status e comparar ao escolher, nome ao sair da caixa
+    // ou com Enter). A direita, as marcadas, Colunas, Ordenar, Grafico comparativo, Acoes e o
+    // modo foco, so com o icone (o nome vem na dica).
+    $nomeNivel = ['contas' => 'Nome da conta', 'campanhas' => 'Nome da campanha', 'conjuntos' => 'Nome do conjunto', 'anuncios' => 'Nome do anúncio'][$nivel];
+    $stNivel = ['contas' => 'Status da conta', 'campanhas' => 'Status da campanha', 'conjuntos' => 'Status do conjunto', 'anuncios' => 'Status do anúncio'][$nivel];
+    $fixos = $atuais;
+    unset($fixos['q'], $fixos['st']);
+    if ($campoSel) {
+        unset($fixos[$campoSel]); // as marcadas deste nivel ficam nas caixas
+    }
+    $form = '<form class="gestor-filtros" method="get" action="./" data-auto>';
+    foreach ($fixos as $k => $v) {
+        foreach ((array)$v as $item) {
+            $form .= '<input type="hidden" name="' . e(is_array($v) ? $k . '[]' : $k) . '" value="' . e((string)$item) . '">';
+        }
+    }
+    $form .= '<label class="tcard-busca" title="Mostra só as que têm este texto no nome. Aplica ao sair da caixa ou com Enter.">' . icone('busca', 14)
+        . '<input type="search" name="q" value="' . e($busca) . '" placeholder="' . e($nomeNivel) . '" aria-label="' . e($nomeNivel) . '"></label>'
+        . '<label class="gestor-campo"><span>' . e($stNivel) . '</span><select name="st"><option value="">Todos</option>'
+        . '<option value="ativos"' . ($stFiltro === 'ativos' ? ' selected' : '') . '>' . ($fem ? 'Ativas' : 'Ativos') . '</option>'
+        . '<option value="pausados"' . ($stFiltro === 'pausados' ? ' selected' : '') . '>' . ($fem ? 'Pausadas' : 'Pausados') . '</option></select></label>';
+    // Comparar com: o periodo que as setas da tabela e o ranking usam (fica lembrado)
+    $modos = gestor_comparar_modos($periodo);
+    $dataCurta = fn(string $d) => (new DateTime($d))->format('d/m');
+    if ($modos) {
+        $form .= '<label class="gestor-campo"' . ($anterior ? ' title="' . e($dataCurta($dia1) . ' a ' . $dataCurta($dia2) . ' × ' . $dataCurta($anterior[0]) . ' a ' . $dataCurta($anterior[1])) . '"' : '') . '><span>'
+            . com_info('Comparar com', 'As setas ▲▼ da tabela e o movimento do ranking comparam cada campanha com este período. Período anterior: os dias logo antes, do mesmo tamanho. Semana ou mês passado: os mesmos dias, uma semana ou um mês antes. Verde = melhorou, vermelho = piorou (em custo, cair é bom), cinza = gasto (nem bom nem ruim). "novo" = não rodou no período comparado; "de 0" = antes era zero. Passe o mouse na seta para ver o valor de antes.')
+            . '</span><select name="comparar">';
+        foreach ($modos as $m) {
+            $form .= '<option value="' . e($m) . '"' . ($m === $modoComp ? ' selected' : '') . '>' . e(GESTOR_COMPARAR[$m][0]) . '</option>';
+        }
+        $form .= '</select></label>';
+    } else {
+        $form .= '<span class="suave gestor-campo">' . com_info('Sem comparação', $periodo === 'hoje'
+            ? 'Hoje ainda não terminou, e o gasto da Meta vem por dia inteiro: comparar agora daria números enganosos. Escolha outro período no topo (ontem, 7 dias, este mês, de uma data a outra...).'
+            : 'Em Tudo não existe um período anterior para comparar. Escolha outro período no topo (ontem, 7 dias, este mês, de uma data a outra...).')
+            . ' neste período</span>';
+    }
+    $form .= '<noscript><button type="submit" class="discreto neutro">Aplicar</button></noscript></form>';
+
+    $ferr = '<div class="tcard-ferr gestor-ferr">';
+    if ($campoSel) {
+        $ferr .= '<span class="gestor-marcadas" data-sel-chip' . ($marcadas ? '' : ' hidden') . '><b data-sel-conta>' . count($marcadas) . '</b> <span data-sel-rotulo>'
+            . (count($marcadas) === 1 ? ($fem ? 'marcada' : 'marcado') : ($fem ? 'marcadas' : 'marcados')) . '</span>'
+            . '<button type="button" class="discreto neutro" data-sel-limpa aria-label="Desmarcar todas" title="Desmarcar todas">' . icone('fechar', 13) . '</button></span>';
+    }
+    // Colunas (com os modelos Campanha, Conjunto e Criativo)
+    $ferr .= gestor_colunas_seletor($todas, $colunas, $singular,
         ['aba' => 'gestor', 'periodo' => $periodo, 'nivel' => $nivel] + array_filter(['q' => $busca, 'st' => $stFiltro, 'campanha' => $fCamp, 'conjunto' => $fConj, 'ordem' => $ordem, 'dir' => $dir]) + $sel,
-        $link(['cols' => 'padrao'])) . '</div>';
+        $link(['cols' => 'padrao']));
+    // Ordenar: as colunas da tabela; a mesma de novo inverte
+    $ordenar = [];
+    foreach (['nome' => $singular] + ($colunas ? array_combine($colunas, array_map(fn($k) => $todas[$k][0], $colunas)) : []) as $col => $tit) {
+        $atual = $ordem === $col;
+        $ordenar[] = '<a href="' . e($link(['ordem' => $col, 'dir' => $atual && $dir === 'desc' ? 'asc' : 'desc'])) . '"' . ($atual ? ' class="atual"' : '') . '>'
+            . icone($atual ? ($dir === 'desc' ? 'seta-baixo' : 'seta-cima') : 'ordenar', 14) . e($tit) . '</a>';
+    }
+    $ferr .= menu_linha($ordenar, 'Ordenar (de novo na mesma coluna, inverte)', 'ordenar', 'gestor-menu');
+    if ($campoSel) {
+        $umV = ['campanhas' => ['campanha', 'campanhas'], 'conjuntos' => ['conjunto', 'conjuntos'], 'anuncios' => ['anúncio', 'anúncios']][$nivel];
+        $ferr .= '<button type="button" class="botao-icone" data-grafico-abre aria-label="Gráfico comparativo" data-dica-titulo="Gráfico comparativo" data-dica="Marque de 1 a 5 na tabela e compare dia a dia: lucro, ROI, faturamento, gasto, vendas ou CPA." data-dica-botao>' . icone('grafico', 16) . '</button>';
+        // Acoes das marcadas (a seta para baixo)
+        $csrf = '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="volta" value="' . e($volta) . '">';
+        $acoes = ['<p class="menu-nota" data-sel-nota>Marque uma ou mais na tabela.</p>'];
+        if ($gerBase !== '') {
+            $acoes[] = '<a href="' . e($gerBase) . '" target="_blank" rel="noopener" data-gerenciador="' . e($gerBase) . '" data-gerenciador-campo="' . e($gerCampo) . '">' . icone('externo', 14) . 'Abrir no Gerenciador</a>';
+        }
+        $acoes[] = '<button type="button" data-grafico-abre data-precisa-sel>' . icone('grafico', 14) . 'Gráfico comparativo</button>';
+        $acoes[] = '<button type="button" data-copiar-ids data-precisa-sel>' . icone('copiar', 14) . '<span>Copiar ID</span></button>';
+        $acoes[] = '<button type="button" data-fixar data-precisa-sel>' . icone('fixar', 14) . '<span>Fixar no topo</span></button>';
+        $acoes[] = '<button type="button" data-so-marcadas disabled>' . icone('filtro', 14) . '<span>Filtrar selecionadas</span></button>';
+        $ver = $nivel === 'campanhas' ? ['conjuntos' => 'Ver conjuntos delas', 'anuncios' => 'Ver anúncios delas'] : ($nivel === 'conjuntos' ? ['anuncios' => 'Ver anúncios deles'] : []);
+        foreach ($ver as $n => $rot) {
+            $acoes[] = '<button type="submit" form="form-sel" name="nivel" value="' . $n . '" data-precisa-sel>' . icone($icones[$n], 14) . e($rot) . '</button>';
+        }
+        $acoes[] = '<hr>';
+        if ($pode) {
+            foreach (['ACTIVE' => ['ligar', 'Ativar', 'Ligar'], 'PAUSED' => ['pausar', 'Desativar', 'Pausar']] as $st => [$ico, $rot, $verbo]) {
+                $acoes[] = '<form method="post" action="meta-status.php" data-massa="' . $verbo . '">' . $csrf . '<input type="hidden" name="status" value="' . $st . '">'
+                    . '<button type="submit" data-precisa-sel>' . icone($ico, 14) . $rot . '</button></form>';
+            }
+            if ($nivel !== 'anuncios') {
+                $acoes[] = '<button type="button" data-orc-massa-abre data-precisa-sel>' . icone('carteira', 14) . 'Alterar orçamento</button>'
+                    . '<form method="post" action="meta-orcamento.php" class="orc-massa" data-orc-massa hidden>' . $csrf . '<input type="hidden" name="acao" value="mudar_varios">'
+                    . '<div class="orc-massa-modo"><label><input type="radio" name="modo" value="valor" checked>Valor (R$)</label><label><input type="radio" name="modo" value="pct">Percentual (%)</label></div>'
+                    . '<div class="orc-massa-linha"><input name="valor" inputmode="decimal" required autocomplete="off" placeholder="50,00" aria-label="Novo orçamento diário">'
+                    . '<button type="submit">Aplicar</button></div>'
+                    . '<small class="suave" data-orc-massa-nota>Orçamento diário de cada marcada, até ' . e(reais(orc_teto())) . ' por dia. No percentual, 10 sobe 10% e -10 desce 10%.</small></form>';
+            }
+        } else {
+            $acoes[] = '<p class="menu-nota">Ativar, desativar e mudar o orçamento por aqui pedem um token da API Meta com ads_management (aba API Meta).</p>';
+        }
+        $ferr .= menu_linha($acoes, 'Ações das marcadas', 'seta-baixo', 'gestor-menu gestor-acoes');
+    }
+    $ferr .= '<button type="button" class="botao-icone" data-foco aria-pressed="false" aria-label="Modo foco" data-dica-titulo="Modo foco" data-dica="Deixa a tela só com o gestor. Esc ou este botão volta." data-dica-botao>' . icone('foco', 16) . '</button></div>';
+
+    // Formulario da selecao (ver os conjuntos ou anuncios das marcadas): as caixas da tabela e os
+    // botoes "Ver" do menu Acoes apontam para ele
+    echo '<form id="form-sel" method="get" action="./" hidden><input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '">';
+    if ($nivel === 'conjuntos') {
+        foreach ($selCamp as $c) {
+            echo '<input type="hidden" name="campanhas[]" value="' . e($c) . '">';
+        }
+    }
+    echo '</form>';
+
+    // Serie dia a dia de cada linha (grafico comparativo e curva do ranking): de 2 a 92 dias
+    // (em Tudo, Hoje e Ontem, so a posicao e o valor)
+    $diasPeriodo = [];
+    $series = [];
+    $qtdDias = $periodo === 'tudo' ? 0 : (int)(new DateTime($dia1))->diff(new DateTime($dia2))->days + 1;
+    if ($nivel !== 'contas' && $qtdDias >= 2 && $qtdDias <= 92) {
+        for ($d = new DateTime($dia1); $d->format('Y-m-d') <= $dia2; $d->modify('+1 day')) {
+            $diasPeriodo[] = $d->format('Y-m-d');
+        }
+        $series = gestor_serie($db, $nivel, $dia1, $dia2, $de, $ate);
+    }
+
+    // A tabela inteligente: a barra em cima, linhas por pagina embaixo, rolagem por dentro com o
+    // cabecalho e o total fixos (a pagina continua rolando para o ranking e o historico)
+    echo '<section class="tcard gestor-card" data-tabela="gestor-' . e($nivel) . '" data-por-pagina="25" data-gestor-nivel="' . e($nivel) . '"'
+        . ($campoSel ? ' data-um="' . e($umV[0]) . '" data-varios="' . e($umV[1]) . '"' . ($fem ? ' data-fem="1"' : '') : '') . '>'
+        . '<header class="tcard-cab gestor-cab">' . $form . $ferr . '</header>';
+    if ($campoSel) {
+        $graf = '';
+        if ($diasPeriodo) {
+            $dados = ['dias' => $diasPeriodo, 'imposto' => $pct, 's' => new stdClass()];
+            foreach ($tabela as $r) {
+                if (isset($series[$r['id']])) {
+                    $s = $series[$r['id']];
+                    $dados['s']->{$r['id']} = [
+                        array_map(fn($d) => (int)($s[$d]['gasto'] ?? 0), $diasPeriodo),
+                        array_map(fn($d) => (int)($s[$d]['fat'] ?? 0), $diasPeriodo),
+                        array_map(fn($d) => (int)($s[$d]['vendas'] ?? 0), $diasPeriodo),
+                    ];
+                }
+            }
+            $graf = ' data-serie="' . e((string)json_encode($dados)) . '"';
+        }
+        echo '<div class="gestor-grafico" data-grafico hidden' . $graf . '><div class="gg-cab"><strong>' . icone('grafico', 15) . 'Gráfico comparativo</strong>'
+            . '<div class="segmentos gg-metricas" role="group" aria-label="O que comparar">';
+        foreach (['lucro' => 'Lucro', 'roi' => 'ROI', 'fat' => 'Faturamento', 'gasto' => 'Gasto', 'vendas' => 'Vendas', 'cpa' => 'CPA'] as $k => $rot) {
+            echo '<button type="button" data-metrica="' . $k . '" aria-pressed="' . ($k === 'lucro' ? 'true' : 'false') . '">' . $rot . '</button>';
+        }
+        echo '</div><label class="gg-acum"><input type="checkbox" data-acumulado>Acumulado</label>'
+            . '<button type="button" class="discreto neutro tcard-icone" data-grafico-fecha aria-label="Fechar o gráfico">' . icone('fechar', 15) . '</button></div>'
+            . '<div class="gg-corpo" data-grafico-corpo></div></div>';
+    }
 
     // Cabecalho: clicar no titulo ordena (de novo, inverte)
     $cab = function (string $col, string $titulo, string $dica = '') use ($ordem, $dir, $link): string {
@@ -627,32 +748,12 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         return '<th data-col="' . e($col) . '"' . ($col === 'nome' ? ' class="nome"' : '') . '><a class="ordena' . ($atual ? ' atual' : '') . '" href="' . e($link(['ordem' => $col, 'dir' => $novoDir])) . '">' . e($titulo) . $seta . '</a>'
             . ($dica !== '' ? '&nbsp;' . info($dica) : '') . '</th>';
     };
-    $singular = ['contas' => 'Conta', 'campanhas' => 'Campanha', 'conjuntos' => 'Conjunto', 'anuncios' => 'Anúncio'][$nivel];
-    // Caixas de marcar em campanhas e conjuntos: o formulario leva a selecao ao proximo nivel
-    $campoSel = ['campanhas' => 'campanhas', 'conjuntos' => 'conjuntos'][$nivel] ?? null;
-    if ($campoSel) {
-        $delas = $nivel === 'campanhas' ? 'delas' : 'deles';
-        $proximos = $nivel === 'campanhas' ? ['conjuntos' => 'Ver conjuntos', 'anuncios' => 'Ver anúncios'] : ['anuncios' => 'Ver anúncios'];
-        echo '<form id="form-sel" class="gestor-sel" method="get" action="./"><input type="hidden" name="aba" value="gestor"><input type="hidden" name="periodo" value="' . e($periodo) . '">';
-        if ($nivel === 'conjuntos') {
-            foreach ($selCamp as $c) {
-                echo '<input type="hidden" name="campanhas[]" value="' . e($c) . '">';
-            }
-        }
-        echo '<span class="suave"><b data-sel-conta>' . count($nivel === 'campanhas' ? $selCamp : $selConj) . '</b> marcado(s) '
-            . info('Marque ' . $campoSel . ' e clique em ver para mostrar só os ' . ($nivel === 'campanhas' ? 'conjuntos e anúncios delas' : 'anúncios deles') . '. As abas de cima também levam a seleção.') . '</span>';
-        foreach ($proximos as $n => $rot) {
-            echo '<button type="submit" name="nivel" value="' . $n . '" class="discreto neutro">' . e($rot) . ' ' . $delas . '</button>';
-        }
-        echo '</form>';
-    }
-    $volta = $link([]);
-    echo '<div class="tabela gestor"><table data-larguras="' . e($nivel) . '"><tr>' . ($campoSel ? '<th class="marca"><input type="checkbox" data-sel-todos aria-label="Marcar todos"></th>' : '')
+    echo '<div class="tabela gestor tcard-corpo"><table data-larguras="' . e($nivel) . '"><thead><tr>' . ($campoSel ? '<th class="marca"><input type="checkbox" data-sel-todos aria-label="Marcar todas desta página"></th>' : '')
         . '<th class="st">Status ' . info($pode ? 'Situação na Meta agora. A chave liga ou pausa na Meta, com confirmação; cada mudança fica registrada no histórico abaixo.' : 'Situação na Meta agora: ativo, pausado ou com problema (ex.: reprovado). Para ligar e pausar por aqui, o token da API Meta precisa de ads_management.') . '</th>' . $cab('nome', $singular);
     foreach ($colunas as $k) {
         echo $cab($k, $todas[$k][0], $todas[$k][1]);
     }
-    echo '</tr>';
+    echo '</tr></thead><tbody>';
 
     // Variacao contra o periodo de comparacao, em toda coluna de numero:
     // coluna => [campo, menor e melhor (custos), neutro (volume de gasto)]
@@ -675,6 +776,10 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         $d = gestor_delta(isset($r[$campo]) ? (float)$r[$campo] : null, isset($antesR[$campo]) ? (float)$antesR[$campo] : null, $menor, $neutro, $txt);
         return $d !== '' ? '<br>' . $d : '';
     };
+    // Botao da analise diaria (so o icone do grafico; o nome vem na dica), que aparece ao passar
+    // o mouse na linha: campanha, conjunto (publico) e anuncio (criativo)
+    $diaria = ['campanhas' => [null, 'A campanha dia a dia, com os gráficos e o orçamento'], 'conjuntos' => ['conjunto', 'O conjunto (público) dia a dia: alcance, frequência e quem compra'],
+        'anuncios' => ['anuncio', 'O anúncio (criativo) dia a dia: hook rate, hold rate e retenção do vídeo']][$nivel] ?? null;
     $total = gestor_linha_nova();
     $totalAntes = gestor_linha_nova();
     foreach ($tabela as $r) {
@@ -684,54 +789,65 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
                 $totalAntes[$c] += (int)($antes[$r['id']][$c] ?? 0);
             }
         }
-        $nomeHtml = $nomeLink($r);
-        $marcado = $campoSel && in_array($r['id'], $nivel === 'campanhas' ? $selCamp : $selConj, true);
-        // Botao da analise diaria (so o icone do grafico; o nome vem na dica), que aparece ao
-        // passar o mouse na linha: campanha, conjunto (publico) e anuncio (criativo)
-        $diaria = ['campanhas' => [null, 'A campanha dia a dia, com os gráficos e o orçamento'], 'conjuntos' => ['conjunto', 'O conjunto (público) dia a dia: alcance, frequência e quem compra'],
-            'anuncios' => ['anuncio', 'O anúncio (criativo) dia a dia: hook rate, hold rate e retenção do vídeo']][$nivel] ?? null;
-        $analise = $diaria && preg_match('/^\d{3,25}$/', $r['id'])
-            ? '<a class="analise" href="' . e('./?' . http_build_query(array_filter(['aba' => 'campanha', 'nivel' => $diaria[0], 'id' => $r['id'], 'periodo' => $periodo]))) . '" aria-label="Análise diária" data-dica-titulo="Análise diária" data-dica="' . e($diaria[1]) . '" data-dica-botao>' . icone('grafico', 15) . '</a>'
+        $num = preg_match('/^\d{3,25}$/', $r['id']) === 1;
+        $hrefDiaria = $diaria && $num ? './?' . http_build_query(array_filter(['aba' => 'campanha', 'nivel' => $diaria[0], 'id' => $r['id'], 'periodo' => $periodo])) : '';
+        $analise = $hrefDiaria !== ''
+            ? '<a class="analise" href="' . e($hrefDiaria) . '" aria-label="Análise diária" data-dica-titulo="Análise diária" data-dica="' . e($diaria[1]) . '" data-dica-botao>' . icone('grafico', 15) . '</a>'
             : '';
-        echo '<tr>' . ($campoSel ? '<td class="marca"><input type="checkbox" form="form-sel" name="' . $campoSel . '[]" value="' . e($r['id']) . '" data-sel' . ($marcado ? ' checked' : '') . ' aria-label="Marcar ' . e($r['nome']) . '"></td>' : '')
+        // O "..." da linha: analise, o proximo nivel, o Gerenciador da Meta, copiar e fixar
+        $itens = [];
+        if ($hrefDiaria !== '') {
+            $itens[] = '<a href="' . e($hrefDiaria) . '">' . icone('grafico', 14) . 'Análise diária</a>';
+        }
+        if ($nivel === 'campanhas' && $num) {
+            $itens[] = '<a href="' . e('./?' . http_build_query($base + ['nivel' => 'conjuntos', 'campanha' => $r['id']])) . '">' . icone('conjunto', 14) . 'Ver conjuntos</a>';
+        } elseif ($nivel === 'conjuntos' && $num) {
+            $itens[] = '<a href="' . e('./?' . http_build_query($base + array_filter(['nivel' => 'anuncios', 'campanha' => (string)$r['camp'], 'conjunto' => $r['id']]))) . '">' . icone('anuncio', 14) . 'Ver anúncios</a>';
+        }
+        if ($gerBase !== '' && ($num || $nivel === 'contas')) {
+            $itens[] = '<a href="' . e($gerBase . ($num && $gerCampo !== '' ? '&' . $gerCampo . '=' . $r['id'] : '')) . '" target="_blank" rel="noopener">' . icone('externo', 14) . 'Abrir no Gerenciador</a>';
+        }
+        if ($num) {
+            $itens[] = '<button type="button" data-copiar-id="' . e($r['id']) . '">' . icone('copiar', 14) . '<span>Copiar ID</span></button>';
+            $itens[] = '<button type="button" data-fixar-id="' . e($r['id']) . '">' . icone('fixar', 14) . '<span>Fixar no topo</span></button>';
+        }
+        $acoesLinha = $analise . ($itens ? menu_linha($itens, 'Mais ações') : '');
+        $orcProprio = $r['obj'] && (int)($r['obj']['orcamento_diario'] ?? 0) > 0 ? (int)$r['obj']['orcamento_diario'] : 0;
+        echo '<tr' . ($num ? ' data-id="' . e($r['id']) . '"' : '') . '>' . ($campoSel ? '<td class="marca">' . ($num ? '<input type="checkbox" form="form-sel" name="' . $campoSel . '[]" value="' . e($r['id']) . '" data-sel'
+                . (in_array($r['id'], $marcadas, true) ? ' checked' : '') . ($orcProprio ? ' data-orc="' . $orcProprio . '"' : '') . ' aria-label="Marcar ' . e($r['nome']) . '">' : '') . '</td>' : '')
             . '<td class="st">' . ($nivel === 'contas' ? gestor_status($r['obj']) : gestor_chave($r['obj'], $volta, $pode)) . '</td>'
-            . '<td class="quebra nome">' . $nomeHtml . $analise . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
+            . '<td class="quebra nome">' . $nomeLink($r) . ($acoesLinha !== '' ? '<span class="linha-acoes">' . $acoesLinha . '</span>' : '') . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
         foreach ($colunas as $k) {
             echo '<td>' . $todas[$k][2]($r) . $celDelta($k, $r, $r['antes']) . '</td>';
         }
         echo '</tr>';
     }
+    if (!$tabela) {
+        echo '<tr><td colspan="' . (2 + ($campoSel ? 1 : 0) + count($colunas)) . '" class="suave">Nada no período.' . ($temMeta ? '' : ' Conecte a API Meta para ver o gasto.') . '</td></tr>';
+    }
+    echo '</tbody>';
     if ($tabela) {
         $t = gestor_metricas(['id' => '', 'obj' => null] + $total, $pct);
         $tAntes = gestor_metricas(['id' => '', 'obj' => null] + $totalAntes, $pct);
-        echo '<tr class="total">' . ($campoSel ? '<td></td>' : '') . '<td></td><td class="nome">' . count($tabela) . ' ' . e(mb_strtolower(count($tabela) === 1 ? $singular : $rotuloNivel)) . '</td>';
+        echo '<tfoot><tr class="total">' . ($campoSel ? '<td class="marca"></td>' : '') . '<td class="st"></td><td class="nome">' . count($tabela) . ' ' . e(mb_strtolower(count($tabela) === 1 ? $singular : $rotuloNivel)) . '</td>';
         foreach ($colunas as $k) {
             echo '<td>' . ($k === 'orcamento' || $k === 'id' ? '' : $todas[$k][2]($t) . $celDelta($k, $t, $tAntes)) . '</td>';
         }
-        echo '</tr>';
-    } else {
-        echo '<tr><td colspan="' . (2 + ($campoSel ? 1 : 0) + count($colunas)) . '" class="suave">Nada no período.' . ($temMeta ? '' : ' Conecte a API Meta para ver o gasto.') . '</td></tr>';
+        echo '</tr></tfoot>';
     }
-    echo '</table></div>';
+    echo '</table>' . tabela_card_fim(mb_strtolower($singular), mb_strtolower($rotuloNivel));
+
+    // Embaixo da tabela (some no modo foco): a legenda, o ranking e o historico
+    echo '<div class="gestor-pos">';
     $comparacao = $anterior
         ? 'As setas comparam com ' . $rotuloComp . ': verde melhorou, vermelho piorou (em custo, cair é bom), cinza é volume de gasto; "novo" não rodou antes. Passe o mouse na seta para ver o valor de antes. '
         : '';
-    echo '<p class="suave legenda">' . e($comparacao) . 'Clique no nome da campanha para ver os conjuntos, e no conjunto para ver os anúncios; passe o mouse na campanha para abrir a análise diária; marque várias para ver só as delas; clique no título da coluna para ordenar. '
+    echo '<p class="suave legenda">' . e($comparacao) . 'Clique no nome da campanha para ver os conjuntos, e no conjunto para ver os anúncios; passe o mouse na linha para a análise diária e o "…" (Gerenciador da Meta, copiar ID, fixar no topo); marque várias e use a seta das Ações (ver as delas, gráfico comparativo, ativar, desativar e orçamento); clique no título da coluna para ordenar. '
         . 'Faturamento líquido da Kiwify, com order bump. Lucro = faturamento − gasto − imposto da Meta (' . e(number_format($pct, 2, ',', '.')) . '%).</p>';
 
-    // Ranking (painel de bolsa), embaixo da tabela: da melhor para a pior, com a curva do
-    // periodo. A curva aparece de 2 a 92 dias (em Tudo e em Hoje, so a posicao e o valor).
+    // Ranking (painel de bolsa), embaixo da tabela: da melhor para a pior, com a curva do periodo
     $antesMetricas = $anterior ? array_map(fn($l) => gestor_metricas($l, $pct), $antes) : null;
     if ($nivel !== 'contas') {
-        $diasPeriodo = [];
-        $series = [];
-        $qtdDias = $periodo === 'tudo' ? 0 : (int)(new DateTime($dia1))->diff(new DateTime($dia2))->days + 1;
-        if ($qtdDias >= 2 && $qtdDias <= 92) {
-            for ($d = new DateTime($dia1); $d->format('Y-m-d') <= $dia2; $d->modify('+1 day')) {
-                $diasPeriodo[] = $d->format('Y-m-d');
-            }
-            $series = gestor_serie($db, $nivel, $dia1, $dia2, $de, $ate);
-        }
         echo gestor_ranking_html($tabela, $antesMetricas, $criterio, $nivel, $series, $diasPeriodo, $pct, $link, $nomeLink, $rotuloComp);
     }
 
@@ -749,4 +865,5 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         }
         echo '</table></div></section>';
     }
+    echo '</div>';
 }

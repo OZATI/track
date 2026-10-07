@@ -371,25 +371,326 @@
       mostrar();
     })(progs[pg]);
   }
-  // Gestor: marcar todos e contar os marcados
-  var todos = document.querySelector('[data-sel-todos]');
-  var conta = document.querySelector('[data-sel-conta]');
-  var caixas = document.querySelectorAll('input[data-sel]');
-  function contar() {
-    var n = 0;
-    for (var i = 0; i < caixas.length; i++) { if (caixas[i].checked) { n++; } }
-    if (conta) { conta.textContent = String(n); }
-    if (todos) { todos.checked = n > 0 && n === caixas.length; todos.indeterminate = n > 0 && n < caixas.length; }
-  }
-  if (caixas.length) {
-    for (var i = 0; i < caixas.length; i++) { caixas[i].addEventListener('change', contar); }
-    if (todos) {
-      todos.addEventListener('change', function () {
-        for (var j = 0; j < caixas.length; j++) { caixas[j].checked = todos.checked; }
+  // ---------------------------------------------------------------- gestor
+  // Marcar (uma a uma ou as da pagina), o selo "N marcadas", o menu Acoes das marcadas (Gerenciador
+  // da Meta, grafico comparativo, copiar ID, fixar no topo, filtrar, ver o proximo nivel, ativar,
+  // desativar e orcamento), o "..." de cada linha e o modo foco
+  var gCard = document.querySelector('[data-gestor-nivel]');
+  if (gCard) {
+    var gTabela = gCard.querySelector('table');
+    var gCorpo = gTabela && gTabela.tBodies[0];
+    var selTodos = gCard.querySelector('[data-sel-todos]');
+    var caixas = Array.prototype.slice.call(gCard.querySelectorAll('input[data-sel]'));
+    var um = gCard.getAttribute('data-um') || 'item', varios = gCard.getAttribute('data-varios') || 'itens';
+    var fem = gCard.getAttribute('data-fem') === '1';
+    var soMarcadas = false, graficoAberto = false;
+    var gBox = gCard.querySelector('[data-grafico]');
+    var gDados = null;
+    if (gBox && gBox.getAttribute('data-serie')) { try { gDados = JSON.parse(gBox.getAttribute('data-serie')); } catch (x) { gDados = null; } }
+    var marcadas = function () { return caixas.filter(function (c) { return c.checked; }); };
+    var nomeDe = function (c) { return (c.getAttribute('aria-label') || '').replace(/^Marcar /, ''); };
+    var visivel = function (c) { var tr = c.closest('tr'); return tr && !tr.hidden; };
+    var avisarTabela = function () { if (gTabela) { gTabela.dispatchEvent(new Event('tabela:mudou')); } };
+    // Texto curto no botao por um instante ("Copiado")
+    var piscar = function (b, txt) {
+      var s = b && b.querySelector('span');
+      if (!s) { return; }
+      var antes = s.getAttribute('data-antes') || s.textContent;
+      s.setAttribute('data-antes', antes);
+      s.textContent = txt;
+      setTimeout(function () { s.textContent = antes; }, 1600);
+    };
+    var copiar = function (texto, b) {
+      var reserva = function () {
+        var t = document.createElement('textarea');
+        t.value = texto; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+        document.body.appendChild(t); t.select();
+        try { document.execCommand('copy'); piscar(b, 'Copiado'); } catch (x) {}
+        document.body.removeChild(t);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(texto).then(function () { piscar(b, 'Copiado'); }, reserva); } else { reserva(); }
+    };
+
+    // Fixar no topo: guardado neste navegador (os IDs da Meta nao se repetem entre os niveis)
+    var lerFix = function () { try { return JSON.parse(localStorage.getItem('gestor-fixadas') || '[]') || []; } catch (x) { return []; } };
+    var guardarFix = function (l) { try { localStorage.setItem('gestor-fixadas', JSON.stringify(l.slice(-300))); } catch (x) {} };
+    var ordemOriginal = gCorpo ? Array.prototype.slice.call(gCorpo.rows) : [];
+    var aplicarFix = function () {
+      if (!gCorpo) { return; }
+      var fix = lerFix();
+      var fixa = function (tr) { var id = tr.getAttribute('data-id'); return !!id && fix.indexOf(id) !== -1; };
+      var linhas = ordemOriginal.filter(fixa).concat(ordemOriginal.filter(function (tr) { return !fixa(tr); }));
+      linhas.forEach(function (tr) {
+        tr.classList.toggle('fixada', fixa(tr));
+        var b = tr.querySelector('[data-fixar-id] span');
+        if (b) { b.textContent = fixa(tr) ? 'Desafixar' : 'Fixar no topo'; }
+        gCorpo.appendChild(tr);
+      });
+      avisarTabela();
+    };
+    var alternarFix = function (ids) {
+      var fix = lerFix();
+      var todas = ids.every(function (id) { return fix.indexOf(id) !== -1; });
+      fix = fix.filter(function (id) { return ids.indexOf(id) === -1; });
+      if (!todas) { fix = fix.concat(ids); }
+      guardarFix(fix);
+      aplicarFix();
+      contar();
+    };
+
+    // Filtrar selecionadas: as outras linhas saem da tabela (tabela.js conta e pagina sem elas)
+    var aplicarSo = function () {
+      caixas.forEach(function (c) { var tr = c.closest('tr'); if (tr) { tr.classList.toggle('fora-filtro', soMarcadas && !c.checked); } });
+      avisarTabela();
+    };
+
+    function contar() {
+      var m = marcadas(), n = m.length;
+      Array.prototype.forEach.call(gCard.querySelectorAll('[data-sel-conta]'), function (b) { b.textContent = String(n); });
+      var rotulo = n === 1 ? (fem ? 'marcada' : 'marcado') : (fem ? 'marcadas' : 'marcados');
+      var rot = gCard.querySelector('[data-sel-rotulo]');
+      if (rot) { rot.textContent = rotulo; }
+      var chip = gCard.querySelector('[data-sel-chip]');
+      if (chip) { chip.hidden = !n; }
+      var nasPaginas = caixas.filter(visivel), nPag = nasPaginas.filter(function (c) { return c.checked; }).length;
+      if (selTodos) { selTodos.checked = nPag > 0 && nPag === nasPaginas.length; selTodos.indeterminate = nPag > 0 && nPag < nasPaginas.length; }
+      Array.prototype.forEach.call(gCard.querySelectorAll('[data-precisa-sel]'), function (b) { b.disabled = !n; });
+      var so = gCard.querySelector('[data-so-marcadas]');
+      if (so) { so.disabled = !soMarcadas && !n; so.querySelector('span').textContent = soMarcadas ? 'Mostrar todas' : 'Filtrar selecionadas'; }
+      var fixarB = gCard.querySelector('[data-fixar] span');
+      if (fixarB) { var fix = lerFix(); fixarB.textContent = n && m.every(function (c) { return fix.indexOf(c.value) !== -1; }) ? 'Desafixar' : 'Fixar no topo'; }
+      var nota = gCard.querySelector('[data-sel-nota]');
+      if (nota) { nota.textContent = n ? n + ' ' + (n === 1 ? um : varios) + ' ' + rotulo + (n > 25 ? ': ativar, desativar e orçamento vão até 25 de uma vez' : '') : 'Marque uma ou mais na tabela.'; }
+      // Gerenciador da Meta ja com as marcadas selecionadas
+      var ger = gCard.querySelector('[data-gerenciador]');
+      if (ger) {
+        var campo = ger.getAttribute('data-gerenciador-campo');
+        ger.href = ger.getAttribute('data-gerenciador') + (n && campo ? '&' + campo + '=' + m.map(function (c) { return c.value; }).join(',') : '');
+      }
+      caixas.forEach(function (c) { var tr = c.closest('tr'); if (tr) { tr.classList.toggle('marcada', c.checked); } });
+      if (graficoAberto) { desenharGrafico(); }
+    }
+    caixas.forEach(function (c) { c.addEventListener('change', contar); });
+    if (selTodos) {
+      selTodos.addEventListener('change', function () {
+        caixas.filter(visivel).forEach(function (c) { c.checked = selTodos.checked; });
         contar();
       });
     }
+    // A pagina da tabela mudou (por pagina, setas): a caixa "todas" vale para as linhas a mostra
+    if (gTabela) { gTabela.addEventListener('tabela:mudou', function () { setTimeout(contar, 0); }); }
+    var limpa = gCard.querySelector('[data-sel-limpa]');
+    if (limpa) {
+      limpa.addEventListener('click', function () {
+        caixas.forEach(function (c) { c.checked = false; });
+        if (soMarcadas) { soMarcadas = false; aplicarSo(); }
+        contar();
+      });
+    }
+
+    // Botoes do menu Acoes e do "..." de cada linha
+    gCard.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('button');
+      if (!b || b.disabled) { return; }
+      if (b.hasAttribute('data-copiar-ids')) { copiar(marcadas().map(function (c) { return c.value; }).join(','), b); }
+      else if (b.hasAttribute('data-copiar-id')) { copiar(b.getAttribute('data-copiar-id'), b); }
+      else if (b.hasAttribute('data-fixar')) { alternarFix(marcadas().map(function (c) { return c.value; })); }
+      else if (b.hasAttribute('data-fixar-id')) { alternarFix([b.getAttribute('data-fixar-id')]); b.closest('details').open = false; }
+      else if (b.hasAttribute('data-so-marcadas')) { soMarcadas = !soMarcadas; aplicarSo(); contar(); }
+      else if (b.hasAttribute('data-grafico-abre')) {
+        graficoAberto = b.closest('.menu-linha') ? true : !graficoAberto;
+        var menu = b.closest('details');
+        if (menu) { menu.open = false; }
+        if (gBox) { gBox.hidden = !graficoAberto; }
+        Array.prototype.forEach.call(gCard.querySelectorAll('.botao-icone[data-grafico-abre]'), function (x) { x.setAttribute('aria-pressed', graficoAberto ? 'true' : 'false'); });
+        desenharGrafico();
+      }
+      else if (b.hasAttribute('data-grafico-fecha')) {
+        graficoAberto = false;
+        gBox.hidden = true;
+        Array.prototype.forEach.call(gCard.querySelectorAll('.botao-icone[data-grafico-abre]'), function (x) { x.setAttribute('aria-pressed', 'false'); });
+      }
+      else if (b.hasAttribute('data-metrica')) {
+        Array.prototype.forEach.call(gBox.querySelectorAll('[data-metrica]'), function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        desenharGrafico();
+      }
+    });
+
+    // Ativar e desativar as marcadas: os IDs entram no formulario, com a confirmacao na tela
+    var idsNoForm = function (f, lista) {
+      Array.prototype.forEach.call(f.querySelectorAll('input[name="ids[]"]'), function (i) { i.parentNode.removeChild(i); });
+      lista.forEach(function (c) { var i = document.createElement('input'); i.type = 'hidden'; i.name = 'ids[]'; i.value = c.value; f.appendChild(i); });
+    };
+    var parar = function (e) { e.preventDefault(); e.stopPropagation(); };
+    Array.prototype.forEach.call(gCard.querySelectorAll('form[data-massa]'), function (f) {
+      f.addEventListener('submit', function (e) {
+        var m = marcadas();
+        if (!m.length || m.length > 25) { parar(e); return; }
+        idsNoForm(f, m);
+        var nomes = m.slice(0, 6).map(nomeDe).join(', ') + (m.length > 6 ? ' e mais ' + (m.length - 6) : '');
+        f.setAttribute('data-confirma', f.getAttribute('data-massa') + ' ' + m.length + ' ' + (m.length === 1 ? um : varios) + ' na Meta?\n\n' + nomes);
+      });
+    });
+    // Alterar o orcamento das marcadas: valor ou percentual; a confirmacao mostra de quanto para
+    // quanto em cada uma (e o aviso de mais de 20%, que pode reiniciar o aprendizado da Meta)
+    var orcF = gCard.querySelector('form[data-orc-massa]');
+    if (orcF) {
+      var orcNota = orcF.querySelector('[data-orc-massa-nota]');
+      var orcNotaInicial = orcNota.textContent;
+      gCard.querySelector('[data-orc-massa-abre]').addEventListener('click', function () {
+        orcF.hidden = !orcF.hidden;
+        orcNota.textContent = orcNotaInicial;
+        if (!orcF.hidden) { orcF.elements.valor.focus(); }
+        var d = orcF.closest('details');
+        if (d) { posicionarMenu(d); }
+      });
+      Array.prototype.forEach.call(orcF.querySelectorAll('input[name=modo]'), function (r) {
+        r.addEventListener('change', function () { orcF.elements.valor.placeholder = r.value === 'pct' ? '15 ou -10' : '50,00'; orcF.elements.valor.focus(); });
+      });
+      orcF.addEventListener('submit', function (e) {
+        var todas = marcadas();
+        var m = todas.filter(function (c) { return c.hasAttribute('data-orc'); });
+        var pct = orcF.querySelector('input[name=modo]:checked').value === 'pct';
+        var bruto = orcF.elements.valor.value;
+        var v = pct ? parseFloat(String(bruto).replace(',', '.').replace(/[^\d.+-]/g, '')) : centavos(bruto);
+        if (todas.length > 25) { parar(e); orcNota.textContent = 'Marque até 25 de uma vez.'; return; }
+        if (!m.length) { parar(e); orcNota.textContent = 'Nenhuma das marcadas tem orçamento diário próprio (o orçamento fica na campanha, ou é total): mude na análise diária ou no Gerenciador.'; return; }
+        if (v === null || isNaN(v) || (pct && (v <= -90 || v > 300))) { parar(e); orcNota.textContent = pct ? 'Confira o percentual: 15 sobe 15%, -10 desce 10%.' : 'Confira o valor (ex.: 50,00).'; return; }
+        idsNoForm(orcF, m);
+        var maior = 0;
+        var linhas = m.map(function (c) {
+          var atual = parseInt(c.getAttribute('data-orc'), 10);
+          var novo = pct ? Math.round(atual * (1 + v / 100)) : v;
+          var p = atual ? Math.round((novo - atual) * 100 / atual) : 0;
+          maior = Math.max(maior, Math.abs(p));
+          return nomeDe(c) + ': ' + reais(atual) + ' → ' + reais(novo) + ' (' + (p > 0 ? '+' : '') + p + '%)';
+        });
+        var msg = 'Mudar o orçamento diário de ' + m.length + ' ' + (m.length === 1 ? um : varios) + ' na Meta?\n\n' + linhas.slice(0, 8).join('\n')
+          + (linhas.length > 8 ? '\n… e mais ' + (linhas.length - 8) : '')
+          + (todas.length > m.length ? '\n\n' + (todas.length - m.length) + ' sem orçamento diário próprio ficam como estão.' : '');
+        if (maior > 20) { msg += '\n\nMais de 20% de uma vez: a Meta pode reiniciar o aprendizado.'; }
+        orcF.setAttribute('data-confirma', msg);
+      });
+    }
+
+    // Grafico comparativo: ate 5 marcadas, dia a dia (ou acumulado), na metrica escolhida
+    var acum = gBox && gBox.querySelector('[data-acumulado]');
+    if (acum) { acum.addEventListener('change', function () { desenharGrafico(); }); }
+    var diaCurto = function (d) { return d.slice(8, 10) + '/' + d.slice(5, 7); };
+    var serieDe = function (s, met, acumulado) {
+      var g = 0, f = 0, v = 0, pct = gDados.imposto;
+      return gDados.dias.map(function (d, i) {
+        var gi = s ? s[0][i] : 0, fi = s ? s[1][i] : 0, vi = s ? s[2][i] : 0;
+        if (acumulado) { g += gi; f += fi; v += vi; } else { g = gi; f = fi; v = vi; }
+        var imp = Math.round(g * pct / 100);
+        if (met === 'lucro') { return (f - imp - g) / 100; }
+        if (met === 'fat') { return f / 100; }
+        if (met === 'gasto') { return g / 100; }
+        if (met === 'vendas') { return v; }
+        if (met === 'roi') { return g ? (f - imp) / g : null; }
+        return v ? g / v / 100 : null; // cpa
+      });
+    };
+    var formatar = function (met, x) {
+      if (x === null) { return '—'; }
+      if (met === 'vendas') { return String(Math.round(x)); }
+      if (met === 'roi') { return x.toFixed(2).replace('.', ','); }
+      return reais(Math.round(x * 100));
+    };
+    var curto = function (met, x) {
+      if (met === 'roi') { return (Math.round(x * 100) / 100).toString().replace('.', ','); }
+      if (Math.abs(x) >= 1000) { return (x / 1000).toFixed(1).replace('.', ',') + ' mil'; }
+      return String(Math.round(x));
+    };
+    function desenharGrafico() {
+      if (!gBox || !graficoAberto) { return; }
+      var corpo = gBox.querySelector('[data-grafico-corpo]');
+      corpo.textContent = '';
+      var nota = function (t) { var p = document.createElement('p'); p.className = 'suave'; p.textContent = t; corpo.appendChild(p); };
+      if (!gDados) { nota('O gráfico compara dia a dia: escolha no topo um período de 2 a 92 dias (7 dias, este mês, de uma data a outra...).'); return; }
+      var todas = marcadas();
+      if (!todas.length) { nota('Marque de 1 a 5 na tabela para comparar.'); return; }
+      if (todas.length > 5) { nota('Mostrando as 5 primeiras marcadas.'); }
+      var bMet = gBox.querySelector('[data-metrica][aria-pressed=true]');
+      var met = bMet ? bMet.getAttribute('data-metrica') : 'lucro';
+      var acumulado = !!(acum && acum.checked);
+      var series = todas.slice(0, 5).map(function (c, i) { return { nome: nomeDe(c), cor: i, id: c.value, v: serieDe(gDados.s[c.value], met, acumulado) }; });
+      var vals = [];
+      series.forEach(function (s) { s.v.forEach(function (x) { if (x !== null) { vals.push(x); } }); });
+      var min = Math.min.apply(null, [0].concat(vals)), max = Math.max.apply(null, [0].concat(vals));
+      if (max === min) { max = min + 1; }
+      // Linhas da grade em numeros redondos (1, 2, 2,5 ou 5 vezes a potencia de 10)
+      var bruto = (max - min) / 4, mag = Math.pow(10, Math.floor(Math.log(bruto) / Math.LN10)), rel = bruto / mag;
+      var passoY = (rel <= 1 ? 1 : rel <= 2 ? 2 : rel <= 2.5 ? 2.5 : rel <= 5 ? 5 : 10) * mag;
+      min = Math.floor(min / passoY) * passoY;
+      max = Math.ceil(max / passoY) * passoY;
+      var W = 760, H = 250, ml = 56, mr = 14, mt = 12, mb = 26, n = gDados.dias.length;
+      var X = function (i) { return ml + (n === 1 ? (W - ml - mr) / 2 : i * (W - ml - mr) / (n - 1)); };
+      var Y = function (v) { return mt + (max - v) * (H - mt - mb) / (max - min); };
+      var NS = 'http://www.w3.org/2000/svg';
+      var svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+      svg.setAttribute('class', 'gg-svg');
+      svg.setAttribute('role', 'img');
+      svg.setAttribute('aria-label', 'Gráfico comparativo: ' + (bMet ? bMet.textContent : '') + (acumulado ? ' acumulado' : ' por dia'));
+      var el = function (tag, at, pai) { var x = document.createElementNS(NS, tag); for (var k in at) { x.setAttribute(k, at[k]); } (pai || svg).appendChild(x); return x; };
+      for (var val = min; val <= max + passoY / 2; val += passoY) {
+        var y = Y(val);
+        el('line', { x1: ml, x2: W - mr, y1: y, y2: y, 'class': 'gg-grade' });
+        el('text', { x: ml - 8, y: y + 4, 'class': 'gg-eixo', 'text-anchor': 'end' }).textContent = curto(met, val);
+      }
+      if (min < 0) { el('line', { x1: ml, x2: W - mr, y1: Y(0), y2: Y(0), 'class': 'gg-zero' }); }
+      var passo = Math.max(1, Math.ceil(n / 7));
+      for (var i = 0; i < n; i += passo) { el('text', { x: X(i), y: H - 6, 'class': 'gg-eixo', 'text-anchor': 'middle' }).textContent = diaCurto(gDados.dias[i]); }
+      series.forEach(function (s) {
+        var d = '', pula = true;
+        s.v.forEach(function (x, j) { if (x === null) { pula = true; return; } d += (pula ? 'M' : 'L') + X(j).toFixed(1) + ' ' + Y(x).toFixed(1); pula = false; });
+        if (d) { el('path', { d: d, 'class': 'gg-linha gg-c' + s.cor }); }
+        s.v.forEach(function (x, j) {
+          if (x === null) { return; }
+          var c = el('circle', { cx: X(j).toFixed(1), cy: Y(x).toFixed(1), r: n > 40 ? 2 : 3, 'class': 'gg-ponto gg-c' + s.cor });
+          el('title', {}, c).textContent = s.nome + ' · ' + diaCurto(gDados.dias[j]) + ': ' + formatar(met, x);
+        });
+      });
+      corpo.appendChild(svg);
+      // Legenda com o resultado no periodo inteiro
+      var leg = document.createElement('ul');
+      leg.className = 'gg-legenda';
+      series.forEach(function (s) {
+        var li = document.createElement('li'), cor = document.createElement('i'), b = document.createElement('b');
+        cor.className = 'gg-c' + s.cor;
+        var noPeriodo = serieDe(gDados.s[s.id], met, true);
+        b.textContent = formatar(met, noPeriodo[noPeriodo.length - 1]);
+        li.appendChild(cor); li.appendChild(document.createTextNode(s.nome + ' ')); li.appendChild(b);
+        leg.appendChild(li);
+      });
+      corpo.appendChild(leg);
+    }
+
+    aplicarFix();
     contar();
+  }
+  // Modo foco: a tela fica so com o gestor; continua na troca de tela (ordenar, filtrar) ate sair
+  // pelo mesmo botao ou com o Esc
+  var bFoco = document.querySelector('[data-foco]');
+  var foco = function (sim) {
+    document.documentElement.classList.toggle('modo-foco', sim);
+    if (bFoco) { bFoco.setAttribute('aria-pressed', sim ? 'true' : 'false'); }
+    try { sessionStorage.setItem('gestor-foco', sim ? '1' : '0'); } catch (x) {}
+  };
+  if (bFoco) {
+    var focoSalvo = false;
+    try { focoSalvo = sessionStorage.getItem('gestor-foco') === '1'; } catch (x) {}
+    foco(focoSalvo);
+    bFoco.addEventListener('click', function () { foco(!document.documentElement.classList.contains('modo-foco')); });
+    // Esc sai do foco so quando nao ha nada aberto (antes, o Esc fecha o que estiver aberto)
+    ouvir(document, 'keydown', function (e) {
+      if (e.key !== 'Escape' || !document.documentElement.classList.contains('modo-foco')) { return; }
+      if (aberto || document.querySelector('details[open], .tcard-pop:not([hidden]), dialog[open]') || (e.target.closest && e.target.closest('input, select, textarea'))) { return; }
+      foco(false);
+    }, true);
+  } else {
+    document.documentElement.classList.remove('modo-foco');
   }
 
   // Gestor: seletor de colunas. A lista da direita (na ordem dela) vai no formulario; a da
@@ -997,7 +1298,8 @@
     mostrar();
   });
 
-  // Menu "..." das linhas (componentes.php, menu_linha): um aberto por vez; fecha ao clicar fora
+  // Menu "..." das linhas (componentes.php, menu_linha): um aberto por vez; abre junto do botao,
+  // por cima de tudo (a rolagem da tabela nao corta), e fecha ao clicar fora ou rolar a tela
   ouvir(document, 'click', function (e) {
     Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (d) { if (!d.contains(e.target)) { d.open = false; } });
   });
@@ -1005,8 +1307,15 @@
     var d = e.target;
     if (d.matches && d.matches('details.menu-linha') && d.open) {
       Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (o) { if (o !== d) { o.open = false; } });
+      posicionarMenu(d);
     }
   }, true);
+  ouvir(document, 'scroll', function (e) {
+    var t = e.target;
+    if (t && t.nodeType === 1 && t.closest('.menu-linha-painel')) { return; }
+    Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (d) { d.open = false; });
+  }, true);
+  ouvir(window, 'resize', function () { Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (d) { d.open = false; }); });
 
   // ---------------------------------------------------------------- barra lateral
   // No celular, a barra do admin (CMS, UTM, aparencia, configuracoes e perfil) fica recolhida
@@ -1133,6 +1442,20 @@
     soltarOuvintes();
     raiz.replaceChild(document.adoptNode(doc.body), document.body);
   }
+  // Painel do menu "..." fixo na tela, embaixo do botao (ou em cima, se faltar espaco embaixo)
+  function posicionarMenu(d) {
+    var p = d.querySelector('.menu-linha-painel'), s = d.querySelector('summary');
+    if (!p || !s) { return; }
+    p.style.position = 'fixed'; p.style.right = 'auto'; p.style.left = '0px'; p.style.top = '0px'; p.style.visibility = 'hidden';
+    var r = s.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+    var top = r.bottom + 4;
+    if (top + h > window.innerHeight - 8 && r.top - h - 4 >= 8) { top = r.top - h - 4; }
+    p.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+    p.style.top = Math.max(8, top) + 'px';
+    p.style.maxHeight = (window.innerHeight - 16) + 'px';
+    p.style.overflow = 'auto';
+    p.style.visibility = '';
+  }
   function navegar(url, op) {
     op = op || {};
     var alvo = new URL(url, location.href);
@@ -1144,6 +1467,8 @@
     var y = window.scrollY, antes = new URL(location.href);
     // Rolagem para o lado de cada tabela (ordenar pela coluna do fim nao volta a tabela para o comeco)
     var lados = Array.prototype.map.call(document.querySelectorAll('.tabela'), function (t) { return t.scrollLeft; });
+    var alturas = Array.prototype.map.call(document.querySelectorAll('.tabela'), function (t) { return t.scrollTop; });
+    if (op.corpo && window.Tabela && window.Tabela.lembrar) { window.Tabela.lembrar(); }
     document.documentElement.classList.add('navegando');
     var pedido = op.corpo ? fetch(alvo.href, { method: 'POST', body: op.corpo, credentials: 'same-origin' }) : fetch(alvo.href, { credentials: 'same-origin' });
     pedido.then(function (r) {
@@ -1168,7 +1493,10 @@
       var ancora = res[0].hash && document.getElementById(res[0].hash.slice(1));
       if (op.y !== undefined) { window.scrollTo(0, op.y); } else if (ancora) { ancora.scrollIntoView(); } else { window.scrollTo(0, manter ? y : 0); }
       if (manter) {
-        Array.prototype.forEach.call(document.querySelectorAll('.tabela'), function (t, i) { if (lados[i]) { t.scrollLeft = lados[i]; } });
+        Array.prototype.forEach.call(document.querySelectorAll('.tabela'), function (t, i) {
+          if (lados[i]) { t.scrollLeft = lados[i]; }
+          if (op.corpo && alturas[i]) { t.scrollTop = alturas[i]; }
+        });
       }
     }).catch(function () {
       // Erro de rede: o formulario enviado pode ter ido; recarrega a tela que estava, sem reenviar

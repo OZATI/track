@@ -59,6 +59,35 @@ function gestor_mudar_status(string $id, string $novo, string $usuario): array
     return [true, ucfirst(GESTOR_NIVEL_META[$obj['nivel']]) . ' "' . $nome . '" foi ' . ($novo === 'ACTIVE' ? 'ligad' : 'pausad') . ($obj['nivel'] === 'campaign' ? 'a' : 'o') . ' na Meta.'];
 }
 
+// IDs que vieram do formulario (menu Acoes das marcadas): so numeros, sem repetir
+function gestor_ids_post($v): array
+{
+    return array_values(array_unique(array_filter(is_array($v) ? $v : [$v], fn($i) => is_string($i) && preg_match('/^\d{3,25}$/', $i))));
+}
+
+// Liga ou pausa varias de uma vez (menu Acoes das marcadas): tenta todas e conta. [tudo certo, mensagem]
+function gestor_mudar_status_varios(array $ids, string $novo, string $usuario): array
+{
+    if (!gestor_pode_editar()) {
+        return [false, 'O token da API Meta só lê. Para ligar e pausar pelo painel, gere um token com ads_management.'];
+    }
+    if (count($ids) === 1) {
+        return gestor_mudar_status((string)$ids[0], $novo, $usuario);
+    }
+    $feitos = 0;
+    $erros = [];
+    foreach ($ids as $id) {
+        [$ok, $msg] = gestor_mudar_status((string)$id, $novo, $usuario);
+        if ($ok) {
+            $feitos++;
+        } else {
+            $erros[] = $msg;
+        }
+    }
+    return [!$erros, ($novo === 'ACTIVE' ? 'Ligados' : 'Pausados') . ' na Meta: ' . $feitos . ' de ' . count($ids) . '.'
+        . ($erros ? ' ' . $erros[0] . (count($erros) > 1 ? ' (e mais ' . (count($erros) - 1) . ')' : '') : '')];
+}
+
 // Ultimas alteracoes feitas pelo painel
 function gestor_historico(int $n = 10): array
 {
