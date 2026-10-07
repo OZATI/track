@@ -112,11 +112,11 @@ admin_cabecalho('usuarios');
   // Cartoes (quantos entram e o que podem abrir) e a tabela inteligente de quem entra
   $nomes = array_keys(track_usuarios());
   $podem = fn(string $a) => count(array_filter($nomes, fn($u) => usuario_pode($a, $u)));
-  $cartoes = [cartao_kpi('Usuários', (string)count($nomes), 'com login no admin', 'usuarios')];
-  foreach ($todosAcessos as $k => $rot) {
-      $cartoes[] = cartao_kpi('Podem abrir ' . $rot, (string)$podem($k), 'de ' . count($nomes), ['cms' => 'resumo', 'utm' => 'trafego', 'usuarios' => 'chave'][$k] ?? 'ok');
-  }
-  echo cartoes_kpi($cartoes);
+  // Dois cartoes so (QA UX-06): um por acesso empurrava a lista e o formulario para baixo no
+  // celular, e o que cada um abre ja aparece na tabela
+  $total = count(array_filter($nomes, fn($u) => count(array_filter(array_keys($todosAcessos), fn($a) => usuario_pode($a, $u))) === count($todosAcessos)));
+  echo cartoes_kpi([cartao_kpi('Usuários', (string)count($nomes), 'com login no admin', 'usuarios'),
+      cartao_kpi('Acesso a tudo', (string)$total, 'de ' . count($nomes) . ' · ' . $podem('usuarios') . ' dão acessos', 'chave')]);
   echo tabela_card_inicio('usuarios', 'Quem entra', count($nomes), ['icone' => 'usuarios', 'busca' => 'Buscar usuário', 'filtros' => false, 'ocultos' => false,
       'dica' => 'Um login só para o admin inteiro. Marque o que cada pessoa pode abrir: ' . implode(', ', $todosAcessos) . '. "Usuários" é esta tela, de dar e tirar acessos. Marcar ou desmarcar já salva.']);
   ?>

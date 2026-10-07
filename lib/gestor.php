@@ -237,7 +237,7 @@ const GESTOR_MODELOS = [
 // lista de valores); $fixa: a primeira coluna, que nao sai (Campanha, Dia...)
 function gestor_colunas_seletor(array $todas, array $colunas, string $fixa, array $campos, string $hrefPadrao): string
 {
-    $h = '<details class="colunas" id="colunas"><summary>' . icone('colunas', 14) . '<span>Colunas</span></summary><form class="colunas-painel" method="get" action="./" data-colunas>';
+    $h = '<details class="colunas" id="colunas"><summary title="Colunas: escolher o que aparece na tabela">' . icone('colunas', 14) . '<span>Colunas</span></summary><form class="colunas-painel" method="get" action="./" data-colunas>';
     foreach ($campos as $nome => $valor) {
         foreach (is_array($valor) ? $valor : [$valor] as $v) {
             $h .= '<input type="hidden" name="' . e($nome) . (is_array($valor) ? '[]' : '') . '" value="' . e((string)$v) . '">';
@@ -387,11 +387,12 @@ function gestor_delta(?float $atual, ?float $antes, bool $melhorMenor = false, b
     }
     $dica = ' title="' . e('Antes: ' . ($antesTxt !== '' ? $antesTxt : number_format($antes, 2, ',', '.'))) . '"';
     $classe = fn(bool $subiu) => $neutro ? '' : (($melhorMenor ? !$subiu : $subiu) ? 'bom' : 'ruim');
+    // Antes era zero: nao ha % para mostrar. "era 0" diz o que aconteceu (o "de 0" confundia, QA UX-03)
     if (abs($antes) < 0.0001) {
         if (abs($atual) < 0.0001) {
-            return '<small class="delta"' . $dica . '>=</small>';
+            return '';
         }
-        return '<small class="delta ' . $classe($atual > 0) . '"' . $dica . '>' . ($atual > 0 ? '▲' : '▼') . ' de 0</small>';
+        return '<small class="delta ' . $classe($atual > 0) . '"' . $dica . '>' . ($atual > 0 ? '▲' : '▼') . ' era 0</small>';
     }
     $pct = ($atual - $antes) * 100 / abs($antes);
     if (abs($pct) < 0.5) {
@@ -450,6 +451,9 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     $anterior = gestor_periodo_comparacao($periodo, $modoComp);
     $antes = $anterior ? gestor_agregar($db, $nivel, $anterior[0], $anterior[1], $anterior[2], $anterior[3], $conhecidas)[0] : [];
     $rotuloComp = $anterior ? GESTOR_COMPARAR[$modoComp][1] . ' (' . (new DateTime($anterior[0]))->format('d/m') . ' a ' . (new DateTime($anterior[1]))->format('d/m') . ')' : '';
+    // Periodo de comparacao sem nenhum dado (conta nova, ou antes de o painel existir): nada de setas
+    // nem de "novo" em cada celula; um aviso so na legenda (QA UX-03)
+    $compara = $anterior && $antes;
     $criterio = gestor_rank_criterio();
 
     // Objetos ativos aparecem mesmo sem gasto no periodo (como na UTMify)
@@ -764,14 +768,11 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         'margem' => ['margem', false, false], 'imposto' => ['imposto', false, true], 'pend' => ['pend', false, true],
         'hook' => ['hook', false, false], 'hold' => ['hold', false, false], 'video_3s' => ['video_3s', false, false], 'thruplay' => ['thruplay', false, false],
         'ret25' => ['ret25', false, false], 'ret50' => ['ret50', false, false], 'ret75' => ['ret75', false, false], 'ret100' => ['ret100', false, false]];
-    $celDelta = function (string $k, array $r, ?array $antesR) use ($deltas, $todas, $anterior): string {
-        if (!$anterior || !isset($deltas[$k])) {
-            return '';
+    $celDelta = function (string $k, array $r, ?array $antesR) use ($deltas, $todas, $compara): string {
+        if (!$compara || !isset($deltas[$k]) || $antesR === null) {
+            return ''; // linha que nao rodou antes: o "novo" vai uma vez so, ao lado do nome
         }
         [$campo, $menor, $neutro] = $deltas[$k];
-        if ($antesR === null) {
-            return ($r[$campo] ?? null) ? '<br><small class="delta novo" title="Não rodou no período comparado">novo</small>' : '';
-        }
         $txt = trim(html_entity_decode(strip_tags($todas[$k][2]($antesR)), ENT_QUOTES, 'UTF-8'));
         $d = gestor_delta(isset($r[$campo]) ? (float)$r[$campo] : null, isset($antesR[$campo]) ? (float)$antesR[$campo] : null, $menor, $neutro, $txt);
         return $d !== '' ? '<br>' . $d : '';
@@ -816,7 +817,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         echo '<tr' . ($num ? ' data-id="' . e($r['id']) . '"' : '') . '>' . ($campoSel ? '<td class="marca">' . ($num ? '<input type="checkbox" form="form-sel" name="' . $campoSel . '[]" value="' . e($r['id']) . '" data-sel'
                 . (in_array($r['id'], $marcadas, true) ? ' checked' : '') . ($orcProprio ? ' data-orc="' . $orcProprio . '"' : '') . ' aria-label="Marcar ' . e($r['nome']) . '">' : '') . '</td>' : '')
             . '<td class="st">' . ($nivel === 'contas' ? gestor_status($r['obj']) : gestor_chave($r['obj'], $volta, $pode)) . '</td>'
-            . '<td class="quebra nome">' . $nomeLink($r) . ($acoesLinha !== '' ? '<span class="linha-acoes">' . $acoesLinha . '</span>' : '') . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
+            . '<td class="quebra nome">' . $nomeLink($r) . ($compara && $r['antes'] === null && (($r['gasto'] ?? 0) || ($r['vendas'] ?? 0)) ? ' <small class="delta novo" title="Não rodou no período comparado">novo</small>' : '') . ($acoesLinha !== '' ? '<span class="linha-acoes">' . $acoesLinha . '</span>' : '') . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
         foreach ($colunas as $k) {
             echo '<td>' . $todas[$k][2]($r) . $celDelta($k, $r, $r['antes']) . '</td>';
         }
@@ -839,14 +840,14 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
 
     // Embaixo da tabela (some no modo foco): a legenda, o ranking e o historico
     echo '<div class="gestor-pos">';
-    $comparacao = $anterior
+    $comparacao = $compara
         ? 'As setas comparam com ' . $rotuloComp . ': verde melhorou, vermelho piorou (em custo, cair é bom), cinza é volume de gasto; "novo" não rodou antes. Passe o mouse na seta para ver o valor de antes. '
-        : '';
-    echo '<p class="suave legenda">' . e($comparacao) . 'Clique no nome da campanha para ver os conjuntos, e no conjunto para ver os anúncios; passe o mouse na linha para a análise diária e o "…" (Gerenciador da Meta, copiar ID, fixar no topo); marque várias e use a seta das Ações (ver as delas, gráfico comparativo, ativar, desativar e orçamento); clique no título da coluna para ordenar. '
-        . 'Faturamento líquido da Kiwify, com order bump. Lucro = faturamento − gasto − imposto da Meta (' . e(number_format($pct, 2, ',', '.')) . '%).</p>';
+        : ($anterior ? 'Sem setas de comparação: não há dados para ' . $rotuloComp . '. ' : '');
+    echo ajuda_tabela(e($comparacao) . 'Clique no nome da campanha para ver os conjuntos, e no conjunto para ver os anúncios; passe o mouse na linha para a análise diária e o "…" (Gerenciador da Meta, copiar ID, fixar no topo); marque várias e use a seta das Ações (ver as delas, gráfico comparativo, ativar, desativar e orçamento); clique no título da coluna para ordenar. '
+        . 'Faturamento líquido da Kiwify, com order bump. Lucro = faturamento − gasto − imposto da Meta (' . e(number_format($pct, 2, ',', '.')) . '%).');
 
     // Ranking (painel de bolsa), embaixo da tabela: da melhor para a pior, com a curva do periodo
-    $antesMetricas = $anterior ? array_map(fn($l) => gestor_metricas($l, $pct), $antes) : null;
+    $antesMetricas = $compara ? array_map(fn($l) => gestor_metricas($l, $pct), $antes) : null;
     if ($nivel !== 'contas') {
         echo gestor_ranking_html($tabela, $antesMetricas, $criterio, $nivel, $series, $diasPeriodo, $pct, $link, $nomeLink, $rotuloComp);
     }

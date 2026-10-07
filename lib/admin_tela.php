@@ -77,8 +77,10 @@ function admin_css_base(): string
 .menu-linha-painel .ico{ color:var(--suave); } .menu-linha-painel .perigo .ico{ color:var(--erro); }
 :root{
   --fundo:#F7F8FA; --cartao:#FFFFFF; --cartao-2:#F3F4F6; --hover:#F7F9FC;
-  --texto:#111827; --suave:#6B7280; --apagado:#9CA3AF; --linha:#E5E7EB; --linha-forte:#D1D5DB;
-  --marca:#1D6FF2; --marca-hover:#155FD6;
+  --texto:#111827; --suave:#636B78; --apagado:#9CA3AF; --linha:#E5E7EB; --linha-forte:#D1D5DB;
+  /* --marca: texto e destaque; --marca-fundo: fundo com texto branco em cima (botao). Os dois passam
+     no AA (4,5:1) nos fundos do tema; no escuro o texto e mais claro e o fundo do botao mais escuro. */
+  --marca:#1A66E0; --marca-hover:#1557C2; --marca-fundo:#1A66E0; --marca-fundo-hover:#1557C2;
   --ok:#15803D; --alerta:#B45309; --erro:#B91C1C; --laranja:#C2410C;
   --lateral:#0B1B2E; --realce:#EEF4FF; --fundo-ok:#ECFDF3; --fundo-alerta:#FFF7ED; --fundo-erro:#FEF2F2; --sombra:rgba(17,24,39,.12);
   --grad-a:#1D6FF2; --grad-b:#60A5FA; --rolagem:#C9CED6; --rolagem-hover:#9CA3AF;
@@ -96,8 +98,8 @@ function admin_css_base(): string
   color-scheme:dark;
   --fundo:var(--base); --cartao:color-mix(in srgb, var(--base), #fff 5%); --cartao-2:color-mix(in srgb, var(--base), #fff 9%);
   --hover:color-mix(in srgb, var(--base), #fff 7%); --linha:color-mix(in srgb, var(--base), #fff 13%); --linha-forte:color-mix(in srgb, var(--base), #fff 22%);
-  --texto:#E5E7EB; --suave:#9CA3AF; --apagado:#6B7280;
-  --marca:#3B82F6; --marca-hover:#2563EB;
+  --texto:#E5E7EB; --suave:#A3AAB6; --apagado:#6B7280;
+  --marca:#60A5FA; --marca-hover:#93C5FD; --marca-fundo:#2563EB; --marca-fundo-hover:#1D4ED8;
   --ok:#22C55E; --alerta:#F59E0B; --erro:#F05252; --laranja:#FB923C;
   --lateral:color-mix(in srgb, var(--base), #000 35%); --realce:rgba(59,130,246,.16);
   --fundo-ok:rgba(34,197,94,.14); --fundo-alerta:rgba(245,158,11,.14); --fundo-erro:rgba(240,82,82,.14); --sombra:rgba(0,0,0,.55);
@@ -119,11 +121,11 @@ function admin_css_base(): string
 .casca{ display:flex; min-height:100vh; }
 .conteudo{ flex:1; min-width:0; }
 /* Barra lateral do admin: os paineis em cima e a conta embaixo (no celular, uma linha no alto) */
-.lateral{ width:64px; flex:none; z-index:20; background:var(--lateral); display:flex; flex-direction:column; align-items:center; padding:12px 0; position:sticky; top:0; height:100vh; color:#9CA3AF; }
+.lateral{ width:72px; flex:none; z-index:20; background:var(--lateral); display:flex; flex-direction:column; align-items:center; padding:12px 0; position:sticky; top:0; height:100vh; color:#9CA3AF; }
 .lateral-alterna{ display:none; }
 .lateral-itens{ flex:1; min-height:0; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; }
 .lateral-paineis, .lateral-conta{ display:flex; flex-direction:column; align-items:center; gap:4px; }
-.lateral-paineis a{ width:48px; padding:8px 0 6px; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center; gap:3px; color:#9CA3AF; font-size:10.5px; font-weight:500; }
+.lateral-paineis a{ width:64px; padding:8px 0 6px; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center; gap:3px; color:#AEB4BF; font-size:11.5px; font-weight:500; }
 .lateral-paineis a:hover{ background:rgba(255,255,255,.06); color:#fff; text-decoration:none; }
 .lateral-paineis a.atual{ background:rgba(255,255,255,.1); color:#fff; }
 .lateral-paineis svg{ width:20px; height:20px; }

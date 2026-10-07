@@ -127,7 +127,8 @@ function chegada(?string $fonte): array
 function barra_vendas(array $parLink, string $aba): void
 {
     if (!kiwify_api_chave()) {
-        echo '<p class="suave barra-vendas">Vendas só pelo webhook da Kiwify. Para buscar também pela API (e pegar o que o webhook não entregar), cadastre a chave em <a href="kiwify-api.php">Integrações → Kiwify</a>.</p>';
+        // Um span so: a barra e flex, e texto solto viraria pedacos separados pelo gap ("Kiwify ." no celular)
+        echo '<p class="suave barra-vendas"><span>Vendas só pelo webhook da Kiwify. Para buscar também pela API (e pegar o que o webhook não entregar), cadastre a chave em <a href="kiwify-api.php">Integrações → Kiwify</a>.</span></p>';
         return;
     }
     $s = kiwify_sync_estado();
@@ -214,7 +215,11 @@ function conferir(PDO $db, array $v): array
     $mandou = origem($clique['utm_source'], $clique['utm_medium'], $clique['utm_campaign']);
     $gravou = origem($v['utm_source'], $v['utm_medium'], $v['utm_campaign']);
     if ((string)$clique['utm_source'] === (string)$v['utm_source'] && (string)$clique['utm_campaign'] === (string)$v['utm_campaign']) {
-        return ['Bate', 'ok', 'A página mandou ' . ($mandou ?: 'sem etiqueta') . ' e a Kiwify gravou o mesmo.'];
+        return ['Bate', 'ok', 'A página mandou ' . (sem_ids($mandou) ?: 'sem etiqueta') . ' e a Kiwify gravou o mesmo.'];
+    }
+    // Sem os IDs, a menos que so eles mudem (ai o ID e a diferenca)
+    if (sem_ids($mandou) !== sem_ids($gravou)) {
+        [$mandou, $gravou] = [sem_ids($mandou), sem_ids($gravou)];
     }
     return ['Diferente', 'erro', 'A página mandou ' . ($mandou ?: 'sem etiqueta') . ', a Kiwify gravou ' . ($gravou ?: 'sem etiqueta') . '.'];
 }

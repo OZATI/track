@@ -21,7 +21,9 @@ function pagina_inicio(string $titulo): void
 <title><?= e($titulo) ?> · Rastreio</title>
 <link rel="manifest" href="<?= e(admin_base()) ?>manifest.php">
 <meta name="theme-color" content="<?= e(tema_atual()) ?>">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="<?= e(admin_base()) ?><?= is_file(__DIR__ . '/../../favicon.svg') ? '../favicon.svg' : 'app-192.png' ?>">
 <meta name="apple-mobile-web-app-title" content="<?= e((string)((track_config() ?? [])['app_nome'] ?? 'Painel')) ?>">
 <link rel="apple-touch-icon" href="<?= e(admin_base()) ?><?= is_file(__DIR__ . '/../../apple-touch-icon.png') ? '../apple-touch-icon.png' : 'app-192.png' ?>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45,8 +47,8 @@ select, input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type
 /* Caixa de marcar e opcao: sem a largura minima dos campos de texto */
 input[type=checkbox], input[type=radio]{ min-width:0; width:auto; padding:0; accent-color:var(--marca); }
 select:focus, input:focus, textarea:focus{ outline:2px solid rgba(29,111,242,.35); outline-offset:0; border-color:var(--marca); }
-button, .botao{ display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:var(--alt); padding:0 14px; background:var(--marca); color:#fff; border:1px solid var(--marca); border-radius:var(--r-sm); font-size:13px; font-weight:500; line-height:1.2; cursor:pointer; text-decoration:none; }
-button:hover, .botao:hover{ background:var(--marca-hover); text-decoration:none; }
+button, .botao{ display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:var(--alt); padding:0 14px; background:var(--marca-fundo); color:#fff; border:1px solid var(--marca-fundo); border-radius:var(--r-sm); font-size:13px; font-weight:500; line-height:1.2; cursor:pointer; text-decoration:none; }
+button:hover, .botao:hover{ background:var(--marca-fundo-hover); text-decoration:none; }
 button.discreto{ background:var(--cartao); color:var(--erro); border-color:var(--linha-forte); }
 button.pequeno{ min-height:28px; padding:0 10px; font-size:12px; }
 button.discreto:hover{ background:var(--cartao-2); }
@@ -59,6 +61,15 @@ button.discreto.neutro{ color:var(--texto); }
 .nw{ white-space:nowrap; }
 .info:hover, .info:focus-visible, .info[aria-describedby]{ color:var(--marca); outline:none; }
 .info:focus-visible{ box-shadow:0 0 0 2px var(--realce); }
+/* Toque (celular e tablet): area de toque maior sem mudar o desenho (QA UX-09). O (i) cresce
+   8 px para cada lado, para nao roubar o toque do campo logo abaixo. */
+@media (pointer:coarse){
+  .info{ position:relative; } .info::after{ content:""; position:absolute; inset:-8px; }
+  .chave{ overflow:visible; } .chave::after{ content:""; position:absolute; inset:-12px -6px; }
+  .tcard-paginas .tcard-icone{ min-height:40px; width:40px; }
+  input[type=checkbox], input[type=radio]{ width:20px; height:20px; }
+  details > summary{ min-height:32px; }
+}
 .dica{ position:fixed; z-index:60; max-width:300px; background:#111827; color:#fff; font-size:12px; line-height:1.45; padding:8px 11px; border-radius:8px; pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.25); }
 .dica b{ display:block; font-size:12.5px; font-weight:600; margin:0 0 3px; }
 .dica span{ display:block; white-space:pre-line; color:#E5E7EB; }
@@ -71,7 +82,7 @@ button.discreto.neutro{ color:var(--texto); }
 .sel-botao, .multi > summary{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-width:160px; max-width:300px; min-height:var(--alt); padding:0 10px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-sm); font:inherit; font-weight:400; text-align:left; cursor:pointer; }
 .sel-botao:hover, .multi > summary:hover{ background:var(--cartao); border-color:var(--apagado); }
 .sel-botao[aria-expanded=true], .multi[open] > summary{ border-color:var(--marca); box-shadow:0 0 0 3px var(--realce); }
-.sel-botao:disabled{ background:var(--cartao-2); color:var(--apagado); cursor:not-allowed; }
+.sel-botao:disabled{ background:var(--cartao-2); color:var(--suave); cursor:not-allowed; }
 .sel-texto{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .sel-seta{ flex:none; width:14px; height:14px; fill:none; stroke:var(--suave); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; transition:transform .15s; }
 .sel-botao[aria-expanded=true] .sel-seta{ transform:rotate(180deg); }
@@ -109,7 +120,7 @@ button.discreto.neutro{ color:var(--texto); }
 .cal-dia.fora{ color:var(--apagado); }
 .cal-dia.hoje{ box-shadow:inset 0 0 0 1px var(--linha-forte); }
 .cal-dia.no-intervalo{ background:var(--realce); border-radius:0; }
-.cal-dia.inicio, .cal-dia.fim{ background:var(--marca); color:#fff; font-weight:600; }
+.cal-dia.inicio, .cal-dia.fim{ background:var(--marca-fundo); color:#fff; font-weight:600; }
 .cal-dia.inicio{ border-radius:8px 0 0 8px; } .cal-dia.fim{ border-radius:0 8px 8px 0; } .cal-dia.inicio.fim{ border-radius:8px; }
 .cal .cal-dia:disabled, .cal .cal-dia:disabled:hover{ background:none; color:var(--linha-forte); border:0; cursor:not-allowed; }
 .campo-data .sel-botao{ min-width:150px; }
@@ -248,7 +259,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 .gestor-cab .gestor-campo{ display:inline-flex; flex-direction:row; align-items:center; gap:6px; margin:0; font-size:12px; color:var(--suave); white-space:nowrap; }
 .gestor-ferr{ gap:6px; }
 .gestor-ferr .colunas summary{ width:var(--alt); padding:0; justify-content:center; }
-.gestor-ferr .colunas summary span{ display:none; }
+.gestor-ferr .colunas summary span{ position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; } /* so o icone, mas com nome para o leitor de tela (QA UX-14) */
 .gestor-menu > summary{ width:var(--alt); height:var(--alt); border:1px solid var(--linha-forte); background:var(--cartao); }
 .gestor-menu > summary:hover, .gestor-menu[open] > summary{ color:var(--marca); border-color:var(--marca); background:var(--hover); }
 .gestor-acoes .menu-linha-painel{ width:min(290px, calc(100vw - 16px)); }
@@ -263,8 +274,8 @@ td.quebra{ white-space:normal; min-width:220px; }
 .orc-massa-modo{ display:flex; gap:14px; }
 .orc-massa-modo label{ display:inline-flex; align-items:center; gap:5px; margin:0; color:var(--texto); font-size:12px; }
 .orc-massa-linha{ display:flex; gap:6px; } .orc-massa-linha input{ flex:1; min-width:0; }
-.menu-linha-painel .orc-massa button{ width:auto; justify-content:center; padding:0 14px; background:var(--marca); color:#fff; font-weight:600; }
-.menu-linha-painel .orc-massa button:hover{ background:var(--marca); filter:brightness(1.08); }
+.menu-linha-painel .orc-massa button{ width:auto; justify-content:center; padding:0 14px; background:var(--marca-fundo); color:#fff; font-weight:600; }
+.menu-linha-painel .orc-massa button:hover{ background:var(--marca-fundo); filter:brightness(1.08); }
 .orc-massa small{ font-size:11px; line-height:1.4; }
 /* O "..." da linha aparece ao passar o mouse, ao lado da analise diaria (no toque, sempre) */
 .tabela.gestor .linha-acoes{ display:inline-flex; align-items:center; gap:2px; margin-left:8px; vertical-align:-6px; }
@@ -275,6 +286,14 @@ td.quebra{ white-space:normal; min-width:220px; }
 @media (hover:none){ .tabela.gestor .linha-acoes .menu-linha{ opacity:1; } }
 .tabela.gestor tr.marcada > td{ background:var(--realce); }
 .tabela.gestor tr.fixada > td.nome{ box-shadow:inset 3px 0 0 var(--marca); }
+/* Gestor e analise diaria: o nome (ou o dia) fica parado ao rolar as colunas, e a borda direita
+   ganha uma sombra enquanto houver colunas escondidas (QA UX-02 e UX-14) */
+.tabela.gestor tr > th.nome, .tabela.gestor tr > td.nome{ position:sticky; left:0; z-index:1; background:var(--cartao); box-shadow:1px 0 0 var(--linha); }
+.tabela.gestor tr > th.nome, .tabela.gestor tr.total > td.nome{ background:var(--cartao-2); }
+.tabela.gestor tr:hover > td.nome{ background:var(--hover); }
+.tabela.gestor tr.marcada > td.nome{ background:var(--realce); }
+.tabela.gestor{ background:linear-gradient(270deg, var(--cartao) 40%, transparent) right / 48px 100% no-repeat local,
+  radial-gradient(farthest-side at 100% 50%, var(--sombra), transparent) right / 14px 100% no-repeat scroll, var(--cartao); }
 .tcard-corpo tfoot td{ position:sticky; bottom:0; z-index:2; }
 /* Grafico comparativo das marcadas */
 .gestor-grafico{ padding:12px 16px 14px; border-bottom:1px solid var(--linha); }
@@ -357,7 +376,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 @media (hover:none){ .painel-tirar{ opacity:1; } }
 .grid-stack-placeholder > .placeholder-content{ background:var(--realce) !important; border:2px dashed var(--marca); border-radius:var(--r-md); }
 /* Lapis da barra lateral (lib/grade.php): aceso enquanto a tela esta sendo montada */
-.lateral .lapis-tela.atual{ background:var(--marca); color:#fff; }
+.lateral .lapis-tela.atual{ background:var(--marca-fundo); color:#fff; }
 /* Numero do bloco: o valor, a seta contra o periodo anterior e a linhazinha do periodo */
 .pw-valor{ display:flex; align-items:flex-end; justify-content:space-between; gap:10px; min-width:0; }
 .pw-valor-txt{ display:flex; flex-direction:column; min-width:0; }
@@ -554,9 +573,9 @@ summary.campanha-orc:hover .ico{ color:var(--marca); }
 .ret-barra i{ display:block; height:100%; border-radius:6px; background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); }
 /* Orcamento na analise diaria: mudar agora e programar lado a lado */
 .orcamento h3{ font-size:13px; margin:16px 0 8px; }
-.orc-novo > summary{ list-style:none; display:inline-flex; align-items:center; gap:6px; min-height:var(--alt); padding:0 14px; border:1px solid var(--marca); border-radius:var(--r-sm); background:var(--marca); color:#fff; font-size:13px; font-weight:500; cursor:pointer; }
+.orc-novo > summary{ list-style:none; display:inline-flex; align-items:center; gap:6px; min-height:var(--alt); padding:0 14px; border:1px solid var(--marca-fundo); border-radius:var(--r-sm); background:var(--marca-fundo); color:#fff; font-size:13px; font-weight:500; cursor:pointer; }
 .orc-novo > summary::-webkit-details-marker{ display:none; }
-.orc-novo > summary:hover{ background:var(--marca-hover); }
+.orc-novo > summary:hover{ background:var(--marca-fundo-hover); }
 .orc-novo[open] > summary{ background:var(--cartao-2); color:var(--texto); border:1px solid var(--linha-forte); }
 .orc-novo .orc-form{ max-width:620px; margin-top:10px; }
 .orc-grade{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px 24px; }
@@ -614,7 +633,7 @@ th[aria-sort=descending] > button.ordena::after{ content:" ↓"; }
 .sel-multi .multi-painel{ max-height:60vh; }
 .tabela.gestor a.ordena{ color:inherit; } .tabela.gestor a.ordena.atual{ color:var(--texto); font-weight:600; }
 .tabela.gestor a.abre{ color:var(--texto); } .tabela.gestor a.abre:hover strong{ color:var(--marca); text-decoration:underline; }
-.delta{ font-size:11px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); } .delta.novo{ color:var(--marca); }
+.delta{ font-size:12px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); } .delta.novo{ color:var(--marca); }
 /* Gestor: comparar com (no alto) e o ranking (painel de bolsa) */
 @media (max-width:640px){ .sel-botao, .multi > summary, .campo-periodo .sel-botao, .campo-data .sel-botao{ min-width:0; } }
 .ranking-bloco{ margin:0 0 16px; }
@@ -663,14 +682,14 @@ a.conta-nome .conta-cfg{ color:var(--suave); font-size:12px; }
 /* Foto do perfil: o lapis na borda da bolinha troca a foto */
 .perfil-foto{ position:relative; display:inline-flex; flex:none; margin:0; }
 .perfil-foto .avatar{ box-shadow:0 0 0 1px var(--linha); }
-.perfil-lapis{ position:absolute; right:-2px; bottom:-2px; display:inline-flex !important; align-items:center; justify-content:center; width:28px; height:28px; margin:0 !important; border-radius:50%; background:var(--marca); color:#fff !important; border:2px solid var(--cartao); cursor:pointer; }
-.perfil-lapis:hover{ background:var(--marca-hover); }
+.perfil-lapis{ position:absolute; right:-2px; bottom:-2px; display:inline-flex !important; align-items:center; justify-content:center; width:28px; height:28px; margin:0 !important; border-radius:50%; background:var(--marca-fundo); color:#fff !important; border:2px solid var(--cartao); cursor:pointer; }
+.perfil-lapis:hover{ background:var(--marca-fundo-hover); }
 .perfil-lapis:focus-within{ outline:2px solid var(--marca); outline-offset:2px; }
 .perfil-lapis input{ position:absolute; width:1px; height:1px; opacity:0; }
 .perfil-info{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
 .perfil-info .discreto{ min-height:28px; padding:0 10px; font-size:12px; }
-.botao-arquivo{ display:inline-flex !important; flex-direction:row !important; align-items:center; gap:6px; margin:0 !important; min-height:var(--alt); padding:0 14px; background:var(--marca); color:#fff !important; border-radius:var(--r-sm); font-weight:500; font-size:13px !important; cursor:pointer; }
-.botao-arquivo:hover{ background:var(--marca-hover); }
+.botao-arquivo{ display:inline-flex !important; flex-direction:row !important; align-items:center; gap:6px; margin:0 !important; min-height:var(--alt); padding:0 14px; background:var(--marca-fundo); color:#fff !important; border-radius:var(--r-sm); font-weight:500; font-size:13px !important; cursor:pointer; }
+.botao-arquivo:hover{ background:var(--marca-fundo-hover); }
 .botao-arquivo input{ position:absolute; width:1px; height:1px; opacity:0; }
 .perfil-sair{ border-top:1px solid var(--linha); padding-top:12px; }
 /* Configuracoes */
@@ -691,7 +710,7 @@ a.conta-nome .conta-cfg{ color:var(--suave); font-size:12px; }
 .cfg-padroes label{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:10px 12px; border:1px solid var(--linha); border-radius:var(--r-sm); cursor:pointer; }
 .cfg-padroes label:has(input:checked){ border-color:var(--marca); background:var(--realce); }
 .cfg-previa{ display:flex; gap:10px; align-items:flex-start; max-width:380px; padding:10px 12px; border-radius:12px; background:#111827; color:#fff; }
-.cfg-previa-icone{ flex:none; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:var(--marca); color:#fff; }
+.cfg-previa-icone{ flex:none; display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:8px; background:var(--marca-fundo); color:#fff; }
 .cfg-previa b{ display:block; font-size:13px; } .cfg-previa span{ font-size:12px; color:#D1D5DB; }
 .cfg-aparelhos{ margin-top:10px; }
 /* Dentro de cartao, label e coluna e input ocupa a linha: aqui, interruptor e opcao ficam na linha do texto */
@@ -716,6 +735,11 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .status-meta.alerta{ color:var(--alerta); } .status-meta.alerta::before{ background:#F59E0B; }
 .aviso-meta{ background:var(--cartao); border:1px solid var(--linha); border-left:3px solid var(--marca); border-radius:var(--r-sm); padding:8px 12px; }
 .legenda{ font-size:12px; }
+.ajuda-tabela{ margin:8px 0 14px; }
+.ajuda-tabela > summary{ display:inline-flex; align-items:center; gap:6px; min-height:32px; color:var(--suave); font-size:12px; font-weight:500; cursor:pointer; list-style:none; }
+.ajuda-tabela > summary::-webkit-details-marker{ display:none; }
+.ajuda-tabela > summary:hover, .ajuda-tabela[open] > summary{ color:var(--texto); }
+.ajuda-tabela > p{ margin:4px 0 0; max-width:900px; }
 .grafico{ display:block; width:100%; height:auto; margin-top:4px; }
 .grafico text{ font:11px var(--f-texto); fill:var(--suave); }
 .grafico .grade-l{ stroke:var(--linha); stroke-width:1; }
@@ -834,7 +858,7 @@ th.marca, td.marca{ width:34px; text-align:center; }
   .nav-celular{ display:flex; position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--cartao); border-top:1px solid var(--linha);
     padding:4px 4px env(safe-area-inset-bottom); box-shadow:0 -4px 16px rgba(17,24,39,.06); }
   .nav-celular > a, .nav-mais > summary{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:52px;
-    color:var(--suave); font-size:11px; font-weight:500; text-decoration:none; border-radius:var(--r-md); list-style:none; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+    color:var(--suave); font-size:12px; font-weight:500; text-decoration:none; border-radius:var(--r-md); list-style:none; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .nav-mais{ flex:1; display:flex; }
   .nav-mais > summary::-webkit-details-marker{ display:none; }
   .nav-celular > a.atual, .nav-mais.atual > summary, .nav-mais[open] > summary{ color:var(--marca); }
@@ -867,6 +891,8 @@ th.marca, td.marca{ width:34px; text-align:center; }
   .rosca{ width:min(170px,60%); }
   /* Gestor: niveis numa linha (rola para o lado) e filtros compactos */
   .gestor-niveis{ display:flex; max-width:100%; overflow-x:auto; scrollbar-width:none; }
+  /* As quatro abas cabem na largura: sem o icone e o (i), cada uma divide o espaco (QA UX-15) */
+  .gestor-niveis a{ flex:1; justify-content:center; padding:6px; } .gestor-niveis .ico, .gestor-niveis .info{ display:none; }
   .gestor-niveis a{ white-space:nowrap; padding:6px 10px; }
   .gestor-filtros{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,120px) auto; gap:8px; width:100%; }
   .gestor-filtros input, .gestor-filtros select{ min-width:0; width:100%; }
@@ -1121,9 +1147,23 @@ function numero(string $valor, string $rotulo, string $dica, string $classe = ''
 // Um texto qualquer (ex.: a origem detalhada) com o icone do canal na frente
 function com_icone_canal(array $c, string $texto): string
 {
-    return '<span class="canal canal-' . e($c[0]) . '">' . icone($c[2]) . '<span>' . e($texto) . '</span></span>';
+    // Na tela vai so o nome; a etiqueta inteira, com os IDs, fica na dica (QA UX-04)
+    $curto = sem_ids($texto);
+    return '<span class="canal canal-' . e($c[0]) . '"' . ($curto !== $texto ? ' title="' . e($texto) . '"' : '') . '>' . icone($c[2]) . '<span>' . e($curto) . '</span></span>';
 }
 
+// Etiqueta sem os IDs do modelo "nome|id" ("TL 1 | Drive|120200000000001" vira "TL 1 | Drive")
+function sem_ids(string $s): string
+{
+    return trim((string)preg_replace('/\|\d{6,}/', '', $s));
+}
+
+// Ajuda longa embaixo de uma tabela (como ler, siglas, formulas): recolhida, para nao virar uma
+// parede de texto (QA UX-07). $html ja vem escapado.
+function ajuda_tabela(string $html, string $titulo = 'Como ler esta tabela'): string
+{
+    return '<details class="ajuda-tabela"><summary>' . icone('guia', 14) . e($titulo) . '</summary><p class="suave legenda">' . $html . '</p></details>';
+}
 
 // Botao de atualizar (so o icone, com a dica): busca na hora e volta para $volta
 // $foco: a busca que vai primeiro (kiwify, meta ou instagram), a da tela em que o botao esta
@@ -1199,7 +1239,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
   </label>
   <label><span><?= com_info('Página', 'Uma página do site escolhido (/drivedeprojetos e /drivedeprojetos/ são a mesma). Escolha um site para ver as páginas dele.') ?></span>
     <select name="pagina"<?= $filtro['dominio'] === '' ? ' disabled' : '' ?>>
-      <option value="">Todas as páginas</option>
+      <option value=""><?= $filtro['dominio'] === '' ? 'Escolha um site antes' : 'Todas as páginas' ?></option>
       <?php foreach ($paginas as $p): ?>
         <option value="<?= e($p) ?>"<?= $filtro['pagina'] === $p ? ' selected' : '' ?>><?= e($p) ?></option>
       <?php endforeach; ?>

@@ -208,6 +208,10 @@ function gestor_ranking_html(array $tabela, ?array $antesPorId, string $criterio
     if (!$ordem) {
         return $html . '<p class="suave">Nenhuma com gasto ou venda no período.</p></section>';
     }
+    // Todas no prejuizo: o 1o lugar e quem perdeu menos, e isso precisa ficar claro (QA UX-20)
+    if ($criterio === 'lucro' && count($ordem) > 1 && max(array_map(fn($id) => (float)($porId[$id]['lucro'] ?? 0), $ordem)) < 0) {
+        $html .= '<p class="aviso-meta ranking-aviso">Todas no prejuízo no período: o 1º lugar é a que perdeu menos.</p>';
+    }
     $html .= '<ol class="ranking"><li class="rk-cab"><span>' . com_info('#', 'Posição no ranking.') . '</span>'
         . '<span>' . com_info('Mov.', $antesPorId !== null ? 'Quantas posições subiu (▲) ou caiu (▼) contra ' . $rotuloComp . '. "novo": não rodou nesse período.' : 'Escolha um período de comparação para ver quem subiu e quem caiu.') . '</span>'
         . '<span>' . com_info(['campanhas' => 'Campanha', 'conjuntos' => 'Conjunto', 'anuncios' => 'Anúncio'][$nivel] ?? 'Nome', 'Clique para abrir o próximo nível.') . '</span>'
@@ -227,7 +231,7 @@ function gestor_ranking_html(array $tabela, ?array $antesPorId, string $criterio
             $mov = $dif > 0 ? '<small class="delta bom">▲ ' . $dif . '</small>' : ($dif < 0 ? '<small class="delta ruim">▼ ' . -$dif . '</small>' : '<small class="delta">=</small>');
         }
         $antes = $antesPorId !== null ? ($antesPorId[$id] ?? null) : null;
-        $var = $antesPorId === null ? '' : ($antes === null ? '<small class="delta novo">novo</small>'
+        $var = $antesPorId === null ? '' : ($antes === null ? '' // o "novo" ja esta em Mov.
             : gestor_delta($r[$criterio] === null ? null : (float)$r[$criterio], $antes[$criterio] === null ? null : (float)$antes[$criterio], $menor, false, gestor_rank_valor($antes[$criterio], $criterio)));
         $classe = str_contains($var, 'delta bom') ? 'bom' : (str_contains($var, 'delta ruim') ? 'ruim' : '');
         $curva = isset($series[$id]) ? gestor_sparkline(gestor_curva($series[$id], $dias, $criterio, $pct), $classe, $tituloCrit . ' acumulado no período') : '';

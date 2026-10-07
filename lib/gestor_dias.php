@@ -16,7 +16,7 @@ require_once __DIR__ . '/gestor_analise.php';
 require_once __DIR__ . '/orcamento.php';
 
 // Colunas da aba CAMPANHAS da planilha, na ordem dela: chave do gestor => titulo curto
-const GESTOR_DIAS_COLUNAS = ['orcamento' => 'Orçamento', 'gasto' => 'Gastos', 'vendas' => 'Vendas', 'fat' => 'Faturamento', 'lucro' => 'Lucro',
+const GESTOR_DIAS_COLUNAS = ['orcamento' => 'Orçamento', 'gasto' => 'Gasto', 'vendas' => 'Vendas', 'fat' => 'Faturamento', 'lucro' => 'Lucro',
     'cpa' => 'CPA', 'roi' => 'ROI', 'cpi' => 'CPI', 'ic' => 'IC', 'cpv' => 'CPV', 'cpc' => 'CPC', 'cliques' => 'Cliques', 'ctr' => 'CTR',
     'impressoes' => 'Impressões', 'cpm' => 'CPM', 'visualizacoes' => 'Vis. de página', 'margem' => 'Margem'];
 // Titulos curtos das outras colunas, para a tabela caber na tela
@@ -269,10 +269,10 @@ function gestor_dias_render(PDO $db, string $periodo): void
     }
     echo '</tbody></table></div>';
     $legendaNivel = ['campanha' => 'Um dia por linha, como na planilha de campanhas', 'conjunto' => 'O conjunto (público) um dia por linha', 'anuncio' => 'O anúncio (criativo) um dia por linha'][$nivel];
-    echo '<p class="suave legenda">' . e($legendaNivel) . '; muda o período no topo e as colunas no botão Colunas. Clique no título para ordenar (de novo, inverte). CPI = custo por início de checkout; IC = inícios de checkout; CPV = custo por visualização de página. ROI: vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima. '
+    echo ajuda_tabela(e($legendaNivel) . '; muda o período no topo e as colunas no botão Colunas. Clique no título para ordenar (de novo, inverte). CPI = custo por início de checkout; IC = inícios de checkout; CPV = custo por visualização de página. ROI: vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima. '
         . ($nivel === 'anuncio' ? 'Hook = visualizações de 3 s ÷ impressões; Hold = ThruPlay ÷ 3 s; retenção = quem chegou àquele ponto do vídeo ÷ quem deu play.'
             : 'O orçamento de cada dia é o que o painel viu na Meta naquele dia; antes de o painel começar a guardar, fica em branco.'
-            . ($nivel === 'conjunto' ? ' Alcance e frequência do período vêm da Meta (a soma dos dias contaria a mesma pessoa mais de uma vez).' : '')) . '</p>';
+            . ($nivel === 'conjunto' ? ' Alcance e frequência do período vêm da Meta (a soma dos dias contaria a mesma pessoa mais de uma vez).' : '')));
 
     // Numeros, graficos, leitura e quem compra (lib/gestor_analise.php)
     gestor_analise_render($db, $id, $obj, $linhas, $pct, $dia1, $dia2, $nivel, $alcance);

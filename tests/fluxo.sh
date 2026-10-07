@@ -131,7 +131,7 @@ r=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo")
 confere "$(tem 'Funil do site' "$(sem_tags "$r")")" "tela inicial é o Resumo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
 confere "$(tem 'Tráfego por origem' "$r")" "aba Tráfego abre"
-confere "$(tem 'MetaAds / conjunto 5|111111 / TL 1|120120</span></span></td><td>1</td>' "$r")" "tabela de tráfego mostra a origem do anúncio com 1 visitante"
+confere "$(tem 'title="MetaAds / conjunto 5|111111 / TL 1|120120">.\{0,400\}<span>MetaAds / conjunto 5 / TL 1</span></span></td><td>1</td>' "$r")" "tabela de tráfego mostra a origem do anúncio com 1 visitante (o nome na tela, os IDs na dica)"
 confere "$(tem 'Tráfego por canal' "$r")" "tráfego agrupado por canal"
 t=$(sem_tags "$r")
 confere "$(tem 'Visitantes por canal' "$t")" "tráfego por canal no desenho do Resumo: rosca dos visitantes"
@@ -230,7 +230,7 @@ echo "Usuários e login do admin"
 r=$(curl -s -b "$JAR" "$URL/usuarios.php")
 confere "$(tem 'kenio <span class="suave">(você)' "$r")" "tela de usuários lista quem entra"
 confere "$(tem 'data-tabela="usuarios" data-por-pagina="25">' "$r")" "Usuários na tabela inteligente"
-confere "$(tem 'Podem abrir UTM</span><span class="kpi-ico"' "$r")" "Usuários: cartões de quem pode abrir cada parte"
+confere "$(tem 'Acesso a tudo</span><span class="kpi-ico"' "$r")" "Usuários: dois cartões (quantos entram e quantos têm acesso a tudo)"
 csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 r=$(curl -s -b "$JAR" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" "$URL/usuarios.php")
 confere "$(tem 'Sessão expirada' "$r")" "criar acesso sem o token é recusado"
@@ -497,11 +497,12 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&ordem=gasto&dir=as
 tab=${r#*'<div class="tabela gestor tcard-corpo">'}
 confere "$([ "$(grep -o '<strong>\(TL 1\|FREE\)</strong>' < <(printf '%s\n' "$tab") | head -1)" = '<strong>FREE</strong>' ]; echo $?)" "clicar no título inverte a ordem"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d")
-confere "$(tem 'As setas comparam com o período anterior' "$r")" "com 7 dias, o gestor compara com os 7 dias anteriores"
+confere "$(tem 'Sem setas de comparação: não há dados para o período anterior' "$r")" "com 7 dias, o gestor compara com os 7 dias anteriores (sem dados antes: avisa, sem setas)"
+confere "$(grep -q 'de 0</small>\|class="delta novo"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem dados no período anterior, nada de \"de 0\" nem \"novo\" nas células"
 confere "$(tem '<select name="comparar"><option value="anterior" selected>Período anterior</option>' "$r")" "no alto do gestor, escolher com o que comparar"
 confere "$(tem 'Comparar <span class="nw">com&nbsp;<span class="info"' "$r")" "Comparar com tem o (i) explicando as setas"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d&comparar=semana")
-confere "$(tem 'As setas comparam com os mesmos dias da semana passada' "$r")" "comparar com a semana passada"
+confere "$(tem 'não há dados para os mesmos dias da semana passada' "$r")" "comparar com a semana passada"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d")
 confere "$(tem '<option value="semana" selected>' "$r")" "a comparação escolhida fica lembrada"
 curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=7d&comparar=anterior"
@@ -867,7 +868,7 @@ confere "$([ "$oc" = "2026-01-31,2026-02-28,2026-03-31,2026-04-30|123456|4000" ]
 # Rastreio da VSL (veio da copia do engdesk, commit 65b7a78): a pagina manda os eventos pelo window.trk
 confere "$(grep -q 'window.trk = function' "$RAIZ/t.js"; echo $?)" "t.js aceita os eventos da VSL (window.trk e a fila trkQueue)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
-confere "$(tem '<th data-col="orcamento" data-tipo="num"><button type="button" class="ordena">Orçamento</button>.*<th data-col="gasto" data-tipo="num"><button type="button" class="ordena">Gastos</button>.*<th data-col="visualizacoes" data-tipo="num"><button type="button" class="ordena">Vis. de página</button>.*<th data-col="margem" data-tipo="num"><button type="button" class="ordena">Margem</button>' "$(tr -d '
+confere "$(tem '<th data-col="orcamento" data-tipo="num"><button type="button" class="ordena">Orçamento</button>.*<th data-col="gasto" data-tipo="num"><button type="button" class="ordena">Gasto</button>.*<th data-col="visualizacoes" data-tipo="num"><button type="button" class="ordena">Vis. de página</button>.*<th data-col="margem" data-tipo="num"><button type="button" class="ordena">Margem</button>' "$(tr -d '
 ' < <(printf '%s
 ' "$r"))")" "análise diária com as colunas da planilha, na ordem dela"
 
@@ -1392,6 +1393,18 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo")
 confere "$(tem 'Clique na Bio' "$r")" "Eventos mostra o clique na Bio"
 r=$(bio --data-urlencode "acao=apagar" --data-urlencode "id=2")
 confere "$(tem 'Link apagado' "$r")" "apagar um link"
+
+echo "QA de interface (07/10)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
+confere "$(tem '<meta name="mobile-web-app-capable" content="yes">' "$r")" "meta mobile-web-app-capable (o apple-... sozinho está obsoleto)"
+confere "$(tem '<link rel="icon" href="' "$r")" "telas com ícone na aba (sem /favicon.ico 404 no painel avulso)"
+confere "$(tem '<option value="">Escolha um site antes</option>' "$r")" "filtro Página sem site diz o que fazer"
+confere "$(tem '<p class="suave barra-vendas"><span>Vendas só pelo webhook' "$r")" "aviso da Kiwify num bloco só (sem o ponto solto depois do link)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem '<details class="ajuda-tabela"><summary>' "$r")" "ajuda do gestor recolhida em Como ler esta tabela"
+confere "$(tem '<summary title="Colunas: escolher o que aparece na tabela">' "$r")" "Colunas com nome na dica"
+r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
+confere "$(tem '\-\-marca-fundo:#1A66E0' "$r")" "botão com cor de fundo que passa no contraste (token --marca-fundo)"
 
 echo "Avisos do PHP"
 # Aviso escondido (variavel que nao existe, indice faltando) nao quebra a tela, mas na

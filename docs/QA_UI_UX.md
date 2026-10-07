@@ -86,3 +86,33 @@ Os dois são conteúdo de `<details>` fechado.
 - o Gestor, as tabelas, os tokens e o núcleo (UX-02, 03, 04, 06, 07, 09, 10, 11, 14, 15, 16, 18 a 22) podem andar em paralelo.
 
 Combinar antes quem pega o quê, porque os dois terminais usam a mesma pasta.
+
+## Situação (07/10/2026, terminal 2)
+
+**Feito:**
+- **UX-02 e UX-15:** no gestor e na análise diária, o nome (ou o dia) fica parado ao rolar, também no computador. A borda direita ganha uma sombra enquanto houver colunas escondidas. No celular, as abas Contas, Campanhas, Conjuntos e Anúncios cabem na largura, sem ícone nem (i). O cartão por campanha no celular ficou para depois.
+- **UX-03 (gestor):**
+  - o `gestor_delta` não mostra mais "▲ de 0": com o anterior zerado mostra "▲ era 0", e com os dois zerados não mostra nada;
+  - sem nenhum dado no período de comparação, o gestor fica sem setas e avisa uma vez na legenda;
+  - o "novo" aparece uma vez, ao lado do nome, e sai das células e da Variação do ranking.
+
+  O Resumo e o Financeiro usam o mesmo `gestor_delta`, então o "de 0" também saiu deles.
+- **UX-04:** a origem aparece sem os IDs no Tráfego, na Conferência e em Vendas (o "Chegou por" e o texto da conferência). A etiqueta inteira fica na dica (`sem_ids()`, `com_icone_canal()`).
+- **UX-06:** Usuários com 2 cartões ("Usuários" e "Acesso a tudo").
+- **UX-07:** as legendas do gestor e da análise diária ficam em "Como ler esta tabela", recolhido (`ajuda_tabela()`).
+- **UX-09:** com toque, o (i) ganha 8 px de área para cada lado, a chave de status ganha área maior, a paginação vai a 40 px, as caixas de seleção a 20 px e os resumos (`summary`) a 32 px de altura.
+- **UX-10:**
+  - texto suave `#636B78` no claro e `#A3AAB6` no escuro;
+  - destaque `#1A66E0` no claro e `#60A5FA` no escuro;
+  - token novo, `--marca-fundo` (`#1A66E0` no claro, `#2563EB` no escuro), para os fundos com texto branco;
+  - texto do select desabilitado com a cor suave.
+- **UX-11:** barra lateral com 72 px e rótulos de 11,5 px; barra de baixo do celular com 12 px; setas do gestor com 12 px. Falta o `.pw-valor-txt .delta` (11,5 px), que é do CSS do painel.
+- **UX-14:** "Colunas" com nome para o leitor de tela e dica ao passar o mouse.
+- **UX-16:** o aviso da Kiwify virou um bloco só, sem o ponto solto.
+- **UX-18:** a análise diária diz "Gasto", como o gestor.
+- **UX-19:** o filtro Página sem site diz "Escolha um site antes".
+- **UX-20:** com todas no prejuízo, o ranking avisa que o 1º é a que perdeu menos.
+- **UX-21:** meta `mobile-web-app-capable`.
+- **UX-22:** `<link rel="icon">` (o favicon do admin, se houver, ou o `app-192.png`).
+
+**Testes:** 714 ok, com o bloco "QA de interface".
