@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- MODELO de Politica de Privacidade do OZATI/track (docs/PLATAFORMAS.md, secao 5).
+     Copie para o site (ex.: /privacidade/index.html), troque os campos entre chaves e tire as
+     partes que o site nao usa (area de membros, Login com Google, Instagram, UTMify). Precisa
+     ficar publica e indexavel, sem pixel, num dominio verificado: o Google e a Meta leem esta
+     pagina na revisao dos apps. -->
+<title>Política de Privacidade | {PRODUTO}</title>
+<meta name="description" content="Como o {PRODUTO} ({EMPRESA}) coleta, usa e protege os seus dados, e como exercer os seus direitos pela LGPD.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://{SITE}/privacidade/">
+<meta name="theme-color" content="#0B1F3F">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230a2240'/%3E%3Cpath d='M4 20V9l6-4 6 4v11M16 20v-8l4 2.5V20M2.5 20h19' fill='none' stroke='%23f59e0b' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#F3F6FA; --card:#FFFFFF; --text:#1B2433; --muted:#5B6678; --line:#E2E8F0;
+  --heading:#0B1F3F; --link:#1F6FE0; --destaque:#FFF7F0; --destaque-borda:#F26A10;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A1220; --card:#101B2E; --text:#E3EAF5; --muted:#9AA8BD; --line:#22324D;
+    --heading:#FFFFFF; --link:#7FB0FF; --destaque:#1A2233; --destaque-borda:#F26A10;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A1220; --card:#101B2E; --text:#E3EAF5; --muted:#9AA8BD; --line:#22324D;
+  --heading:#FFFFFF; --link:#7FB0FF; --destaque:#1A2233; --destaque-borda:#F26A10;
+}
+*{ box-sizing:border-box; }
+html{ -webkit-text-size-adjust:100%; }
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font:16px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+a{ color:var(--link); text-underline-offset:3px; overflow-wrap:anywhere; }
+.topo{ background:linear-gradient(160deg,#0B1F3F 0%,#08111E 100%); color:#fff; padding:40px 16px 32px; }
+.topo .in, main{ max-width:760px; margin:0 auto; }
+.topo p{ margin:0 0 8px; font-size:13px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#FFB27A; }
+.topo h1{ margin:0; font-size:clamp(28px,6vw,40px); line-height:1.15; }
+.topo small{ display:block; margin-top:10px; color:rgba(255,255,255,.7); font-size:14px; }
+main{ padding:24px 16px 48px; }
+section{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px clamp(16px,4vw,28px); margin:0 0 16px; }
+h2{ margin:0 0 8px; color:var(--heading); font-size:20px; line-height:1.3; }
+h3{ margin:16px 0 4px; color:var(--heading); font-size:16px; }
+p{ margin:8px 0 0; }
+ul{ margin:8px 0 0; padding-left:20px; }
+li + li{ margin-top:4px; }
+strong{ color:var(--heading); }
+.aviso{ background:var(--destaque); border-left:4px solid var(--destaque-borda); border-radius:8px; padding:12px 14px; margin-top:12px; }
+footer{ text-align:center; color:var(--muted); font-size:13px; padding:0 16px 40px; }
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="in">
+    <p>{PRODUTO} · {EMPRESA}</p>
+    <h1>Política de Privacidade</h1>
+    <small>Atualizada em {DATA}</small>
+  </div>
+</header>
+
+<main>
+  <section>
+    <h2>1. Quem somos</h2>
+    <p>O <strong>{PRODUTO}</strong> é um produto da <strong>{EMPRESA}</strong>, vendido em <a href="https://{SITE}/">{SITE}</a>. Somos os responsáveis (controladores) pelos dados descritos aqui, nos termos da Lei Geral de Proteção de Dados (Lei 13.709/2018, LGPD).</p>
+    <p>Contato para qualquer assunto de privacidade: <a href="mailto:{EMAIL}">{EMAIL}</a>.</p>
+  </section>
+
+  <section>
+    <h2>2. O que coletamos</h2>
+    <h3>Quando você visita as nossas páginas</h3>
+    <ul>
+      <li>Um identificador aleatório do seu navegador, que não revela quem você é.</li>
+      <li>As páginas que abriu, os botões em que clicou e quando.</li>
+      <li>De onde veio a visita: o anúncio ou o link (parâmetros UTM e os identificadores de clique do Google e da Meta) e o site anterior.</li>
+      <li>O tipo de aparelho, o sistema e o navegador, e o endereço IP <strong>parcial</strong> (sem os últimos dígitos).</li>
+    </ul>
+    <h3>Quando você compra</h3>
+    <p>O pagamento é feito no checkout da <strong>{PAGAMENTO}</strong>, que coleta os seus dados de compra e de pagamento conforme a política de privacidade dela. Nós recebemos da {PAGAMENTO} o pedido, o produto, o valor, a forma de pagamento e a situação da compra, para liberar o seu acesso e prestar suporte. O nosso painel de vendas não guarda nome, e-mail, telefone nem CPF.</p>
+    <h3>Quando você usa a área de membros</h3>
+    <p>Para entrar, usamos o seu e-mail, ou o Login com Google. Guardamos o seu nome, o seu e-mail, a sua foto de perfil (se vier do Google) e o que você comprou, para liberar os arquivos certos.</p>
+  </section>
+
+  <section>
+    <h2>3. Cookies e tecnologias parecidas</h2>
+    <ul>
+      <li><strong>Memória do anúncio</strong> (<code>eng_anuncio</code>, 7 dias): guarda de qual anúncio você veio, para a compra continuar ligada a ele se você voltar depois.</li>
+      <li><strong>Pixel da Meta</strong> e <strong>tag do Google</strong>: medem visitas, cliques no botão de compra e compras dos anúncios do Facebook, do Instagram e do Google.</li>
+      <li><strong>UTMify</strong>: liga cada venda ao anúncio que a trouxe, para sabermos quais anúncios funcionam.</li>
+      <li><strong>Painel próprio</strong>: o identificador aleatório e as visitas descritas acima, guardados no nosso servidor.</li>
+    </ul>
+    <p>Você pode apagar ou bloquear cookies nas configurações do navegador. As páginas continuam funcionando; só a medição dos anúncios perde precisão.</p>
+  </section>
+
+  <section>
+    <h2>4. Para que usamos</h2>
+    <ul>
+      <li>Vender o produto, liberar o acesso e dar suporte (execução do contrato).</li>
+      <li>Saber quais anúncios e páginas trazem compras e investir melhor (legítimo interesse).</li>
+      <li>Avisar a Meta e o Google que houve uma compra vinda de um anúncio, para eles mostrarem o anúncio a quem tem mais interesse. Mandamos o identificador do clique, o valor e o número do pedido. A {PAGAMENTO} pode enviar à Meta dados de compra protegidos por criptografia (hash), conforme a política dela.</li>
+      <li>Proteger o site contra abuso e cumprir obrigações legais.</li>
+    </ul>
+    <p><strong>Não vendemos os seus dados.</strong></p>
+  </section>
+
+  <section>
+    <h2>5. Com quem compartilhamos</h2>
+    <p>Só com os serviços que fazem o site funcionar, cada um com a própria política de privacidade:</p>
+    <ul>
+      <li><strong>{PAGAMENTO}</strong>: pagamento e entrega da compra.</li>
+      <li><strong>{AREA_DE_MEMBROS}</strong>: contas da área de membros.</li>
+      <li><strong>{HOSPEDAGEM}</strong>: hospedagem do site e do painel.</li>
+      <li><strong>Meta</strong> (Facebook e Instagram) e <strong>Google</strong>: anúncios e medição.</li>
+      <li><strong>UTMify</strong>: ligação entre vendas e anúncios.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. Dados recebidos das APIs do Google</h2>
+    <p>Usamos serviços do Google em dois lugares:</p>
+    <ul>
+      <li><strong>Login com Google</strong> (área de membros): recebemos só o seu nome, o seu e-mail e a sua foto de perfil, usados apenas para criar e identificar a sua conta.</li>
+      <li><strong>API do Google Ads</strong> (painel interno da {EMPRESA}): lemos os dados da <strong>nossa própria</strong> conta de anúncios, como campanhas, gastos, cliques e conversões, e enviamos a ela as compras vindas de anúncios. Esses dados servem apenas para o nosso relatório interno de resultados e para gerenciar as nossas campanhas.</li>
+    </ul>
+    <p>Esses dados não são vendidos, não são usados para publicidade fora das nossas próprias campanhas, não são usados para treinar modelos de inteligência artificial e não são repassados a terceiros, a não ser quando a lei exigir. Ninguém da equipe lê os dados de um usuário sem o consentimento dele, a não ser por segurança ou obrigação legal.</p>
+    <p class="aviso">A utilização e a transferência de informações recebidas das APIs do Google para qualquer outra aplicação obedecerão à <a href="https://developers.google.com/terms/api-services-user-data-policy">Política de dados do utilizador dos serviços de API do Google</a>, incluindo os requisitos de utilização limitada.</p>
+  </section>
+
+  <section>
+    <h2>7. Por quanto tempo guardamos</h2>
+    <ul>
+      <li>Visitas e cliques do painel próprio: até {DIAS} dias. Depois disso, são apagados automaticamente.</li>
+      <li>Dados da compra e da conta: enquanto você tiver acesso ao produto e pelo prazo que a lei fiscal e o Código de Defesa do Consumidor exigem.</li>
+      <li>Memória do anúncio no navegador: 7 dias.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>8. Os seus direitos</h2>
+    <p>Pela LGPD, você pode pedir a qualquer momento: confirmação de que tratamos os seus dados, acesso, correção, anonimização, portabilidade, exclusão, informação sobre com quem compartilhamos e revisão do consentimento. Basta escrever para <a href="mailto:{EMAIL}">{EMAIL}</a>. Respondemos em até 15 dias. Você também pode reclamar à Autoridade Nacional de Proteção de Dados (ANPD).</p>
+  </section>
+
+  <section>
+    <h2>9. Segurança</h2>
+    <p>O site usa conexão criptografada (HTTPS). As senhas e as chaves dos serviços ficam fora das pastas públicas do servidor, e o acesso aos painéis é restrito à equipe, com senha. Nenhum sistema é 100% invulnerável. Se houver um incidente que traga risco a você, avisaremos você e a ANPD.</p>
+  </section>
+
+  <section>
+    <h2>10. Mudanças nesta política</h2>
+    <p>Quando o site passar a coletar algo novo, atualizamos esta página e a data no topo.</p>
+  </section>
+</main>
+
+<footer>© {ANO} {EMPRESA} · <a href="https://{SITE}/">{PRODUTO}</a></footer>
+</body>
+</html>
