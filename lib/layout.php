@@ -4,30 +4,13 @@
 require_once __DIR__ . '/tema.php';
 require_once __DIR__ . '/perfil.php';
 
-function pagina_inicio(string $titulo): void
+// CSS do admin inteiro, que o painel UTM e o CMS usam iguais: as cores do tema (claro, escuro,
+// pretao ou a cor escolhida, lib/tema.php), a altura dos botoes e campos, as barras de rolagem,
+// a barra lateral (paineis e conta), a aparencia e a foto. O CMS (admin/index.php no engdesk)
+// imprime este CSS antes do proprio, que usa estas variaveis.
+function admin_css_base(): string
 {
-    header('Content-Type: text/html; charset=utf-8');
-    header('X-Robots-Tag: noindex, nofollow');
-    header('Cache-Control: no-store');
-    ?><!doctype html>
-<html lang="pt-BR"<?= tema_atributos() ?>>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="robots" content="noindex, nofollow">
-<title><?= e($titulo) ?> · Rastreio</title>
-<link rel="manifest" href="manifest.php">
-<meta name="theme-color" content="<?= e(tema_atual()) ?>">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="<?= e((string)((track_config() ?? [])['app_nome'] ?? 'Painel')) ?>">
-<link rel="apple-touch-icon" href="<?= is_file(__DIR__ . '/../../apple-touch-icon.png') ? '../apple-touch-icon.png' : 'app-192.png' ?>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-/* Visual de ferramenta de trabalho: neutro, denso e sem enfeite. Azul da marca so no que
-   e acao ou estado atual (botao principal, aba aberta, link). Sem sombra, sem pilula, sem
-   icone repetido em toda aba. Inter em tudo, com numeros alinhados (tabular-nums). */
+    return <<<'CSS'
 :root{
   --fundo:#F7F8FA; --cartao:#FFFFFF; --cartao-2:#F3F4F6; --hover:#F7F9FC;
   --texto:#111827; --suave:#6B7280; --apagado:#9CA3AF; --linha:#E5E7EB; --linha-forte:#D1D5DB;
@@ -65,6 +48,92 @@ function pagina_inicio(string $titulo): void
 ::-webkit-scrollbar-thumb{ background:var(--rolagem); border-radius:8px; border:2px solid transparent; background-clip:padding-box; }
 ::-webkit-scrollbar-thumb:hover{ background:var(--rolagem-hover); background-clip:padding-box; }
 ::-webkit-scrollbar-corner{ background:transparent; }
+:root{ --alt:34px; }
+@media (pointer:coarse){ :root{ --alt:40px; } }
+.avatar{ display:inline-flex; flex:none; align-items:center; justify-content:center; border-radius:50%; object-fit:cover; }
+.avatar-letra{ background:var(--av); color:#fff; font-weight:600; line-height:1; }
+.casca{ display:flex; min-height:100vh; }
+.conteudo{ flex:1; min-width:0; }
+/* Barra lateral do admin: os paineis em cima e a conta embaixo (no celular, uma linha no alto) */
+.lateral{ width:64px; flex:none; z-index:20; background:var(--lateral); display:flex; flex-direction:column; align-items:center; padding:12px 0; position:sticky; top:0; height:100vh; color:#9CA3AF; }
+.lateral-alterna{ display:none; }
+.lateral-itens{ flex:1; min-height:0; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; }
+.lateral-paineis, .lateral-conta{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+.lateral-paineis a{ width:48px; padding:8px 0 6px; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center; gap:3px; color:#9CA3AF; font-size:10.5px; font-weight:500; }
+.lateral-paineis a:hover{ background:rgba(255,255,255,.06); color:#fff; text-decoration:none; }
+.lateral-paineis a.atual{ background:rgba(255,255,255,.1); color:#fff; }
+.lateral-paineis svg{ width:20px; height:20px; }
+.lateral-conta{ gap:6px; }
+.lateral .conta-icone, .lateral .tema-menu > summary{ display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:var(--r-sm); color:#9CA3AF; }
+.lateral .conta-icone:hover, .lateral .tema-menu > summary:hover, .lateral .tema-menu[open] > summary{ background:rgba(255,255,255,.08); color:#fff; text-decoration:none; }
+.lateral .conta-perfil{ display:inline-flex; align-items:center; gap:8px; padding:3px; margin-top:4px; border-radius:999px; color:#fff; font-weight:500; }
+.lateral .conta-perfil:hover{ background:rgba(255,255,255,.08); text-decoration:none; }
+.lateral .conta-perfil > span:not(.avatar){ display:none; }
+.lateral .tema-painel{ left:calc(100% + 10px); right:auto; top:auto; bottom:0; color:var(--texto); }
+.tema-menu{ position:relative; }
+.tema-menu > summary{ list-style:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:var(--r-sm); color:var(--suave); }
+.tema-menu > summary::-webkit-details-marker{ display:none; }
+.tema-menu > summary:hover, .tema-menu[open] > summary{ background:var(--hover); color:var(--marca); }
+.tema-painel{ position:absolute; z-index:40; right:0; top:calc(100% + 6px); width:300px; padding:14px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); }
+.tema-painel h3{ margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--suave); }
+.tema-prontos{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0 0 12px; }
+.tema-pronto{ display:flex; flex-direction:column; align-items:center; gap:6px; min-height:0; padding:8px 6px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-md); font-weight:500; }
+.tema-pronto:hover{ background:var(--hover); border-color:var(--marca); }
+.tema-pronto.atual{ border:2px solid var(--marca); padding:7px 5px; }
+.tema-previa{ display:grid; grid-template-columns:30% 1fr; grid-template-rows:repeat(3,1fr); gap:3px; width:64px; height:42px; padding:5px; border-radius:6px; background:var(--p); border:1px solid rgba(127,127,127,.3); }
+.tema-previa i{ grid-column:2; border-radius:2px; background:color-mix(in srgb, var(--p), #000 12%); }
+.tema-previa[data-escuro="1"] i{ background:color-mix(in srgb, var(--p), #fff 22%); }
+.tema-previa i:first-child{ grid-row:1 / -1; grid-column:1; }
+.tema-livre{ display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--suave); }
+.tema-livre > span:last-child{ display:flex; align-items:center; gap:8px; }
+.tema-livre input[type=color]{ width:44px; min-width:0; height:32px; padding:2px; cursor:pointer; }
+@media (max-width:760px){
+  .casca{ flex-direction:column; }
+  .lateral{ width:auto; height:auto; position:relative; flex-direction:column; align-items:stretch; padding:0; }
+  .lateral-alterna{ display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:max(6px, env(safe-area-inset-top)) 16px 6px; background:none; border:0; border-radius:0; color:#E5E7EB; font-size:14px; }
+  .lateral-alterna:hover{ background:rgba(255,255,255,.04); }
+  .lateral-alterna > svg:first-child{ width:18px; height:18px; color:#9CA3AF; }
+  .lateral-alterna .avatar{ margin-left:auto; }
+  .lateral-alterna .seta{ width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; transition:transform .2s; }
+  .lateral.aberta .lateral-alterna .seta{ transform:rotate(180deg); }
+  .lateral-itens{ display:none; }
+  .lateral.aberta .lateral-itens{ display:flex; flex-direction:row; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; padding:2px 12px 12px; }
+  .lateral-paineis, .lateral-conta{ flex-direction:row; }
+  .lateral-paineis a{ flex-direction:row; width:auto; padding:8px 14px; gap:6px; font-size:13px; }
+  .lateral-paineis svg{ width:18px; height:18px; }
+  .lateral .conta-perfil{ margin:0; padding-right:12px; }
+  .lateral .conta-perfil > span:not(.avatar){ display:inline; }
+  .lateral .tema-painel{ position:fixed; left:12px; right:12px; top:auto; bottom:calc(76px + env(safe-area-inset-bottom)); width:auto; }
+}
+@media (display-mode:standalone) and (min-width:761px){ .lateral{ padding-top:max(12px, env(safe-area-inset-top)); } }
+CSS;
+}
+
+function pagina_inicio(string $titulo): void
+{
+    header('Content-Type: text/html; charset=utf-8');
+    header('X-Robots-Tag: noindex, nofollow');
+    header('Cache-Control: no-store');
+    ?><!doctype html>
+<html lang="pt-BR"<?= tema_atributos() ?>>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title><?= e($titulo) ?> · Rastreio</title>
+<link rel="manifest" href="manifest.php">
+<meta name="theme-color" content="<?= e(tema_atual()) ?>">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="<?= e((string)((track_config() ?? [])['app_nome'] ?? 'Painel')) ?>">
+<link rel="apple-touch-icon" href="<?= is_file(__DIR__ . '/../../apple-touch-icon.png') ? '../apple-touch-icon.png' : 'app-192.png' ?>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+<?= admin_css_base() ?>
+/* Visual de ferramenta de trabalho: neutro, denso e sem enfeite. Azul da marca so no que
+   e acao ou estado atual (botao principal, aba aberta, link). Sem sombra, sem pilula, sem
+   icone repetido em toda aba. Inter em tudo, com numeros alinhados (tabular-nums). */
 .defs-graficos{ position:absolute; width:0; height:0; overflow:hidden; }
 body{ margin:0; font:13px/1.5 var(--f-texto); background:var(--fundo); color:var(--texto); font-feature-settings:"tnum" 1; }
 a{ color:var(--marca); text-decoration:none; } a:hover{ text-decoration:underline; }
@@ -74,8 +143,6 @@ select, input, textarea, button{ font:inherit; color:inherit; }
 select, input, textarea{ background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-sm); padding:6px 9px; min-width:160px; }
 /* Botoes e campos numa altura so (--alt), o principal e o secundario do mesmo tamanho: muda a
    cor, nunca o tamanho. Botao pequeno (acao dentro de tabela): .pequeno */
-:root{ --alt:34px; }
-@media (pointer:coarse){ :root{ --alt:40px; } }
 select, input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]){ min-height:var(--alt); }
 /* Caixa de marcar e opcao: sem a largura minima dos campos de texto */
 input[type=checkbox], input[type=radio]{ min-width:0; width:auto; padding:0; accent-color:var(--marca); }
@@ -159,8 +226,6 @@ button.discreto.neutro{ color:var(--texto); }
 }
 body.com-folha{ overflow:hidden; }
 /* Topo: conta, foto e a seta que recolhe a barra de cima (lembrado num cookie) */
-.avatar{ display:inline-flex; flex:none; align-items:center; justify-content:center; border-radius:50%; object-fit:cover; }
-.avatar-letra{ background:var(--av); color:#fff; font-weight:600; line-height:1; }
 section[id], .cartao[id]{ scroll-margin-top:84px; }
 /* Usuarios: o que cada um pode abrir */
 form.acessos, fieldset.acessos{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin:0; }
@@ -232,24 +297,6 @@ td.quebra{ white-space:normal; min-width:220px; }
 .barra-vendas form{ margin:0; }
 
 /* Barra lateral CMS | UTM */
-.casca{ display:flex; min-height:100vh; }
-.conteudo{ flex:1; min-width:0; }
-/* Barra lateral do admin: os paineis em cima e a conta embaixo (no celular, uma linha no alto) */
-.lateral{ width:64px; flex:none; z-index:20; background:var(--lateral); display:flex; flex-direction:column; align-items:center; padding:12px 0; position:sticky; top:0; height:100vh; color:#9CA3AF; }
-.lateral-alterna{ display:none; }
-.lateral-itens{ flex:1; min-height:0; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; }
-.lateral-paineis, .lateral-conta{ display:flex; flex-direction:column; align-items:center; gap:4px; }
-.lateral-paineis a{ width:48px; padding:8px 0 6px; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center; gap:3px; color:#9CA3AF; font-size:10.5px; font-weight:500; }
-.lateral-paineis a:hover{ background:rgba(255,255,255,.06); color:#fff; text-decoration:none; }
-.lateral-paineis a.atual{ background:rgba(255,255,255,.1); color:#fff; }
-.lateral-paineis svg{ width:20px; height:20px; }
-.lateral-conta{ gap:6px; }
-.lateral .conta-icone, .lateral .tema-menu > summary{ display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:var(--r-sm); color:#9CA3AF; }
-.lateral .conta-icone:hover, .lateral .tema-menu > summary:hover, .lateral .tema-menu[open] > summary{ background:rgba(255,255,255,.08); color:#fff; text-decoration:none; }
-.lateral .conta-perfil{ display:inline-flex; align-items:center; gap:8px; padding:3px; margin-top:4px; border-radius:999px; color:#fff; font-weight:500; }
-.lateral .conta-perfil:hover{ background:rgba(255,255,255,.08); text-decoration:none; }
-.lateral .conta-perfil > span:not(.avatar){ display:none; }
-.lateral .tema-painel{ left:calc(100% + 10px); right:auto; top:auto; bottom:0; color:var(--texto); }
 
 /* Gestor de anuncios */
 .gestor-niveis, .segmentos{ display:inline-flex; background:var(--cartao-2); border:1px solid var(--linha); border-radius:var(--r-sm); padding:2px; margin:0 0 14px; }
@@ -491,23 +538,6 @@ th[aria-sort=descending] > button.ordena::after{ content:" ↓"; }
 @keyframes girar{ to{ transform:rotate(360deg); } }
 @media (prefers-reduced-motion:reduce){ .botao-icone.girando svg{ animation:none; } }
 /* Aparencia: a paleta no topo abre os temas prontos e a cor livre (como na UTMify) */
-.tema-menu{ position:relative; }
-.tema-menu > summary{ list-style:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:var(--r-sm); color:var(--suave); }
-.tema-menu > summary::-webkit-details-marker{ display:none; }
-.tema-menu > summary:hover, .tema-menu[open] > summary{ background:var(--hover); color:var(--marca); }
-.tema-painel{ position:absolute; z-index:40; right:0; top:calc(100% + 6px); width:300px; padding:14px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); }
-.tema-painel h3{ margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--suave); }
-.tema-prontos{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0 0 12px; }
-.tema-pronto{ display:flex; flex-direction:column; align-items:center; gap:6px; min-height:0; padding:8px 6px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-md); font-weight:500; }
-.tema-pronto:hover{ background:var(--hover); border-color:var(--marca); }
-.tema-pronto.atual{ border:2px solid var(--marca); padding:7px 5px; }
-.tema-previa{ display:grid; grid-template-columns:30% 1fr; grid-template-rows:repeat(3,1fr); gap:3px; width:64px; height:42px; padding:5px; border-radius:6px; background:var(--p); border:1px solid rgba(127,127,127,.3); }
-.tema-previa i{ grid-column:2; border-radius:2px; background:color-mix(in srgb, var(--p), #000 12%); }
-.tema-previa[data-escuro="1"] i{ background:color-mix(in srgb, var(--p), #fff 22%); }
-.tema-previa i:first-child{ grid-row:1 / -1; grid-column:1; }
-.tema-livre{ display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--suave); }
-.tema-livre > span:last-child{ display:flex; align-items:center; gap:8px; }
-.tema-livre input[type=color]{ width:44px; min-width:0; height:32px; padding:2px; cursor:pointer; }
 .cartao .tema-form{ max-width:340px; }
 /* Link do nome no topo: Configuracoes */
 a.conta-nome{ display:inline-flex; align-items:center; gap:6px; color:var(--texto); text-decoration:none; padding:4px 8px; border-radius:var(--r-sm); }
@@ -678,22 +708,6 @@ th.marca, td.marca{ width:34px; text-align:center; }
   body{ padding-bottom:calc(64px + env(safe-area-inset-bottom)); }
   .abas{ display:none; }
   .topo{ position:static; padding:10px 16px; gap:8px; }
-  .casca{ flex-direction:column; }
-  .lateral{ width:auto; height:auto; position:relative; flex-direction:column; align-items:stretch; padding:0; }
-  .lateral-alterna{ display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:max(6px, env(safe-area-inset-top)) 16px 6px; background:none; border:0; border-radius:0; color:#E5E7EB; font-size:14px; }
-  .lateral-alterna:hover{ background:rgba(255,255,255,.04); }
-  .lateral-alterna > svg:first-child{ width:18px; height:18px; color:#9CA3AF; }
-  .lateral-alterna .avatar{ margin-left:auto; }
-  .lateral-alterna .seta{ width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; transition:transform .2s; }
-  .lateral.aberta .lateral-alterna .seta{ transform:rotate(180deg); }
-  .lateral-itens{ display:none; }
-  .lateral.aberta .lateral-itens{ display:flex; flex-direction:row; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; padding:2px 12px 12px; }
-  .lateral-paineis, .lateral-conta{ flex-direction:row; }
-  .lateral-paineis a{ flex-direction:row; width:auto; padding:8px 14px; gap:6px; font-size:13px; }
-  .lateral-paineis svg{ width:18px; height:18px; }
-  .lateral .conta-perfil{ margin:0; padding-right:12px; }
-  .lateral .conta-perfil > span:not(.avatar){ display:inline; }
-  .lateral .tema-painel{ position:fixed; left:12px; right:12px; top:auto; bottom:calc(76px + env(safe-area-inset-bottom)); width:auto; }
   .filtros{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); width:100%; gap:8px; }
   .filtros select{ width:100%; min-width:0; }
   .filtros .campo, .multi > summary{ width:100%; min-width:0; max-width:none; }
@@ -746,7 +760,6 @@ th.marca, td.marca{ width:34px; text-align:center; }
   select, input, textarea{ font-size:16px; }
   input[type=checkbox], input[type=radio]{ font-size:inherit; }
 }
-@media (display-mode:standalone) and (min-width:761px){ .lateral{ padding-top:max(12px, env(safe-area-inset-top)); } }
 </style>
 </head>
 <body>
