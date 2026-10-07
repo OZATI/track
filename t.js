@@ -6,6 +6,7 @@
  *   <script src="https://track.SEU-DOMINIO/t.js" defer></script>
  *
  * - PageView ao abrir; CliqueCheckout, WhatsApp e Botao nos cliques (todos, e um log).
+ *   Link da pagina da bio (data-bio="<nome do link>"): BioClique, alem do WhatsApp se for.
  * - Poe sck=trk_<visitante> no link do checkout: a Kiwify devolve o sck na venda, e o
  *   painel liga a compra a quem clicou. A pagina precisa ter o script da UTMify com
  *   data-utmify-prevent-xcod-sck, para a UTMify nao sobrescrever o sck.
@@ -95,6 +96,7 @@
     if (!a) return;
     var href = a.getAttribute('href') || '';
     var texto = (a.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (a.hasAttribute('data-bio')) enviar('BioClique', a.getAttribute('data-bio'));
     if (a.tagName === 'A' && ehCheckout(a)) {
       marcar(a);
       enviar('CliqueCheckout', texto, a.href);

@@ -192,6 +192,10 @@ function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms =
     if (usuario_pode('utm')) {
         $paineis['utm'] = ['UTM', $utm === '' ? './' : $utm, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>'];
     }
+    // Bio: a pagina de links do Instagram (bio.php, dentro da pasta do painel)
+    if (usuario_pode('bio')) {
+        $paineis['bio'] = ['Bio', $utm . 'bio.php', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>'];
+    }
     $atual = $paineis[$aqui] ?? ['Admin', './', icone(['usuarios' => 'usuarios'][$aqui] ?? 'usuario', 20)];
     $marca = fn(string $tela) => $aqui === $tela ? ' atual" aria-current="page' : '';
     $h = '<nav class="lateral" aria-label="Admin" data-lateral><input type="hidden" id="csrf-painel" value="' . e(token_csrf()) . '">'

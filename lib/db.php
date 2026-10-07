@@ -273,6 +273,27 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 13;
             SQL);
     }
+    if ($versao < 14) {
+        // Painel da Bio (lib/bio.php): os links da pagina de links do Instagram, na ordem
+        track_migrar_para($pdo, 14, <<<'SQL'
+            CREATE TABLE IF NOT EXISTS bio_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                slug TEXT NOT NULL UNIQUE,
+                titulo TEXT NOT NULL,
+                subtitulo TEXT,
+                icone TEXT NOT NULL DEFAULT 'link',
+                cor TEXT NOT NULL DEFAULT 'azul',
+                url TEXT NOT NULL DEFAULT '',
+                destaque TEXT,
+                principal INTEGER NOT NULL DEFAULT 0,
+                ativo INTEGER NOT NULL DEFAULT 1,
+                ordem INTEGER NOT NULL DEFAULT 0,
+                criado_em TEXT NOT NULL,
+                atualizado_em TEXT
+            );
+            PRAGMA user_version = 14;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

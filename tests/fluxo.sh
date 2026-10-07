@@ -271,6 +271,8 @@ confere "$([ "$code" = "200" ]; echo $?)" "Minha conta (foto, senha, aparência 
 confere "$(grep -q 'data-push\|Rastreio de vendas' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Minha conta é do núcleo: sem notificações nem abas do UTM"
 destino=$(curl -s -D - -o /dev/null -b "$J3" "$URL/configuracoes.php" | grep -i '^location:' | tr -d '\r')
 confere "$(tem 'ocation: \.\./$' "$destino")" "Configurações do UTM ficam com o UTM (usuário só do CMS vai para o CMS)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/bio.php")
+confere "$([ "$code" = "403" ]; echo $?)" "Bio fechada para quem não tem o acesso Bio ($code)"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" "$URL/usuarios.php")
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/index.php")
 confere "$([ "$code" = "403" ]; echo $?)" "usuário sem nenhum painel não abre o UTM ($code)"
@@ -1235,6 +1237,55 @@ if "$PHP" $PHP_FLAGS -r 'exit(function_exists("imagecreatetruecolor") ? 0 : 1);'
 fi
 r=$(curl -s -b "$JAR" "$URL/index.php")
 confere "$(tem 'class="avatar avatar-letra"' "$r")" "sem foto, a bolinha mostra a inicial"
+
+echo "Painel da Bio"
+r=$(curl -s -b "$JAR" "$URL/bio.php?periodo=tudo")
+confere "$(tem 'Bio · Página de links' "$r")" "tela da Bio abre"
+confere "$(tem 'href="bio.php"[^>]*title="Bio"' "$r")" "Bio na barra lateral"
+confere "$(tem 'Visitas da Bio' "$(sem_tags "$r")")" "Bio: cartões de visitas, cliques, taxa e link campeão"
+cb=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+bio() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cb" "$@" "$URL/bio.php?periodo=tudo"; curl -s -b "$JAR" "$URL/bio.php?periodo=tudo"; }
+dados() { (cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/bio.php"; echo json_encode(bio_dados("site.test"), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);'); }
+# (url ja codificada: no Git Bash do Windows, "url=/app/" viraria um caminho do Windows)
+r=$(bio --data-urlencode "acao=salvar" --data-urlencode "titulo=Catalogo de projetos" --data "url=%2Fapp%2F" --data-urlencode "slug=catalogo" --data-urlencode "destaque=Acesso imediato")
+confere "$(tem 'Link &quot;Catalogo de projetos&quot; criado' "$r")" "criar link da Bio"
+r=$(bio --data-urlencode "acao=salvar" --data-urlencode "titulo=Ruim" --data-urlencode "url=javascript:alert(1)")
+confere "$(tem 'Endereço inválido' "$r")" "link javascript: é recusado"
+r=$(bio --data-urlencode "acao=salvar" --data-urlencode "titulo=Ruim" --data-urlencode "url=//invasor.test/")
+confere "$(tem 'Endereço inválido' "$r")" "link //outro-site é recusado"
+r=$(bio --data-urlencode "acao=salvar" --data-urlencode "titulo=Ruim" --data-urlencode "url=https://x.test/\"><script>")
+confere "$(tem 'Endereço inválido' "$r")" "link com aspas ou < é recusado"
+bio --data-urlencode "acao=salvar" --data-urlencode "titulo=Blog externo" --data-urlencode "url=https://exemplo.test/blog" >/dev/null
+bio --data-urlencode "acao=salvar" --data-urlencode "titulo=Fale comigo" --data-urlencode "icone=whatsapp" >/dev/null
+d=$(dados)
+confere "$(tem '"url":"/app/?utm_source=organico&utm_medium=instagram-bio&utm_campaign=bio&utm_content=catalogo"' "$d")" "link do próprio site ganha as etiquetas da bio (organico / instagram-bio / bio / nome do link)"
+confere "$(tem '"url":"https://exemplo.test/blog","externo":true' "$d")" "link de outro site fica como está e abre em outra aba"
+confere "$(grep -q 'Fale comigo' < <(printf '%s\n' "$d"); [ $? -ne 0 ]; echo $?)" "WhatsApp sem número cadastrado não aparece na página"
+r=$(bio --data-urlencode "acao=config" --data-urlencode "whatsapp=123")
+confere "$(tem 'WhatsApp: o número' "$r")" "número de WhatsApp curto é recusado"
+r=$(bio --data-urlencode "acao=config" --data-urlencode "instagram=javascript:alert(1)")
+confere "$(tem 'Instagram: use um endereço https' "$r")" "rede social só com https"
+r=$(bio --data-urlencode "acao=config" --data-urlencode "nome=Allan" --data-urlencode "whatsapp=+55 (81) 98765-4321" --data-urlencode "whatsapp_msg=Oi Allan" --data-urlencode "endereco=https://site.test/bio/")
+confere "$(tem 'Textos e redes da página salvos' "$r")" "salvar os textos, o WhatsApp e o endereço da página"
+d=$(dados)
+confere "$(tem '"url":"https://wa.me/5581987654321?text=Oi%20Allan","externo":true' "$d")" "link do WhatsApp usa o número do painel, com a mensagem"
+bio --data-urlencode "acao=mover" --data-urlencode "id=3" --data-urlencode "dir=-1" >/dev/null
+d=$(dados)
+confere "$([ "$(grep -o '"slug":"[^"]*"' < <(printf '%s\n' "$d") | tr -d '\n')" = '"slug":"catalogo""slug":"fale-comigo""slug":"blog-externo"' ]; echo $?)" "subir um link muda a ordem na página"
+r=$(bio --data-urlencode "acao=ativo" --data-urlencode "id=2" --data-urlencode "ativo=0")
+confere "$(tem 'Link desligado' "$r")" "desligar um link"
+d=$(dados)
+confere "$(grep -q 'blog-externo' < <(printf '%s\n' "$d"); [ $? -ne 0 ]; echo $?)" "link desligado sai da página sem ser apagado"
+curl -s -H "Origin: http://site.test" --data '{"evento":"PageView","url":"http://site.test/bio/"}' "$URL/coletar.php" >/dev/null
+curl -s -H "Origin: http://site.test" --data '{"evento":"BioClique","detalhe":"catalogo","url":"http://site.test/bio/"}' "$URL/coletar.php" >/dev/null
+r=$(curl -s -b "$JAR" "$URL/bio.php?periodo=tudo")
+confere "$(tem 'Cliques nos links 11 pessoa clicou' "$(sem_tags "$r")")" "cliques nos links contados pelo evento BioClique"
+confere "$(tem 'Link campeãoCatalogo de projetos1 clique' "$(sem_tags "$r")")" "link campeão"
+confere "$(tem 'data-tabela="bio-links" data-por-pagina="25">' "$r")" "links na tabela inteligente"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo")
+confere "$(tem 'Clique na Bio' "$r")" "Eventos mostra o clique na Bio"
+r=$(bio --data-urlencode "acao=apagar" --data-urlencode "id=2")
+confere "$(tem 'Link apagado' "$r")" "apagar um link"
 
 echo "Avisos do PHP"
 # Aviso escondido (variavel que nao existe, indice faltando) nao quebra a tela, mas na

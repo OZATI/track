@@ -287,6 +287,14 @@ td.quebra{ white-space:normal; min-width:220px; }
 .gg-legenda i{ width:10px; height:10px; border-radius:3px; background:var(--gg); }
 .gg-legenda b{ font-weight:600; font-variant-numeric:tabular-nums; }
 .gg-c0{ --gg:#2563EB; } .gg-c1{ --gg:#16A34A; } .gg-c2{ --gg:#EA580C; } .gg-c3{ --gg:#9333EA; } .gg-c4{ --gg:#DB2777; }
+/* Painel da Bio (bio.php) */
+.bio-topo{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 14px; }
+.bio-ordem{ display:inline-flex; gap:4px; }
+.bio-ordem .tcard-icone{ min-height:28px; width:28px; }
+.bio-form{ display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px 16px; align-items:end; }
+.bio-form label{ display:flex; flex-direction:column; gap:4px; margin:0; font-size:12px; color:var(--suave); }
+.bio-form label.caixa{ flex-direction:row; align-items:center; gap:8px; color:var(--texto); font-size:13px; }
+.bio-form .linha-botoes{ grid-column:1 / -1; margin:0; }
 /* Modo foco: a tela fica so com o gestor (sem a barra lateral, as abas, o ranking e o historico) */
 html.modo-foco .lateral, html.modo-foco .abas, html.modo-foco .nav-celular, html.modo-foco .gestor-pos{ display:none !important; }
 html.modo-foco .gestor-card .tcard-corpo{ max-height:calc(100vh - 220px); }
@@ -818,6 +826,7 @@ function icone(string $nome, int $tam = 16): string
         'colunas' => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
         'ordenar' => '<path d="M7 4v16M4 17l3 3 3-3M17 20V4M14 7l3-3 3 3"/>',
         'seta-baixo' => '<path d="M6 9l6 6 6-6"/>',
+        'estrela' => '<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
         'paleta' => '<path d="M12 22a10 10 0 1 1 10-10c0 2.2-1.8 3.5-4 3.5h-1.6a1.9 1.9 0 0 0-1.4 3.2A2 2 0 0 1 12 22z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="10.5" cy="6.5" r="1"/><circle cx="15.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/>',
     ];
     return '<svg class="ico" width="' . $tam . '" height="' . $tam . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$nome] ?? '') . '</svg>';
