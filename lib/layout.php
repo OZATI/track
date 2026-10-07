@@ -289,7 +289,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 .gg-c0{ --gg:#2563EB; } .gg-c1{ --gg:#16A34A; } .gg-c2{ --gg:#EA580C; } .gg-c3{ --gg:#9333EA; } .gg-c4{ --gg:#DB2777; }
 /* Painel editavel (lib/painel.php). Ver: CSS Grid com a posicao de cada cartao (--c --r --w --h no
    computador, --mc --mr --mw --mh no celular). Editar: GridStack, a biblioteca do lado e a barra */
-.painel-cab{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; }
+.painel-cab{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; margin-bottom:12px; }
 .painel-cab h2{ margin:0; }
 .painel-cab .barra-vendas{ margin:0; }
 .painel-grade{ display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); grid-auto-rows:110px; gap:12px; }
@@ -301,7 +301,7 @@ td.quebra{ white-space:normal; min-width:220px; }
   .painel-item.so-computador{ display:none; }
   .painel-item.so-celular{ display:block; }
 }
-.pw{ display:flex; flex-direction:column; gap:6px; height:100%; min-height:0; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); overflow:hidden; }
+.pw{ container-type:inline-size; display:flex; flex-direction:column; gap:6px; height:100%; min-height:0; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); overflow:hidden; }
 .pw-cab{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; color:var(--suave); font-size:13px; font-weight:500; flex:none; }
 .pw-tit{ display:inline-flex; align-items:center; gap:6px; min-width:0; }
 .pw-tit > span:first-child{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -309,6 +309,8 @@ td.quebra{ white-space:normal; min-width:220px; }
 .pw-numero .pw-corpo{ display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden; }
 .pw-num{ font-size:24px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pw-corpo > small{ color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Cartao estreito (2 colunas): o numero diminui para caber inteiro */
+@container (max-width:190px){ .pw-num{ font-size:19px; } }
 .pw-corpo .grafico{ width:100%; height:auto; }
 .pw-corpo .rosca-caixa{ margin:0; }
 .barra-ok{ fill:var(--ok); } .barra-ruim{ fill:var(--erro); }

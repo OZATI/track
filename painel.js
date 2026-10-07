@@ -680,8 +680,9 @@
     var pGradeEl = pEd.querySelector('.grid-stack');
     var pSujo = false;
     var pGrid = GridStack.init({
-      column: parseInt(pEd.getAttribute('data-colunas'), 10) || 12,
-      cellHeight: parseInt(pEd.getAttribute('data-linha'), 10) || 110,
+      column: parseInt(pEd.getAttribute('data-painel-colunas'), 10) || 12,
+      // Linha da grade = a da tela (110 px) + o espaco entre cartoes: o cartao fica do mesmo tamanho
+      cellHeight: parseInt(pEd.getAttribute('data-linha'), 10) || 122,
       margin: 6, float: false, animate: true, minRow: 4,
       acceptWidgets: '.painel-novo', removable: '.painel-biblioteca',
       resizable: { handles: 'se' },
@@ -745,9 +746,10 @@
         if (!window.confirm('Voltar este painel ao padrão? As mudanças só valem depois de Salvar.')) { return; }
         var padrao = [];
         try { padrao = JSON.parse(pEd.getAttribute('data-padrao') || '[]'); } catch (x) { padrao = []; }
-        pGrid.batchUpdate();
-        pGrid.removeAll(true, false);
+        // removeAll com o evento: no GridStack 14, sem ele os cartoes saem da grade mas ficam na tela
+        pGrid.removeAll(true);
         Array.prototype.forEach.call(pEd.querySelectorAll('.painel-novo'), function (it) { pNaLista(it.getAttribute('data-tipo'), true); });
+        pGrid.batchUpdate();
         padrao.forEach(function (i) {
           var lista = pEd.querySelector('.painel-novo[data-tipo="' + i.tipo + '"]');
           var el = document.createElement('div');
@@ -784,7 +786,7 @@
       if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S') && pForm) {
         e.preventDefault();
         if (pForm.requestSubmit) { pForm.requestSubmit(); } else { pForm.submit(); }
-      } else if (e.key === 'Escape' && !e.target.closest('input, select, textarea') && !document.querySelector('details[open].menu-linha')) {
+      } else if (e.key === 'Escape' && !(e.target.closest && e.target.closest('input, select, textarea')) && !document.querySelector('details[open].menu-linha')) {
         var c = document.querySelector('[data-painel-cancelar]');
         if (c) { c.click(); }
       }

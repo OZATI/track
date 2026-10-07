@@ -466,7 +466,7 @@ function painel_render(PDO $db, string $periodo, string $de, string $ate): void
         . '<span class="painel-barra-acoes"><button type="button" class="discreto neutro" data-painel-padrao>' . icone('restaurar', 14) . 'Voltar ao padrão</button>'
         . '<a class="botao discreto neutro" href="' . e($aqui) . '" data-recarrega data-painel-cancelar>Cancelar</a><button type="submit">' . icone('ok', 14) . 'Salvar</button></span></form>';
     echo '<p class="suave painel-dica">Arraste as métricas da lista para o painel. No painel, arraste o cartão para mudar de lugar e o canto de baixo para mudar o tamanho; o X tira. Esc cancela, Ctrl+S salva.</p>';
-    echo '<div class="painel-edicao" data-painel-editar data-colunas="' . $cols . '" data-linha="' . PAINEL_LINHA_PX . '" data-padrao="' . e((string)json_encode($padrao)) . '">'
+    echo '<div class="painel-edicao" data-painel-editar data-painel-colunas="' . $cols . '" data-linha="' . (PAINEL_LINHA_PX + 12) . '" data-padrao="' . e((string)json_encode($padrao)) . '">'
         . '<aside class="painel-biblioteca" aria-label="Métricas disponíveis"><h2>Métricas disponíveis</h2>'
         . '<label class="tcard-busca">' . icone('busca', 14) . '<input type="search" data-painel-busca placeholder="Buscar métrica" aria-label="Buscar métrica"></label>';
     foreach (PAINEL_CATEGORIAS as $cat => $rot) {

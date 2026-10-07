@@ -1257,7 +1257,7 @@ confere "$([ -n "$vp" ] && [ "$vp" = "$vr" ]; echo $?)" "painel e Resumo com o m
 confere "$(tem 'editar=1" data-recarrega' "$r")" "botão Editar painel"
 confere "$(grep -q 'gridstack.js' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem editar, o painel não carrega o GridStack"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo&editar=1")
-confere "$(tem 'data-painel-editar data-colunas="12"' "$r")" "modo edição numa grade de 12 colunas"
+confere "$(tem 'data-painel-editar data-painel-colunas="12"' "$r")" "modo edição numa grade de 12 colunas"
 confere "$(tem 'Métricas disponíveis' "$r")" "biblioteca de métricas no modo edição"
 confere "$(tem 'gridstack.js?v=' "$r")" "modo edição carrega o GridStack"
 confere "$(tem '<template data-painel-modelo="GrossRevenue">' "$r")" "modelo de cada métrica para arrastar"
@@ -1275,7 +1275,7 @@ confere "$(tem 'data-tipo="Profit"' "$r")" "o painel salvo mostra o lucro"
 confere "$(tem 'style="--c:1;--r:1;--w:4;--h:1;' "$r")" "largura limitada ao máximo da métrica (lucro até 4 colunas)"
 confere "$(grep -q 'data-tipo="NetRevenue"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "métrica que saiu some do painel"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo&editar=1&aparelho=celular")
-confere "$(tem 'data-painel-editar data-colunas="2"' "$r")" "celular numa grade de 2 colunas"
+confere "$(tem 'data-painel-editar data-painel-colunas="2"' "$r")" "celular numa grade de 2 colunas"
 confere "$(tem 'gs-id="Profit"[^>]*gs-x="0" gs-y="0" gs-w="1" gs-h="1"' "$r")" "celular sai do computador: número na metade da largura"
 r=$(salvar "$cp" celular '[{"tipo":"SalesByHour","x":0,"y":0,"w":2,"h":3}]')
 confere "$(tem 'Painel salvo (celular, 1 cartão)' "$r")" "salvar o painel do celular"
