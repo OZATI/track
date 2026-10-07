@@ -3,113 +3,8 @@
 
 require_once __DIR__ . '/tema.php';
 require_once __DIR__ . '/perfil.php';
+require_once __DIR__ . '/admin_tela.php'; // nucleo do admin: CSS comum, barra lateral, cabecalho
 
-// CSS do admin inteiro, que o painel UTM e o CMS usam iguais: as cores do tema (claro, escuro,
-// pretao ou a cor escolhida, lib/tema.php), a altura dos botoes e campos, as barras de rolagem,
-// a barra lateral (paineis e conta), a aparencia e a foto. O CMS (admin/index.php no engdesk)
-// imprime este CSS antes do proprio, que usa estas variaveis.
-function admin_css_base(): string
-{
-    return <<<'CSS'
-/* hidden sempre esconde: o display:inline-flex dos botoes e o flex dos rotulos passavam por cima */
-[hidden]{ display:none !important; }
-:root{
-  --fundo:#F7F8FA; --cartao:#FFFFFF; --cartao-2:#F3F4F6; --hover:#F7F9FC;
-  --texto:#111827; --suave:#6B7280; --apagado:#9CA3AF; --linha:#E5E7EB; --linha-forte:#D1D5DB;
-  --marca:#1D6FF2; --marca-hover:#155FD6;
-  --ok:#15803D; --alerta:#B45309; --erro:#B91C1C; --laranja:#C2410C;
-  --lateral:#0B1B2E; --realce:#EEF4FF; --fundo-ok:#ECFDF3; --fundo-alerta:#FFF7ED; --fundo-erro:#FEF2F2; --sombra:rgba(17,24,39,.12);
-  --grad-a:#1D6FF2; --grad-b:#60A5FA; --rolagem:#C9CED6; --rolagem-hover:#9CA3AF;
-  --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --f-titulo:var(--f-texto); --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
-  --r-sm:6px; --r-md:8px; --r-lg:8px;
-}
-/* Aparencia (lib/tema.php): a cor base escolhida vira o fundo e o resto sai dela. Base escura:
-   texto claro, cartoes e linhas um pouco mais claros que o fundo, cores de estado mais vivas
-   (no escuro, o verde e o vermelho da planilha precisam de mais brilho para contrastar). */
-:root[data-tema=claro][data-base]{
-  --fundo:var(--base); --cartao:color-mix(in srgb, var(--base), #fff 75%); --cartao-2:color-mix(in srgb, var(--base), #000 3%);
-  --hover:color-mix(in srgb, var(--base), #fff 45%); --linha:color-mix(in srgb, var(--base), #000 9%); --linha-forte:color-mix(in srgb, var(--base), #000 16%);
-}
-:root[data-tema=escuro]{
-  color-scheme:dark;
-  --fundo:var(--base); --cartao:color-mix(in srgb, var(--base), #fff 5%); --cartao-2:color-mix(in srgb, var(--base), #fff 9%);
-  --hover:color-mix(in srgb, var(--base), #fff 7%); --linha:color-mix(in srgb, var(--base), #fff 13%); --linha-forte:color-mix(in srgb, var(--base), #fff 22%);
-  --texto:#E5E7EB; --suave:#9CA3AF; --apagado:#6B7280;
-  --marca:#3B82F6; --marca-hover:#2563EB;
-  --ok:#22C55E; --alerta:#F59E0B; --erro:#F05252; --laranja:#FB923C;
-  --lateral:color-mix(in srgb, var(--base), #000 35%); --realce:rgba(59,130,246,.16);
-  --fundo-ok:rgba(34,197,94,.14); --fundo-alerta:rgba(245,158,11,.14); --fundo-erro:rgba(240,82,82,.14); --sombra:rgba(0,0,0,.55);
-  --grad-a:#2563EB; --grad-b:#93C5FD; --rolagem:color-mix(in srgb, var(--base), #fff 22%); --rolagem-hover:color-mix(in srgb, var(--base), #fff 38%);
-}
-:root[data-tema=escuro] .lateral{ border-right:1px solid var(--linha); }
-*{ box-sizing:border-box; }
-/* Barras de rolagem finas e suaves, nas cores do tema (no lugar das nativas) */
-*{ scrollbar-width:thin; scrollbar-color:var(--rolagem) transparent; }
-::-webkit-scrollbar{ width:8px; height:8px; }
-::-webkit-scrollbar-track{ background:transparent; }
-::-webkit-scrollbar-thumb{ background:var(--rolagem); border-radius:8px; border:2px solid transparent; background-clip:padding-box; }
-::-webkit-scrollbar-thumb:hover{ background:var(--rolagem-hover); background-clip:padding-box; }
-::-webkit-scrollbar-corner{ background:transparent; }
-:root{ --alt:34px; }
-@media (pointer:coarse){ :root{ --alt:40px; } }
-.avatar{ display:inline-flex; flex:none; align-items:center; justify-content:center; border-radius:50%; object-fit:cover; }
-.avatar-letra{ background:var(--av); color:#fff; font-weight:600; line-height:1; }
-.casca{ display:flex; min-height:100vh; }
-.conteudo{ flex:1; min-width:0; }
-/* Barra lateral do admin: os paineis em cima e a conta embaixo (no celular, uma linha no alto) */
-.lateral{ width:64px; flex:none; z-index:20; background:var(--lateral); display:flex; flex-direction:column; align-items:center; padding:12px 0; position:sticky; top:0; height:100vh; color:#9CA3AF; }
-.lateral-alterna{ display:none; }
-.lateral-itens{ flex:1; min-height:0; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; }
-.lateral-paineis, .lateral-conta{ display:flex; flex-direction:column; align-items:center; gap:4px; }
-.lateral-paineis a{ width:48px; padding:8px 0 6px; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center; gap:3px; color:#9CA3AF; font-size:10.5px; font-weight:500; }
-.lateral-paineis a:hover{ background:rgba(255,255,255,.06); color:#fff; text-decoration:none; }
-.lateral-paineis a.atual{ background:rgba(255,255,255,.1); color:#fff; }
-.lateral-paineis svg{ width:20px; height:20px; }
-.lateral-conta{ gap:6px; }
-.lateral .conta-icone, .lateral .tema-menu > summary{ display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:var(--r-sm); color:#9CA3AF; }
-.lateral .conta-icone:hover, .lateral .tema-menu > summary:hover, .lateral .tema-menu[open] > summary{ background:rgba(255,255,255,.08); color:#fff; text-decoration:none; }
-.lateral .conta-perfil{ display:inline-flex; align-items:center; gap:8px; padding:3px; margin-top:4px; border-radius:999px; color:#fff; font-weight:500; }
-.lateral .conta-perfil:hover{ background:rgba(255,255,255,.08); text-decoration:none; }
-.lateral .conta-perfil > span:not(.avatar){ display:none; }
-.lateral .tema-painel{ left:calc(100% + 10px); right:auto; top:auto; bottom:0; color:var(--texto); }
-.tema-menu{ position:relative; }
-.tema-menu > summary{ list-style:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:var(--r-sm); color:var(--suave); }
-.tema-menu > summary::-webkit-details-marker{ display:none; }
-.tema-menu > summary:hover, .tema-menu[open] > summary{ background:var(--hover); color:var(--marca); }
-.tema-painel{ position:absolute; z-index:40; right:0; top:calc(100% + 6px); width:300px; padding:14px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); }
-.tema-painel h3{ margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--suave); }
-.tema-prontos{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0 0 12px; }
-.tema-pronto{ display:flex; flex-direction:column; align-items:center; gap:6px; min-height:0; padding:8px 6px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-md); font-weight:500; }
-.tema-pronto:hover{ background:var(--hover); border-color:var(--marca); }
-.tema-pronto.atual{ border:2px solid var(--marca); padding:7px 5px; }
-.tema-previa{ display:grid; grid-template-columns:30% 1fr; grid-template-rows:repeat(3,1fr); gap:3px; width:64px; height:42px; padding:5px; border-radius:6px; background:var(--p); border:1px solid rgba(127,127,127,.3); }
-.tema-previa i{ grid-column:2; border-radius:2px; background:color-mix(in srgb, var(--p), #000 12%); }
-.tema-previa[data-escuro="1"] i{ background:color-mix(in srgb, var(--p), #fff 22%); }
-.tema-previa i:first-child{ grid-row:1 / -1; grid-column:1; }
-.tema-livre{ display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--suave); }
-.tema-livre > span:last-child{ display:flex; align-items:center; gap:8px; }
-.tema-livre input[type=color]{ width:44px; min-width:0; height:32px; padding:2px; cursor:pointer; }
-@media (max-width:760px){
-  .casca{ flex-direction:column; }
-  .lateral{ width:auto; height:auto; position:relative; flex-direction:column; align-items:stretch; padding:0; }
-  .lateral-alterna{ display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:max(6px, env(safe-area-inset-top)) 16px 6px; background:none; border:0; border-radius:0; color:#E5E7EB; font-size:14px; }
-  .lateral-alterna:hover{ background:rgba(255,255,255,.04); }
-  .lateral-alterna > svg:first-child{ width:18px; height:18px; color:#9CA3AF; }
-  .lateral-alterna .avatar{ margin-left:auto; }
-  .lateral-alterna .seta{ width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; transition:transform .2s; }
-  .lateral.aberta .lateral-alterna .seta{ transform:rotate(180deg); }
-  .lateral-itens{ display:none; }
-  .lateral.aberta .lateral-itens{ display:flex; flex-direction:row; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; padding:2px 12px 12px; }
-  .lateral-paineis, .lateral-conta{ flex-direction:row; }
-  .lateral-paineis a{ flex-direction:row; width:auto; padding:8px 14px; gap:6px; font-size:13px; }
-  .lateral-paineis svg{ width:18px; height:18px; }
-  .lateral .conta-perfil{ margin:0; padding-right:12px; }
-  .lateral .conta-perfil > span:not(.avatar){ display:inline; }
-  .lateral .tema-painel{ position:fixed; left:12px; right:12px; top:auto; bottom:calc(76px + env(safe-area-inset-bottom)); width:auto; }
-}
-@media (display-mode:standalone) and (min-width:761px){ .lateral{ padding-top:max(12px, env(safe-area-inset-top)); } }
-CSS;
-}
 
 function pagina_inicio(string $titulo): void
 {
@@ -123,11 +18,11 @@ function pagina_inicio(string $titulo): void
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($titulo) ?> · Rastreio</title>
-<link rel="manifest" href="manifest.php">
+<link rel="manifest" href="<?= e(admin_base()) ?>manifest.php">
 <meta name="theme-color" content="<?= e(tema_atual()) ?>">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="<?= e((string)((track_config() ?? [])['app_nome'] ?? 'Painel')) ?>">
-<link rel="apple-touch-icon" href="<?= is_file(__DIR__ . '/../../apple-touch-icon.png') ? '../apple-touch-icon.png' : 'app-192.png' ?>">
+<link rel="apple-touch-icon" href="<?= e(admin_base()) ?><?= is_file(__DIR__ . '/../../apple-touch-icon.png') ? '../apple-touch-icon.png' : 'app-192.png' ?>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -770,6 +665,8 @@ th.marca, td.marca{ width:34px; text-align:center; }
   select, input, textarea{ font-size:16px; }
   input[type=checkbox], input[type=radio]{ font-size:inherit; }
 }
+/* Telas do nucleo (Minha conta, Usuarios): as abas do nucleo continuam a mostra no celular */
+@media (max-width:760px){ .abas.abas-nucleo{ display:flex; padding-left:16px; padding-right:16px; } }
 </style>
 </head>
 <body>
@@ -784,50 +681,14 @@ function pagina_fim(): void
 {
     // ?v= pela data do arquivo: dentro de um site cujo .htaccess manda cachear .js por
     // 1 ano (ex.: engdesk.pro), sem isso a mudanca no painel.js nao chegaria.
-    echo '<script src="painel.js?v=' . (int)@filemtime(__DIR__ . '/../painel.js') . '"></script></body></html>';
+    echo '<script src="' . e(admin_base()) . 'painel.js?v=' . (int)@filemtime(__DIR__ . '/../painel.js') . '"></script></body></html>';
 }
 
-// Barra lateral do admin inteiro: em cima os paineis que o usuario pode abrir (CMS, quando o
-// painel mora num admin com CMS, config "menu_cms", e UTM); embaixo a conta, que e do admin
-// todo: Usuarios (quem pode), aparencia, Configuracoes e a foto de quem entrou. No celular vira
-// uma linha no alto, recolhida (a seta abre); os filtros do topo ficam sempre a mostra.
-// $aqui: o painel aberto (utm ou cms); $utm: caminho ate a pasta do painel UTM ('' dentro
-// dele, 'utm/' no CMS); $cms: o link do CMS.
-function admin_lateral(string $aqui = 'utm', string $utm = '', ?string $cms = null): string
-{
-    $cms = $cms ?? (string)((track_config() ?? [])['menu_cms'] ?? '');
-    $u = (string)usuario_atual();
-    $paineis = [];
-    if ($cms !== '' && usuario_pode('cms')) {
-        $paineis['cms'] = ['CMS', $cms, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>'];
-    }
-    if (usuario_pode('utm')) {
-        $paineis['utm'] = ['UTM', $utm === '' ? './' : $utm, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>'];
-    }
-    $atual = $paineis[$aqui] ?? ['Admin', './', icone('config', 20)];
-    $h = '<nav class="lateral" aria-label="Admin" data-lateral><input type="hidden" id="csrf-painel" value="' . e(token_csrf()) . '">'
-        . '<button type="button" class="lateral-alterna" data-lateral-alterna aria-expanded="false" aria-controls="lateral-itens" aria-label="Abrir o menu do admin">'
-        . $atual[2] . '<b>' . e($atual[0]) . '</b>' . avatar_html($u, 26, $utm) . '<svg class="seta" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>'
-        . '<div class="lateral-itens" id="lateral-itens"><div class="lateral-paineis">';
-    foreach ($paineis as $k => [$rot, $href, $ico]) {
-        $h .= '<a href="' . e($href) . '"' . ($k === $aqui ? ' class="atual" aria-current="page"' : '') . ' title="' . e($rot) . '">' . $ico . '<span>' . e($rot) . '</span></a>';
-    }
-    $aquiUrl = destino_seguro((string)($_SERVER['REQUEST_URI'] ?? ''));
-    $h .= '</div><div class="lateral-conta">';
-    if (usuario_pode('usuarios')) {
-        $h .= '<a class="conta-icone" href="' . e($utm . 'usuarios.php') . '" title="Usuários: quem entra e o que cada um pode abrir" aria-label="Usuários">' . icone('usuarios', 19) . '</a>';
-    }
-    $h .= '<details class="tema-menu"><summary title="Aparência: claro, escuro ou outra cor de fundo" aria-label="Aparência">' . icone('paleta', 19) . '</summary>'
-        . '<div class="tema-painel"><h3>Aparência</h3>' . tema_form($aquiUrl === './' ? './' : $aquiUrl, $utm) . '</div></details>'
-        . '<a class="conta-icone" href="' . e($utm . 'configuracoes.php') . '" title="Configurações: perfil, aparência, app, notificações e sair" aria-label="Configurações">' . icone('config', 19) . '</a>'
-        . '<a class="conta-perfil" href="' . e($utm . 'configuracoes.php#perfil') . '" title="' . e($u) . ': foto do perfil e sair">' . avatar_html($u, 32, $utm) . '<span>' . e($u) . '</span></a>'
-        . '</div></div></nav>';
-    return $h;
-}
 
-function casca_inicio(): void
+// $aqui: o painel (utm) ou a tela do nucleo (conta, usuarios) aberta, marcada na barra lateral
+function casca_inicio(string $aqui = 'utm'): void
 {
-    echo '<noscript><style>.lateral-itens{ display:flex !important; }</style></noscript><div class="casca">' . admin_lateral() . '<div class="conteudo">';
+    echo '<noscript><style>.lateral-itens{ display:flex !important; }</style></noscript><div class="casca">' . admin_lateral($aqui) . '<div class="conteudo">';
 }
 
 function casca_fim(): void
@@ -1155,7 +1016,8 @@ function abas_painel(string $aba, array $filtro = []): void
     }
     echo '<a href="kiwify-api.php" class="' . ($aba === 'kiwify-api' ? 'atual' : '') . '">' . icone('chave') . 'API Kiwify</a>';
     echo '<a href="meta-api.php" class="' . ($aba === 'meta-api' ? 'atual' : '') . '">' . icone('meta') . 'API Meta</a>';
-    echo '<a href="instagram-api.php" class="' . ($aba === 'instagram-api' ? 'atual' : '') . '">' . icone('instagram') . 'API Instagram</a></nav>';
+    echo '<a href="instagram-api.php" class="' . ($aba === 'instagram-api' ? 'atual' : '') . '">' . icone('instagram') . 'API Instagram</a>';
+    echo '<a href="configuracoes.php" class="' . ($aba === 'configuracoes' ? 'atual' : '') . '">' . icone('config') . 'Configurações</a></nav>';
 
     // Celular: barra fixa embaixo com as 4 telas mais usadas; o resto em "Mais"
     $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1]));
@@ -1165,7 +1027,7 @@ function abas_painel(string $aba, array $filtro = []): void
     $config = [['configuracoes', 'configuracoes.php', 'config', 'Configurações'], ['kiwify-api', 'kiwify-api.php', 'chave', 'API Kiwify'],
         ['meta-api', 'meta-api.php', 'meta', 'API Meta'], ['instagram-api', 'instagram-api.php', 'instagram', 'API Instagram']];
     if (usuario_pode('usuarios')) {
-        $config[] = ['usuarios', 'usuarios.php', 'usuarios', 'Usuários'];
+        $config[] = ['usuarios', admin_url('usuarios'), 'usuarios', 'Usuários'];
     }
     if (is_file(__DIR__ . '/../../guia/index.php')) {
         $config[] = ['guia', '../guia/', 'guia', 'Guia'];

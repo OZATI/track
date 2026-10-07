@@ -1,8 +1,11 @@
 <?php
-// Quem entra no admin e o que cada um pode abrir: os paineis (UTM e, num admin com CMS, o CMS)
-// e "Usuarios" (esta tela: dar e tirar acessos). Marcar ou desmarcar ja salva. Ninguem tira o
-// proprio acesso nem o proprio "Usuarios" (sempre fica alguem que cuida dos acessos). A senha
-// de outra pessoa e definida por quem cria o acesso e trocada por ela depois, aqui mesmo.
+// Usuarios (nucleo do admin): quem entra e o que cada um pode abrir, os paineis (UTM e, num admin
+// com CMS, o CMS) e "Usuarios" (esta tela: dar e tirar acessos). Marcar ou desmarcar ja salva.
+// Ninguem tira o proprio acesso nem o proprio "Usuarios" (sempre fica alguem que cuida dos
+// acessos). A senha de outra pessoa e definida por quem cria o acesso (pelo menos 10 caracteres)
+// e trocada por ela depois, em Minha conta. Num admin com a pasta usuarios/ na raiz, mora la
+// (usuarios/index.php define TRACK_BASE e inclui este arquivo); os formularios postam no proprio
+// endereco.
 
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/layout.php';
@@ -39,11 +42,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $erros[] = 'Já existe o usuário ' . $novo . '.';
         } elseif ($senha === '' || $senha !== (string)($_POST['senha2'] ?? '')) {
             $erros[] = 'Defina a senha e repita igual.';
+        } elseif ($problema = senha_problema($senha, $novo)) {
+            $erros[] = $problema;
         } else {
             $usuarios[$novo] = password_hash($senha, PASSWORD_DEFAULT);
             $lista = $lerAcessos($_POST['acessos'] ?? []);
             $definir($novo, $lista);
-            $aviso = 'Acesso criado para ' . $novo . ($lista ? ' (' . implode(', ', array_map(fn($a) => $todosAcessos[$a], $lista)) . ')' : ', ainda sem nenhum painel') . '. Passe a senha para a pessoa; ela pode trocar aqui depois de entrar.';
+            $aviso = 'Acesso criado para ' . $novo . ($lista ? ' (' . implode(', ', array_map(fn($a) => $todosAcessos[$a], $lista)) . ')' : ', ainda sem nenhum painel') . '. Passe a senha para a pessoa; ela troca em Minha conta depois de entrar.';
         }
     } elseif ($acao === 'acessos') {
         $alvo = (string)($_POST['usuario'] ?? '');
@@ -66,16 +71,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         } else {
             unset($usuarios[$alvo], $acessos[$alvo]);
             $aviso = 'Acesso de ' . $alvo . ' removido.';
-        }
-    } elseif ($acao === 'trocar_senha') {
-        $nova = (string)($_POST['nova'] ?? '');
-        if (!password_verify((string)($_POST['atual'] ?? ''), $usuarios[$eu] ?? '')) {
-            $erros[] = 'A senha atual não confere.';
-        } elseif ($nova === '' || $nova !== (string)($_POST['nova2'] ?? '')) {
-            $erros[] = 'Digite a nova senha e repita igual.';
-        } else {
-            $usuarios[$eu] = password_hash($nova, PASSWORD_DEFAULT);
-            $aviso = 'Senha trocada.';
         }
     } else {
         $erros[] = 'Ação inválida.';
@@ -106,10 +101,9 @@ $caixas = function (string $u, array $marcados) use ($todosAcessos, $eu): string
 };
 
 pagina_inicio('Usuários');
-casca_inicio();
+casca_inicio('usuarios');
+admin_cabecalho('usuarios');
 ?>
-<?php topo_pagina(); ?>
-<?php abas_painel('usuarios'); ?>
 <main>
   <?php foreach ($erros as $erro): ?><p class="erro"><?= e($erro) ?></p><?php endforeach; ?>
   <?php if ($aviso): ?><p class="aviso-ok"><?= e($aviso) ?></p><?php endif; ?>
@@ -119,14 +113,14 @@ casca_inicio();
     <div class="tabela"><table>
       <tr><th>Usuário</th><th>Pode abrir</th><th></th></tr>
       <?php foreach (array_keys(track_usuarios()) as $u): ?>
-        <tr><td class="usuario-nome"><?= avatar_html($u, 24) ?> <?= e($u) ?><?= $u === $eu ? ' <span class="suave">(você)</span>' : '' ?></td>
-          <td><form method="post" action="usuarios.php" class="acessos" data-auto>
+        <tr><td class="usuario-nome"><?= avatar_html($u, 24, admin_base()) ?> <?= e($u) ?><?= $u === $eu ? ' <span class="suave">(você)</span>' : '' ?></td>
+          <td><form method="post" action="" class="acessos" data-auto>
               <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="acessos"><input type="hidden" name="usuario" value="<?= e($u) ?>">
               <?= $caixas($u, usuario_acessos($u)) ?>
               <noscript><button type="submit" class="discreto neutro">Salvar</button></noscript>
             </form></td>
           <td><?php if ($u !== $eu): ?>
-            <form method="post" action="usuarios.php" data-confirma="<?= e('Tirar o acesso de ' . $u . ' ao admin?') ?>">
+            <form method="post" action="" data-confirma="<?= e('Tirar o acesso de ' . $u . ' ao admin?') ?>">
               <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
               <input type="hidden" name="acao" value="remover">
               <input type="hidden" name="usuario" value="<?= e($u) ?>">
@@ -139,28 +133,18 @@ casca_inicio();
 
   <section class="cartao">
     <h2>Dar acesso a alguém</h2>
-    <form method="post" action="usuarios.php" class="usuario-novo">
+    <form method="post" action="" class="usuario-novo">
       <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
       <input type="hidden" name="acao" value="adicionar">
       <label>Usuário (ex.: allan) <input type="text" name="usuario" autocomplete="off" autocapitalize="none" spellcheck="false" required></label>
-      <label>Senha <input type="password" name="senha" autocomplete="new-password" required></label>
-      <label>Repita a senha <input type="password" name="senha2" autocomplete="new-password" required></label>
+      <label>Senha (pelo menos 10 caracteres) <input type="password" name="senha" autocomplete="new-password" minlength="10" required></label>
+      <label>Repita a senha <input type="password" name="senha2" autocomplete="new-password" minlength="10" required></label>
       <fieldset class="acessos"><legend>Pode abrir</legend><?= $caixas('', array_values(array_diff(array_keys($todosAcessos), ['usuarios']))) ?></fieldset>
       <button type="submit">Criar acesso</button>
     </form>
   </section>
 
-  <section class="cartao">
-    <h2>Trocar a minha senha</h2>
-    <form method="post" action="usuarios.php">
-      <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>">
-      <input type="hidden" name="acao" value="trocar_senha">
-      <label>Senha atual <input type="password" name="atual" autocomplete="current-password" required></label>
-      <label>Nova senha <input type="password" name="nova" autocomplete="new-password" required></label>
-      <label>Repita a nova senha <input type="password" name="nova2" autocomplete="new-password" required></label>
-      <button type="submit">Trocar senha</button>
-    </form>
-  </section>
+  <p class="suave">A sua senha você troca em <a href="<?= e(admin_url('conta')) ?>">Minha conta</a>.</p>
 </main>
 <?php
 casca_fim();

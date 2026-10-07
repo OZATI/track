@@ -61,6 +61,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
     if ($senha !== (string)($_POST['senha2'] ?? '')) {
         $erros[] = 'As senhas não conferem.';
+    } elseif ($senha !== '' && ($problema = senha_problema($senha, (string)($_POST['usuario'] ?? '')))) {
+        $erros[] = $problema;
     }
     if (!$origens) {
         $erros[] = 'Informe pelo menos um site (ex.: https://engdesk.pro).';

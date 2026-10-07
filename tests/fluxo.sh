@@ -147,11 +147,12 @@ confere "$(tem '<span>Direto / sem origem</span>' "$r")" "visita sem etiqueta ne
 confere "$(tem '<span>Direto / sem origem</span><span class="info"' "$r")" "Direto / sem origem tem o (i) explicando"
 confere "$(grep -q 'id="form-sair"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Sair saiu do topo (fica em Configurações)"
 confere "$(tem 'id="csrf-painel"' "$r")" "token do painel num campo próprio no topo (busca em segundo plano e notificações)"
-confere "$(tem 'class="conta-icone" href="configuracoes.php"' "$r")" "Configurações só com a engrenagem"
+confere "$(tem 'class="conta-icone" href="conta.php" title="Minha conta' "$r")" "a engrenagem leva a Minha conta (núcleo do admin)"
 confere "$(tem 'class="conta-perfil"' "$r")" "bolinha do perfil"
 confere "$(tem '<div class="lateral-conta">' "$r")" "a conta fica na barra lateral do admin (é do admin inteiro)"
 confere "$(tem 'data-lateral-alterna' "$r")" "no celular, a barra do admin recolhe numa linha (a seta abre)"
 confere "$(tem 'href="usuarios.php" title="Usuários' "$r")" "Usuários na barra lateral"
+confere "$(tem '<a href="configuracoes.php" class="">.*Configurações</a></nav>' "$r")" "Configurações do UTM nas abas do painel"
 confere "$(grep -q 'class="topo-resumo\|data-recolher' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "os filtros não recolhem mais: ficam sempre à mostra"
 confere "$(tem 'data-periodo-campo' "$r")" "período com o seletor de calendário"
 confere "$(tem '<label class="multi-todos"><input type="checkbox" data-multi-todos checked>Todos (com order bump)</label>' "$r")" "Produto com Todos como a primeira caixa"
@@ -227,6 +228,12 @@ csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1
 r=$(curl -s -b "$JAR" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" "$URL/usuarios.php")
 confere "$(tem 'Sessão expirada' "$r")" "criar acesso sem o token é recusado"
 confere "$(tem 'name="acessos\[\]" value="cms" checked> CMS</label><label class="acesso"><input type="checkbox" name="acessos\[\]" value="utm" checked> UTM</label><label class="acesso"><input type="checkbox" name="acessos\[\]" value="usuarios" checked disabled> Usuários' "$r")" "cada usuário com CMS, UTM e Usuários (o próprio Usuários travado)"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=curta" --data-urlencode "senha2=curta" "$URL/usuarios.php")
+confere "$(tem 'A senha precisa ter pelo menos 10 caracteres.' "$r")" "senha curta é recusada"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allanallan" --data-urlencode "senha=AllanAllan" --data-urlencode "senha2=AllanAllan" "$URL/usuarios.php")
+confere "$(tem 'A senha não pode ser igual ao usuário.' "$r")" "senha igual ao usuário é recusada"
+confere "$(tem '<nav class="abas abas-nucleo" aria-label="Admin"><span class="abas-titulo">Admin</span>' "$r")" "Usuários é do núcleo do admin: cabeçalho Admin"
+confere "$(grep -q 'UTM · Rastreio de vendas' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Usuários sem as abas do UTM"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" --data-urlencode "acessos[]=utm" --data-urlencode "acessos[]=usuarios" "$URL/usuarios.php")
 confere "$(tem 'Acesso criado para allan (UTM, Usuários)' "$r")" "kenio dá acesso ao allan, só ao UTM e aos usuários"
 J3="$DADOS/j3"
@@ -246,14 +253,17 @@ confere "$([ "$code" = "200" ]; echo $?)" "allan abre o UTM ($code)"
 r=$(curl -s -b "$J3" "$URL/index.php")
 confere "$(grep -q 'title="CMS"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem acesso ao CMS, a barra lateral não mostra o CMS"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" --data-urlencode "acessos[]=cms" "$URL/usuarios.php")
-destino=$(curl -s -D - -o /dev/null -b "$J3" "$URL/index.php" | grep -i '^location:' | tr -d '')
+destino=$(curl -s -D - -o /dev/null -b "$J3" "$URL/index.php" | grep -i '^location:' | tr -d '
+')
 confere "$(tem 'ocation: \.\./$' "$destino")" "usuário só do CMS que abre o UTM vai para o CMS ($destino)"
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/usuarios.php")
 confere "$([ "$code" = "403" ]; echo $?)" "sem Usuários, a tela de usuários fica fechada ($code)"
-code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/configuracoes.php")
-r=$(curl -s -b "$J3" "$URL/configuracoes.php")
-confere "$([ "$code" = "200" ]; echo $?)" "Configurações (perfil, aparência e sair) abre para todo usuário"
-confere "$(grep -q 'data-push' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem o UTM, Configurações não mostra as notificações de venda"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/conta.php")
+r=$(curl -s -b "$J3" "$URL/conta.php")
+confere "$([ "$code" = "200" ]; echo $?)" "Minha conta (foto, senha, aparência e sair) abre para todo usuário"
+confere "$(grep -q 'data-push\|Rastreio de vendas' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Minha conta é do núcleo: sem notificações nem abas do UTM"
+destino=$(curl -s -D - -o /dev/null -b "$J3" "$URL/configuracoes.php" | grep -i '^location:' | tr -d '\r')
+confere "$(tem 'ocation: \.\./$' "$destino")" "Configurações do UTM ficam com o UTM (usuário só do CMS vai para o CMS)"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" "$URL/usuarios.php")
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/index.php")
 confere "$([ "$code" = "403" ]; echo $?)" "usuário sem nenhum painel não abre o UTM ($code)"
@@ -261,8 +271,18 @@ r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remov
 confere "$(tem 'Acesso de allan removido' "$r")" "kenio tira o acesso do allan"
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J3" "$URL/index.php")
 confere "$(tem 'entrar.php' "$destino")" "sessão de quem perdeu o acesso cai na hora"
-r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=trocar_senha" --data-urlencode "atual=errada" --data-urlencode "nova=x" --data-urlencode "nova2=x" "$URL/usuarios.php")
-confere "$(tem 'senha atual não confere' "$r")" "trocar a senha exige a senha atual"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=trocar_senha" --data-urlencode "atual=errada" --data-urlencode "nova=x" --data-urlencode "nova2=x" "$URL/conta.php")
+confere "$(tem 'senha atual não confere' "$r")" "trocar a senha (Minha conta) exige a senha atual"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=trocar_senha" --data-urlencode "atual=senha-de-teste-123" --data-urlencode "nova=curta" --data-urlencode "nova2=curta" "$URL/conta.php")
+confere "$(tem 'A senha precisa ter pelo menos 10 caracteres.' "$r")" "nova senha curta é recusada"
+for i in 1 2 3; do curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=trocar_senha" --data-urlencode "atual=errada" --data-urlencode "nova=x" --data-urlencode "nova2=x" "$URL/conta.php"; done
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=trocar_senha" --data-urlencode "atual=senha-de-teste-123" --data-urlencode "nova=outra-senha-boa" --data-urlencode "nova2=outra-senha-boa" "$URL/conta.php")
+confere "$(tem 'Muitas tentativas de trocar a senha' "$r")" "troca de senha com limite de tentativas"
+# shellcheck disable=SC2086
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; track_db()->exec("DELETE FROM limites WHERE chave LIKE '"'"'senha:%'"'"'");')
+# shellcheck disable=SC2086
+ac=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; echo admin_caminho("", "conta", false), "|", admin_caminho("", "conta", true), "|", admin_caminho("utm/", "usuarios", true), "|", admin_caminho("../utm/", "conta", true);')
+confere "$([ "$ac" = "conta.php|../conta/|usuarios/|../conta/" ]; echo $?)" "endereço do núcleo: no painel avulso, na raiz do admin, do CMS e das telas do núcleo ($ac)"
 
 echo "API da Kiwify"
 CID="a1b2c3d4-0000-4000-8000-000000000001"
@@ -955,7 +975,7 @@ echo "Configurações, app e notificações"
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/configuracoes.php")
 confere "$(tem 'entrar.php' "$destino")" "Configurações exige login"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
-confere "$(tem 'class="conta-icone" href="configuracoes.php"' "$r")" "a engrenagem no topo leva a Configurações"
+confere "$(tem 'class="conta-icone" href="conta.php"' "$r")" "a engrenagem leva a Minha conta"
 confere "$(tem '<link rel="manifest" href="manifest.php">' "$r")" "painel aponta o manifesto do app"
 r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
 t=$(sem_tags "$r")
@@ -1102,22 +1122,24 @@ r=$(tema "$csrf" --data-urlencode "cor=#123456")
 confere "$(tem 'data-tema="escuro" data-base style="--base:#123456"' "$r")" "outra cor escura: o texto fica claro sozinho"
 r=$(tema "$csrf" --data-urlencode "cor=vermelho")
 confere "$(tem 'Cor inválida' "$r")" "cor que não é #RRGGBB é recusada"
-r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
-confere "$(tem 'Aparência' "$(sem_tags "$r")")" "aparência também em Configurações"
+r=$(curl -s -b "$JAR" "$URL/conta.php")
+confere "$(tem 'Aparência' "$(sem_tags "$r")")" "aparência também em Minha conta"
 r=$(tema "$csrf" --data-urlencode "pronto=claro")
 confere "$(tem '<html lang="pt-BR" data-tema="claro">' "$r")" "voltar ao claro"
 
-echo "Perfil (foto) e Sair em Configurações"
-r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
-confere "$(tem 'id="form-sair"' "$r")" "Sair fica em Configurações"
-confere "$(tem 'id="perfil"' "$r")" "Configurações tem o perfil"
+echo "Minha conta: foto, senha e Sair (núcleo do admin)"
+r=$(curl -s -b "$JAR" "$URL/conta.php")
+confere "$(tem 'id="form-sair"' "$r")" "Sair fica em Minha conta"
+confere "$(tem 'id="perfil"' "$r")" "Minha conta tem o perfil"
+confere "$(tem 'class="perfil-lapis"' "$r")" "o lápis na borda da foto troca a foto"
+confere "$(tem '<nav class="abas abas-nucleo" aria-label="Admin">' "$r")" "Minha conta com o cabeçalho Admin"
 # shellcheck disable=SC2086
 if "$PHP" $PHP_FLAGS -r 'exit(function_exists("imagecreatetruecolor") ? 0 : 1);'; then
   FOTO="$(cygpath -m "$DADOS/foto.png" 2>/dev/null || echo "$DADOS/foto.png")"
   # shellcheck disable=SC2086
   FOTO="$FOTO" "$PHP" $PHP_FLAGS -r '$i = imagecreatetruecolor(400, 300); imagefill($i, 0, 0, imagecolorallocate($i, 30, 120, 240)); imagepng($i, getenv("FOTO"));'
   c=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
-  r=$(curl -s -b "$JAR" -F "csrf=$c" -F "acao=foto" -F "foto=@$FOTO;type=image/png" "$URL/configuracoes.php")
+  r=$(curl -s -b "$JAR" -F "csrf=$c" -F "acao=foto" -F "foto=@$FOTO;type=image/png" "$URL/conta.php")
   confere "$(tem 'Foto do perfil salva.' "$r")" "enviar a foto do perfil"
   r=$(curl -s -b "$JAR" "$URL/index.php")
   confere "$(tem '<img class="avatar" src="avatar.php?u=kenio' "$r")" "foto aparece na bolinha do topo"
@@ -1125,12 +1147,12 @@ if "$PHP" $PHP_FLAGS -r 'exit(function_exists("imagecreatetruecolor") ? 0 : 1);'
   confere "$([ "$tipo" = "image/jpeg" ]; echo $?)" "foto sai reduzida em JPEG para quem entrou ($tipo)"
   code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/avatar.php?u=kenio")
   confere "$([ "$code" = "403" ]; echo $?)" "foto não sai para quem não entrou ($code)"
-  r=$(curl -s -b "$JAR" -F "csrf=$c" -F "acao=tirar_foto" "$URL/configuracoes.php")
+  r=$(curl -s -b "$JAR" -F "csrf=$c" -F "acao=tirar_foto" "$URL/conta.php")
   confere "$(tem 'Foto do perfil tirada.' "$r")" "tirar a foto do perfil"
   printf 'isto nao e imagem' > "$DADOS/falsa.png"
   # No Git Bash do Windows, o curl so acha o arquivo pelo caminho do Windows (cygpath -m)
   FALSA="$(cygpath -m "$DADOS/falsa.png" 2>/dev/null || echo "$DADOS/falsa.png")"
-  r=$(curl -s -b "$JAR" -F "csrf=$c" -F "acao=foto" -F "foto=@$FALSA;type=image/png" "$URL/configuracoes.php")
+  r=$(curl -s -b "$JAR" -F "csrf=$c" -F "acao=foto" -F "foto=@$FALSA;type=image/png" "$URL/conta.php")
   confere "$(tem 'A foto não foi salva: a foto precisa ser JPEG, PNG ou WebP.' "$r")" "arquivo que não é imagem é recusado"
 fi
 r=$(curl -s -b "$JAR" "$URL/index.php")

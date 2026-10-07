@@ -403,8 +403,8 @@ function exigir_login(?string $acesso = 'utm'): void
         echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sem acesso</title>'
             . '<body style="font:15px/1.5 system-ui,sans-serif;max-width:480px;margin:15vh auto;padding:0 20px">'
             . '<h1 style="font-size:20px">Sem acesso a esta parte do admin</h1><p>O seu usuário não tem acesso a ' . e(TRACK_ACESSOS[$acesso] ?? $acesso)
-            . '. Peça a quem cuida dos usuários para liberar.</p><p><a href="configuracoes.php">Configurações</a></p>'
-            . '<form method="post" action="sair.php"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><button type="submit">Sair</button></form>';
+            . '. Peça a quem cuida dos usuários para liberar.</p><p><a href="' . e(admin_url('conta')) . '">Minha conta</a></p>'
+            . '<form method="post" action="' . e(admin_base()) . 'sair.php"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><button type="submit">Sair</button></form>';
         exit;
     }
 }

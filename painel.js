@@ -19,8 +19,10 @@
     try { ev = new Event('submit', { bubbles: true, cancelable: true }); } catch (x) { f.submit(); return; }
     if (f.dispatchEvent(ev)) { f.submit(); }
   }
+  // A pasta do painel (de onde veio este arquivo): as telas do nucleo moram fora dela (ex.: /conta/)
+  var PAINEL = ((document.currentScript && document.currentScript.src) || location.href).split('?')[0].replace(/[^\/]*$/, '');
   // App: o service worker deixa instalar o painel e mostra as notificacoes (sw.php). Uma vez so.
-  var sw = 'serviceWorker' in navigator ? navigator.serviceWorker.register('sw.php', { scope: './' }).catch(function () { return null; }) : null;
+  var sw = 'serviceWorker' in navigator ? navigator.serviceWorker.register(PAINEL + 'sw.php', { scope: PAINEL }).catch(function () { return null; }) : null;
 
   function iniciar() {
   var form = document.getElementById('filtros');
@@ -65,7 +67,7 @@
   if (sync && token && window.fetch) {
     var texto = sync.querySelector('[data-sync-texto]');
     if (texto) { texto.textContent = 'Buscando vendas na API da Kiwify…'; }
-    fetch('sincronizar.php', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF': token.value } })
+    fetch(PAINEL + 'sincronizar.php', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF': token.value } })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d && d.buscou && (d.novas || d.atualizadas || !d.ok)) { navegar(location.href, { manter: true, substituir: true }); return; }
@@ -160,7 +162,7 @@
   // Notificacoes neste aparelho (Configuracoes): ligar, testar e desligar
   var push = document.querySelector('[data-push]');
   function chamar(acao, corpo) {
-    return fetch('notificacoes.php?acao=' + acao, {
+    return fetch(PAINEL + 'notificacoes.php?acao=' + acao, {
       method: 'POST', credentials: 'same-origin',
       headers: { 'X-CSRF': token ? token.value : '', 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo || {})
