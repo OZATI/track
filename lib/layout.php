@@ -10,7 +10,7 @@ function pagina_inicio(string $titulo): void
     header('X-Robots-Tag: noindex, nofollow');
     header('Cache-Control: no-store');
     ?><!doctype html>
-<html lang="pt-BR"<?= tema_atributos() ?><?= ($_COOKIE['track_topo'] ?? '') === 'recolhido' ? ' class="topo-recolhido"' : '' ?>>
+<html lang="pt-BR"<?= tema_atributos() ?>>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -72,12 +72,18 @@ code, pre{ font-family:var(--f-mono); font-size:12px; }
 pre{ background:var(--cartao-2); border:1px solid var(--linha); padding:10px 12px; border-radius:var(--r-sm); overflow-x:auto; white-space:pre-wrap; word-break:break-all; }
 select, input, textarea, button{ font:inherit; color:inherit; }
 select, input, textarea{ background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-sm); padding:6px 9px; min-width:160px; }
+/* Botoes e campos numa altura so (--alt), o principal e o secundario do mesmo tamanho: muda a
+   cor, nunca o tamanho. Botao pequeno (acao dentro de tabela): .pequeno */
+:root{ --alt:34px; }
+@media (pointer:coarse){ :root{ --alt:40px; } }
+select, input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=range]){ min-height:var(--alt); }
 /* Caixa de marcar e opcao: sem a largura minima dos campos de texto */
 input[type=checkbox], input[type=radio]{ min-width:0; width:auto; padding:0; accent-color:var(--marca); }
 select:focus, input:focus, textarea:focus{ outline:2px solid rgba(29,111,242,.35); outline-offset:0; border-color:var(--marca); }
-button{ background:var(--marca); color:#fff; border:1px solid var(--marca); border-radius:var(--r-sm); padding:6px 12px; font-weight:500; cursor:pointer; }
-button:hover{ background:var(--marca-hover); }
-button.discreto{ background:var(--cartao); color:var(--erro); border-color:var(--linha-forte); padding:4px 10px; }
+button, .botao{ display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:var(--alt); padding:0 14px; background:var(--marca); color:#fff; border:1px solid var(--marca); border-radius:var(--r-sm); font-size:13px; font-weight:500; line-height:1.2; cursor:pointer; text-decoration:none; }
+button:hover, .botao:hover{ background:var(--marca-hover); text-decoration:none; }
+button.discreto{ background:var(--cartao); color:var(--erro); border-color:var(--linha-forte); }
+button.pequeno{ min-height:28px; padding:0 10px; font-size:12px; }
 button.discreto:hover{ background:var(--cartao-2); }
 button:disabled, button:disabled:hover{ background:var(--cartao-2); color:var(--suave); border-color:var(--linha-forte); cursor:not-allowed; }
 button.discreto.neutro{ color:var(--texto); }
@@ -97,7 +103,7 @@ button.discreto.neutro{ color:var(--texto); }
    escondido no formulario; a lista abre embaixo (ou em cima) e, no celular, como painel de baixo */
 .sel{ position:relative; min-width:0; max-width:100%; }
 .sel-nativo{ position:absolute !important; width:1px !important; height:1px !important; min-width:0 !important; padding:0 !important; border:0 !important; opacity:0; pointer-events:none; }
-.sel-botao, .multi > summary{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-width:160px; max-width:300px; padding:6px 10px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-sm); font:inherit; font-weight:400; text-align:left; cursor:pointer; }
+.sel-botao, .multi > summary{ display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-width:160px; max-width:300px; min-height:var(--alt); padding:0 10px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-sm); font:inherit; font-weight:400; text-align:left; cursor:pointer; }
 .sel-botao:hover, .multi > summary:hover{ background:var(--cartao); border-color:var(--apagado); }
 .sel-botao[aria-expanded=true], .multi[open] > summary{ border-color:var(--marca); box-shadow:0 0 0 3px var(--realce); }
 .sel-botao:disabled{ background:var(--cartao-2); color:var(--apagado); cursor:not-allowed; }
@@ -120,7 +126,7 @@ button.discreto.neutro{ color:var(--texto); }
 .campo-periodo .sel-botao .ico{ flex:none; color:var(--suave); }
 .periodo-painel{ display:flex; width:auto; max-width:calc(100vw - 24px); max-height:none; padding:0; overflow:visible; }
 .periodo-prontos{ display:flex; flex-direction:column; gap:2px; min-width:150px; padding:8px; border-right:1px solid var(--linha); }
-.periodo-prontos button{ background:none; border:0; color:var(--texto); text-align:left; padding:7px 10px; border-radius:7px; font-weight:400; }
+.periodo-prontos button{ justify-content:flex-start; min-height:0; background:none; border:0; color:var(--texto); text-align:left; padding:7px 10px; border-radius:7px; font-weight:400; }
 .periodo-prontos button:hover{ background:var(--hover); }
 .periodo-prontos button.atual{ background:var(--realce); color:var(--marca); font-weight:600; }
 .periodo-cal{ padding:10px 12px 12px; }
@@ -129,11 +135,11 @@ button.discreto.neutro{ color:var(--texto); }
 .cal{ width:252px; user-select:none; }
 .cal-cab{ display:flex; align-items:center; justify-content:space-between; margin:0 0 6px; }
 .cal-cab b{ font-size:13px; font-weight:600; }
-.cal-cab button{ width:30px; height:30px; padding:0; background:none; border:0; color:var(--suave); border-radius:7px; font-size:18px; line-height:1; }
+.cal-cab button{ width:30px; height:30px; min-height:0; padding:0; background:none; border:0; color:var(--suave); border-radius:7px; font-size:18px; line-height:1; }
 .cal-cab button:hover{ background:var(--hover); color:var(--texto); }
 .cal-sem, .cal-dias{ display:grid; grid-template-columns:repeat(7,1fr); text-align:center; }
 .cal-sem span{ font-size:11px; color:var(--apagado); padding:4px 0; }
-.cal-dia{ height:34px; padding:0; margin:1px 0; background:none; border:0; border-radius:8px; color:var(--texto); font-weight:400; font-variant-numeric:tabular-nums; }
+.cal-dia{ height:34px; min-height:0; padding:0; margin:1px 0; background:none; border:0; border-radius:8px; color:var(--texto); font-weight:400; font-variant-numeric:tabular-nums; }
 .cal-dia:hover:not(:disabled){ background:var(--hover); }
 .cal-dia.fora{ color:var(--apagado); }
 .cal-dia.hoje{ box-shadow:inset 0 0 0 1px var(--linha-forte); }
@@ -156,18 +162,17 @@ body.com-folha{ overflow:hidden; }
 .avatar{ display:inline-flex; flex:none; align-items:center; justify-content:center; border-radius:50%; object-fit:cover; }
 .avatar-letra{ background:var(--av); color:#fff; font-weight:600; line-height:1; }
 section[id], .cartao[id]{ scroll-margin-top:84px; }
-.conta-icone, .recolher{ display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; padding:0; border:0; border-radius:var(--r-sm); background:none; color:var(--suave); }
-.conta-icone:hover, .recolher:hover{ background:var(--hover); color:var(--marca); text-decoration:none; }
-.conta-perfil{ display:inline-flex; align-items:center; gap:8px; padding:3px 12px 3px 3px; border:1px solid var(--linha); border-radius:999px; color:var(--texto); font-weight:500; }
-.conta-perfil:hover{ border-color:var(--linha-forte); background:var(--hover); text-decoration:none; }
-.recolher .ico{ transition:transform .2s; }
-.topo-recolhido .recolher .ico{ transform:rotate(180deg); }
-.topo-resumo{ display:none; align-items:center; gap:8px; padding:5px 12px; background:var(--cartao-2); color:var(--texto); border:1px solid var(--linha); border-radius:999px; font-weight:500; }
-.topo-resumo:hover{ background:var(--hover); }
-.topo-resumo .ico{ color:var(--suave); }
-.topo-recolhido .topo{ padding-top:6px; padding-bottom:6px; align-items:center; }
-.topo-recolhido .topo .filtros{ display:none; }
-.topo-recolhido .topo .topo-resumo{ display:inline-flex; }
+/* Usuarios: o que cada um pode abrir */
+form.acessos, fieldset.acessos{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin:0; }
+fieldset.acessos{ border:1px solid var(--linha); border-radius:var(--r-sm); padding:8px 12px; }
+fieldset.acessos legend{ padding:0 4px; font-size:12px; color:var(--suave); }
+label.acesso{ display:inline-flex !important; flex-direction:row !important; align-items:center; gap:6px; font-size:13px !important; color:var(--texto) !important; cursor:pointer; }
+.usuario-nome{ white-space:nowrap; } .usuario-nome .avatar{ vertical-align:middle; margin-right:6px; }
+/* Navegacao suave: enquanto a tela nova chega, uma linha corre no alto e o conteudo esmaece */
+.navegando body::after{ content:""; position:fixed; z-index:100; top:0; left:0; width:35%; height:2px; background:var(--marca); animation:navegando 1s ease-in-out infinite; }
+.navegando main{ opacity:.6; transition:opacity .15s .12s; }
+@keyframes navegando{ from{ transform:translateX(-100%); } to{ transform:translateX(300%); } }
+@media (prefers-reduced-motion:reduce){ .navegando body::after{ animation:none; width:100%; opacity:.6; } }
 /* Topo: filtros a esquerda, conta a direita */
 .topo{ position:sticky; top:0; z-index:5; background:var(--cartao); border-bottom:1px solid var(--linha); padding:10px 24px; display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
 .topo label, .gestor-filtros label, .topo .campo{ display:flex; flex-direction:column; font-size:12px; color:var(--suave); gap:3px; }
@@ -229,11 +234,22 @@ td.quebra{ white-space:normal; min-width:220px; }
 /* Barra lateral CMS | UTM */
 .casca{ display:flex; min-height:100vh; }
 .conteudo{ flex:1; min-width:0; }
-.lateral{ width:64px; flex:none; background:var(--lateral); display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px 0; position:sticky; top:0; height:100vh; }
-.lateral a{ width:48px; padding:8px 0 6px; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center; gap:3px; color:#9CA3AF; font-size:10.5px; font-weight:500; }
-.lateral a:hover{ background:rgba(255,255,255,.06); color:#fff; text-decoration:none; }
-.lateral a.atual{ background:rgba(255,255,255,.1); color:#fff; }
-.lateral svg{ width:20px; height:20px; }
+/* Barra lateral do admin: os paineis em cima e a conta embaixo (no celular, uma linha no alto) */
+.lateral{ width:64px; flex:none; z-index:20; background:var(--lateral); display:flex; flex-direction:column; align-items:center; padding:12px 0; position:sticky; top:0; height:100vh; color:#9CA3AF; }
+.lateral-alterna{ display:none; }
+.lateral-itens{ flex:1; min-height:0; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; }
+.lateral-paineis, .lateral-conta{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+.lateral-paineis a{ width:48px; padding:8px 0 6px; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center; gap:3px; color:#9CA3AF; font-size:10.5px; font-weight:500; }
+.lateral-paineis a:hover{ background:rgba(255,255,255,.06); color:#fff; text-decoration:none; }
+.lateral-paineis a.atual{ background:rgba(255,255,255,.1); color:#fff; }
+.lateral-paineis svg{ width:20px; height:20px; }
+.lateral-conta{ gap:6px; }
+.lateral .conta-icone, .lateral .tema-menu > summary{ display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:var(--r-sm); color:#9CA3AF; }
+.lateral .conta-icone:hover, .lateral .tema-menu > summary:hover, .lateral .tema-menu[open] > summary{ background:rgba(255,255,255,.08); color:#fff; text-decoration:none; }
+.lateral .conta-perfil{ display:inline-flex; align-items:center; gap:8px; padding:3px; margin-top:4px; border-radius:999px; color:#fff; font-weight:500; }
+.lateral .conta-perfil:hover{ background:rgba(255,255,255,.08); text-decoration:none; }
+.lateral .conta-perfil > span:not(.avatar){ display:none; }
+.lateral .tema-painel{ left:calc(100% + 10px); right:auto; top:auto; bottom:0; color:var(--texto); }
 
 /* Gestor de anuncios */
 .gestor-niveis, .segmentos{ display:inline-flex; background:var(--cartao-2); border:1px solid var(--linha); border-radius:var(--r-sm); padding:2px; margin:0 0 14px; }
@@ -265,7 +281,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 .gestor-barra{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin:0 0 14px; }
 .gestor-barra .gestor-filtros{ margin:0; }
 .colunas{ position:relative; }
-.colunas summary{ list-style:none; display:inline-flex; align-items:center; gap:6px; cursor:pointer; padding:6px 12px; border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); color:var(--texto); font-size:13px; }
+.colunas summary{ list-style:none; display:inline-flex; align-items:center; gap:6px; cursor:pointer; min-height:var(--alt); padding:0 14px; border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); color:var(--texto); font-size:13px; }
 .colunas summary:hover{ border-color:var(--apagado); }
 .colunas summary .ico{ color:var(--suave); }
 .colunas summary::-webkit-details-marker{ display:none; }
@@ -274,7 +290,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 .colunas-cab{ grid-column:1 / -1; display:flex; flex-direction:column; gap:2px; }
 .colunas-cab strong{ font-size:15px; }
 .colunas-modelos{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px; font-size:12px; }
-button.chip{ padding:4px 12px; border:1px solid var(--linha-forte); border-radius:999px; background:var(--cartao-2); color:var(--texto); font-size:12px; font-weight:500; }
+button.chip{ min-height:28px; padding:0 12px; border:1px solid var(--linha-forte); border-radius:999px; background:var(--cartao-2); color:var(--texto); font-size:12px; font-weight:500; }
 button.chip:hover{ border-color:var(--apagado); background:var(--cartao-2); }
 button.chip[aria-pressed=true]{ border-color:var(--marca); background:var(--realce); color:var(--marca); }
 .colunas-lista, .colunas-escolhidas{ min-height:0; overflow:auto; }
@@ -290,7 +306,7 @@ button.chip[aria-pressed=true]{ border-color:var(--marca); background:var(--real
 .colunas-escolhidas li > span:nth-child(2){ flex:1; }
 .colunas-escolhidas li.arrastando{ opacity:.45; }
 .colunas-escolhidas .alca{ width:16px; color:var(--apagado); cursor:grab; }
-.colunas-escolhidas li button{ padding:1px 7px; font-size:12px; }
+.colunas-escolhidas li button{ min-height:26px; padding:0 8px; font-size:12px; }
 .colunas-escolhidas li button.neutro{ color:var(--suave); }
 .colunas-escolhidas li button.neutro:hover{ color:var(--texto); }
 .colunas-pe{ grid-column:1 / -1; display:flex; align-items:center; gap:8px; justify-content:flex-end; border-top:1px solid var(--linha); padding-top:12px; }
@@ -337,9 +353,9 @@ summary.campanha-orc:hover .ico{ color:var(--marca); }
 @media (hover:none){ summary.campanha-orc .ico{ opacity:1; } }
 .orc-inline[open] > summary{ display:none; }
 .orc-inline-form{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
-.orc-inline-form input[name=valor]{ width:110px; padding:5px 8px; font-weight:600; }
+.orc-inline-form input[name=valor]{ width:110px; min-width:0; padding:0 8px; font-weight:600; }
 .orc-inline-form .sel{ max-width:260px; }
-.orc-inline-form button{ display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; }
+.orc-inline-form button{ width:var(--alt); height:var(--alt); padding:0; }
 .campanha-linha{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin-top:10px; font-size:13px; }
 .campanha-linha code{ font-size:12px; }
 .campanha-linha .colunas{ margin-left:auto; }
@@ -374,7 +390,7 @@ summary.campanha-orc:hover .ico{ color:var(--marca); }
 .ret-barra i{ display:block; height:100%; border-radius:6px; background:linear-gradient(90deg, var(--grad-a), var(--grad-b)); }
 /* Orcamento na analise diaria: mudar agora e programar lado a lado */
 .orcamento h3{ font-size:13px; margin:16px 0 8px; }
-.orc-novo > summary{ list-style:none; display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:var(--r-sm); background:var(--marca); color:#fff; font-size:13px; font-weight:500; cursor:pointer; }
+.orc-novo > summary{ list-style:none; display:inline-flex; align-items:center; gap:6px; min-height:var(--alt); padding:0 14px; border:1px solid var(--marca); border-radius:var(--r-sm); background:var(--marca); color:#fff; font-size:13px; font-weight:500; cursor:pointer; }
 .orc-novo > summary::-webkit-details-marker{ display:none; }
 .orc-novo > summary:hover{ background:var(--marca-hover); }
 .orc-novo[open] > summary{ background:var(--cartao-2); color:var(--texto); border:1px solid var(--linha-forte); }
@@ -399,7 +415,7 @@ summary.campanha-orc:hover .ico{ color:var(--marca); }
 .tabela.dias th .info{ display:flex; margin:3px 0 0 auto; } .tabela.dias th:first-child .info{ margin-left:0; }
 .tabela.dias td.dia{ white-space:nowrap; }
 /* Titulo que ordena na tela: botao com cara de texto e a seta da ordem */
-button.ordena{ padding:0; border:0; background:none; color:inherit; font:inherit; font-weight:inherit; text-align:inherit; cursor:pointer; }
+button.ordena{ display:inline; min-height:0; padding:0; border:0; background:none; color:inherit; font:inherit; font-weight:inherit; text-align:inherit; cursor:pointer; }
 button.ordena:hover{ background:none; color:var(--texto); }
 th[aria-sort] > button.ordena{ color:var(--texto); font-weight:600; }
 th[aria-sort=ascending] > button.ordena::after{ content:" ↑"; }
@@ -430,8 +446,8 @@ th[aria-sort=descending] > button.ordena::after{ content:" ↓"; }
 .multi-painel{ position:absolute; z-index:45; left:0; top:calc(100% + 4px); min-width:100%; width:max-content; max-width:min(380px, calc(100vw - 24px)); max-height:60vh; overflow:auto; padding:5px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:10px; box-shadow:0 12px 32px var(--sombra); color:var(--texto); font-size:13px; }
 .multi-painel label{ display:flex; flex-direction:row; align-items:center; gap:8px; padding:6px 8px; border-radius:var(--r-sm); color:var(--texto); font-size:13px; cursor:pointer; }
 .multi-painel label:hover{ background:var(--hover); }
-.multi-painel .multi-pe{ display:flex; justify-content:space-between; gap:8px; padding:6px 4px 2px; border-top:1px solid var(--linha); margin-top:4px; }
-.multi-painel .multi-pe button{ padding:4px 10px; }
+.multi-painel .multi-todos{ font-weight:600; border-bottom:1px solid var(--linha); border-radius:var(--r-sm) var(--r-sm) 0 0; margin-bottom:4px; padding-bottom:9px; }
+.sel-multi .multi-painel{ max-height:60vh; }
 .tabela.gestor a.ordena{ color:inherit; } .tabela.gestor a.ordena.atual{ color:var(--texto); font-weight:600; }
 .tabela.gestor a.abre{ color:var(--texto); } .tabela.gestor a.abre:hover strong{ color:var(--marca); text-decoration:underline; }
 .delta{ font-size:11px; color:var(--suave); white-space:nowrap; } .delta.bom{ color:var(--ok); } .delta.ruim{ color:var(--erro); } .delta.novo{ color:var(--marca); }
@@ -469,7 +485,7 @@ th[aria-sort=descending] > button.ordena::after{ content:" ↓"; }
 }
 .trilha{ margin:0 0 12px; }
 /* Botao so com icone (Atualizar): quadrado, gira enquanto busca */
-.botao-icone{ display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; background:var(--cartao); color:var(--suave); border:1px solid var(--linha-forte); border-radius:var(--r-sm); }
+.botao-icone{ display:inline-flex; align-items:center; justify-content:center; width:var(--alt); height:var(--alt); padding:0; background:var(--cartao); color:var(--suave); border:1px solid var(--linha-forte); border-radius:var(--r-sm); }
 .botao-icone:hover{ background:var(--hover); color:var(--marca); border-color:var(--marca); }
 .botao-icone.girando svg{ animation:girar .8s linear infinite; }
 @keyframes girar{ to{ transform:rotate(360deg); } }
@@ -482,7 +498,7 @@ th[aria-sort=descending] > button.ordena::after{ content:" ↓"; }
 .tema-painel{ position:absolute; z-index:40; right:0; top:calc(100% + 6px); width:300px; padding:14px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); }
 .tema-painel h3{ margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--suave); }
 .tema-prontos{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:0 0 12px; }
-.tema-pronto{ display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px 6px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-md); font-weight:500; }
+.tema-pronto{ display:flex; flex-direction:column; align-items:center; gap:6px; min-height:0; padding:8px 6px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-md); font-weight:500; }
 .tema-pronto:hover{ background:var(--hover); border-color:var(--marca); }
 .tema-pronto.atual{ border:2px solid var(--marca); padding:7px 5px; }
 .tema-previa{ display:grid; grid-template-columns:30% 1fr; grid-template-rows:repeat(3,1fr); gap:3px; width:64px; height:42px; padding:5px; border-radius:6px; background:var(--p); border:1px solid rgba(127,127,127,.3); }
@@ -503,7 +519,7 @@ a.conta-nome .conta-cfg{ color:var(--suave); font-size:12px; }
 .perfil-linha b{ display:block; font-size:15px; margin:0 0 6px; }
 .perfil-acoes{ display:inline-flex; margin:0 8px 0 0; }
 .perfil-linha form{ display:inline-flex; }
-.botao-arquivo{ display:inline-flex !important; flex-direction:row !important; align-items:center; gap:6px; margin:0 !important; padding:6px 12px; background:var(--marca); color:#fff !important; border-radius:var(--r-sm); font-weight:500; font-size:13px !important; cursor:pointer; }
+.botao-arquivo{ display:inline-flex !important; flex-direction:row !important; align-items:center; gap:6px; margin:0 !important; min-height:var(--alt); padding:0 14px; background:var(--marca); color:#fff !important; border-radius:var(--r-sm); font-weight:500; font-size:13px !important; cursor:pointer; }
 .botao-arquivo:hover{ background:var(--marca-hover); }
 .botao-arquivo input{ position:absolute; width:1px; height:1px; opacity:0; }
 .perfil-sair{ border-top:1px solid var(--linha); padding-top:12px; }
@@ -535,7 +551,7 @@ a.conta-nome .conta-cfg{ color:var(--suave); font-size:12px; }
 .cfg-previa + .cfg-campo{ margin-top:16px; }
 /* Gestor: chave liga/pausa e caixas de marcar */
 .chave-form{ display:inline-block; margin:0 6px 0 0; vertical-align:middle; }
-.chave{ position:relative; width:34px; height:20px; padding:0; border-radius:10px; border:0; background:var(--linha-forte); cursor:pointer; }
+.chave{ position:relative; display:inline-block; width:34px; height:20px; min-height:0; padding:0; border-radius:10px; border:0; background:var(--linha-forte); cursor:pointer; }
 .chave:hover{ background:var(--apagado); }
 .chave span{ position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.2); transition:left .15s; }
 .chave.ligada{ background:var(--marca); } .chave.ligada:hover{ background:var(--marca-hover); }
@@ -652,9 +668,8 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .canal-instagram .ico{ color:#C13584; } .canal-facebook .ico, .canal-meta .ico, .canal-compartilhado .ico{ color:#1877F2; }
 .canal-google .ico{ color:#EA4335; } .canal-organico .ico{ color:#16A34A; } .canal-outros .ico, .canal-direto .ico{ color:var(--apagado); }
 
-@media (max-width:640px){ .topo, .abas{ padding-left:16px; padding-right:16px; } main{ padding:16px; } select{ min-width:130px; } .conta{ margin-left:0; }
-  .grade{ grid-template-columns:1fr; }
-  .casca{ flex-direction:column; } .lateral{ width:auto; height:auto; flex-direction:row; justify-content:center; position:static; padding:6px; } }
+@media (max-width:640px){ .topo, .abas{ padding-left:16px; padding-right:16px; } main{ padding:16px; } select{ min-width:130px; }
+  .grade{ grid-template-columns:1fr; } }
 /* ---------------------------------------------------------------- celular
    Navegacao de app: barra fixa embaixo (Resumo, Trafego, Gestor, Vendas e Mais), topo
    compacto e sem grudar, listas em cartoes e a primeira coluna das tabelas fixa. */
@@ -663,13 +678,25 @@ th.marca, td.marca{ width:34px; text-align:center; }
   body{ padding-bottom:calc(64px + env(safe-area-inset-bottom)); }
   .abas{ display:none; }
   .topo{ position:static; padding:10px 16px; gap:8px; }
-  .topo .conta{ order:-1; width:100%; justify-content:space-between; margin:0; }
+  .casca{ flex-direction:column; }
+  .lateral{ width:auto; height:auto; position:relative; flex-direction:column; align-items:stretch; padding:0; }
+  .lateral-alterna{ display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:max(6px, env(safe-area-inset-top)) 16px 6px; background:none; border:0; border-radius:0; color:#E5E7EB; font-size:14px; }
+  .lateral-alterna:hover{ background:rgba(255,255,255,.04); }
+  .lateral-alterna > svg:first-child{ width:18px; height:18px; color:#9CA3AF; }
+  .lateral-alterna .avatar{ margin-left:auto; }
+  .lateral-alterna .seta{ width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; transition:transform .2s; }
+  .lateral.aberta .lateral-alterna .seta{ transform:rotate(180deg); }
+  .lateral-itens{ display:none; }
+  .lateral.aberta .lateral-itens{ display:flex; flex-direction:row; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; padding:2px 12px 12px; }
+  .lateral-paineis, .lateral-conta{ flex-direction:row; }
+  .lateral-paineis a{ flex-direction:row; width:auto; padding:8px 14px; gap:6px; font-size:13px; }
+  .lateral-paineis svg{ width:18px; height:18px; }
+  .lateral .conta-perfil{ margin:0; padding-right:12px; }
+  .lateral .conta-perfil > span:not(.avatar){ display:inline; }
+  .lateral .tema-painel{ position:fixed; left:12px; right:12px; top:auto; bottom:calc(76px + env(safe-area-inset-bottom)); width:auto; }
   .filtros{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); width:100%; gap:8px; }
   .filtros select{ width:100%; min-width:0; }
   .filtros .campo, .multi > summary{ width:100%; min-width:0; max-width:none; }
-  .lateral{ padding:4px 8px; gap:8px; }
-  .lateral a{ flex-direction:row; width:auto; padding:6px 12px; gap:6px; font-size:12px; }
-  .lateral svg{ width:18px; height:18px; }
   .nav-celular{ display:flex; position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--cartao); border-top:1px solid var(--linha);
     padding:4px 4px env(safe-area-inset-bottom); box-shadow:0 -4px 16px rgba(17,24,39,.06); }
   .nav-celular > a, .nav-mais > summary{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:52px;
@@ -719,7 +746,7 @@ th.marca, td.marca{ width:34px; text-align:center; }
   select, input, textarea{ font-size:16px; }
   input[type=checkbox], input[type=radio]{ font-size:inherit; }
 }
-@media (display-mode:standalone){ .lateral{ padding-top:max(4px, env(safe-area-inset-top)); } }
+@media (display-mode:standalone) and (min-width:761px){ .lateral{ padding-top:max(12px, env(safe-area-inset-top)); } }
 </style>
 </head>
 <body>
@@ -737,27 +764,52 @@ function pagina_fim(): void
     echo '<script src="painel.js?v=' . (int)@filemtime(__DIR__ . '/../painel.js') . '"></script></body></html>';
 }
 
-// Barra lateral com CMS e UTM, quando o painel mora dentro de um admin (config "menu_cms").
-// Sem essa configuracao (painel avulso em track.dominio), nao aparece.
+// Barra lateral do admin inteiro: em cima os paineis que o usuario pode abrir (CMS, quando o
+// painel mora num admin com CMS, config "menu_cms", e UTM); embaixo a conta, que e do admin
+// todo: Usuarios (quem pode), aparencia, Configuracoes e a foto de quem entrou. No celular vira
+// uma linha no alto, recolhida (a seta abre); os filtros do topo ficam sempre a mostra.
+// $aqui: o painel aberto (utm ou cms); $utm: caminho ate a pasta do painel UTM ('' dentro
+// dele, 'utm/' no CMS); $cms: o link do CMS.
+function admin_lateral(string $aqui = 'utm', string $utm = '', ?string $cms = null): string
+{
+    $cms = $cms ?? (string)((track_config() ?? [])['menu_cms'] ?? '');
+    $u = (string)usuario_atual();
+    $paineis = [];
+    if ($cms !== '' && usuario_pode('cms')) {
+        $paineis['cms'] = ['CMS', $cms, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>'];
+    }
+    if (usuario_pode('utm')) {
+        $paineis['utm'] = ['UTM', $utm === '' ? './' : $utm, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>'];
+    }
+    $atual = $paineis[$aqui] ?? ['Admin', './', icone('config', 20)];
+    $h = '<nav class="lateral" aria-label="Admin" data-lateral><input type="hidden" id="csrf-painel" value="' . e(token_csrf()) . '">'
+        . '<button type="button" class="lateral-alterna" data-lateral-alterna aria-expanded="false" aria-controls="lateral-itens" aria-label="Abrir o menu do admin">'
+        . $atual[2] . '<b>' . e($atual[0]) . '</b>' . avatar_html($u, 26, $utm) . '<svg class="seta" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>'
+        . '<div class="lateral-itens" id="lateral-itens"><div class="lateral-paineis">';
+    foreach ($paineis as $k => [$rot, $href, $ico]) {
+        $h .= '<a href="' . e($href) . '"' . ($k === $aqui ? ' class="atual" aria-current="page"' : '') . ' title="' . e($rot) . '">' . $ico . '<span>' . e($rot) . '</span></a>';
+    }
+    $aquiUrl = destino_seguro((string)($_SERVER['REQUEST_URI'] ?? ''));
+    $h .= '</div><div class="lateral-conta">';
+    if (usuario_pode('usuarios')) {
+        $h .= '<a class="conta-icone" href="' . e($utm . 'usuarios.php') . '" title="Usuários: quem entra e o que cada um pode abrir" aria-label="Usuários">' . icone('usuarios', 19) . '</a>';
+    }
+    $h .= '<details class="tema-menu"><summary title="Aparência: claro, escuro ou outra cor de fundo" aria-label="Aparência">' . icone('paleta', 19) . '</summary>'
+        . '<div class="tema-painel"><h3>Aparência</h3>' . tema_form($aquiUrl === './' ? './' : $aquiUrl, $utm) . '</div></details>'
+        . '<a class="conta-icone" href="' . e($utm . 'configuracoes.php') . '" title="Configurações: perfil, aparência, app, notificações e sair" aria-label="Configurações">' . icone('config', 19) . '</a>'
+        . '<a class="conta-perfil" href="' . e($utm . 'configuracoes.php#perfil') . '" title="' . e($u) . ': foto do perfil e sair">' . avatar_html($u, 32, $utm) . '<span>' . e($u) . '</span></a>'
+        . '</div></div></nav>';
+    return $h;
+}
+
 function casca_inicio(): void
 {
-    $cms = track_config()['menu_cms'] ?? '';
-    if ($cms === '') {
-        return;
-    }
-    $iconeCms = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>';
-    $iconeUtm = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>';
-    echo '<div class="casca"><nav class="lateral" aria-label="Seções do admin">'
-        . '<a href="' . e($cms) . '" title="CMS">' . $iconeCms . '<span>CMS</span></a>'
-        . '<a href="./" class="atual" title="UTM" aria-current="page">' . $iconeUtm . '<span>UTM</span></a>'
-        . '</nav><div class="conteudo">';
+    echo '<noscript><style>.lateral-itens{ display:flex !important; }</style></noscript><div class="casca">' . admin_lateral() . '<div class="conteudo">';
 }
 
 function casca_fim(): void
 {
-    if ((track_config()['menu_cms'] ?? '') !== '') {
-        echo '</div></div>';
-    }
+    echo '</div></div>';
 }
 
 // Icones de linha (mesmo traco dos icones do CMS). So SVG inline: a CSP nao carrega imagem de fora.
@@ -793,6 +845,7 @@ function icone(string $nome, int $tam = 16): string
         'filtro' => '<path d="M3 5h18l-7 8v5l-4 2v-7z"/>',
         'seta-cima' => '<path d="M6 15l6-6 6 6"/>',
         'grafico' => '<path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/><path d="M4 9l6-4 6 8 5-5"/>',
+        'usuarios' => '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
         'lapis' => '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
         'ok' => '<path d="M20 6L9 17l-5-5"/>',
         'fechar' => '<path d="M18 6L6 18M6 6l12 12"/>',
@@ -944,22 +997,6 @@ function com_icone_canal(array $c, string $texto): string
     return '<span class="canal canal-' . e($c[0]) . '">' . icone($c[2]) . '<span>' . e($texto) . '</span></span>';
 }
 
-// Conta de quem esta no painel e o Sair, no canto direito do topo (como no CMS)
-function conta_topo(): string
-{
-    // Canto direito: a paleta (aparencia), a engrenagem (Configuracoes, onde fica o Sair), a
-    // bolinha com a foto de quem entrou e a seta que recolhe a barra de cima. O token vai num
-    // campo proprio para o painel.js (busca em segundo plano e notificacoes).
-    $aqui = destino_seguro((string)($_SERVER['REQUEST_URI'] ?? ''));
-    $volta = $aqui === './' ? './' : $aqui;
-    $u = (string)usuario_atual();
-    return '<div class="conta"><input type="hidden" id="csrf-painel" value="' . e(token_csrf()) . '">'
-        . '<details class="tema-menu"><summary title="Aparência: claro, escuro ou outra cor de fundo" aria-label="Aparência">' . icone('paleta', 18) . '</summary>'
-        . '<div class="tema-painel"><h3>Aparência</h3>' . tema_form($volta) . '</div></details>'
-        . '<a class="conta-icone" href="configuracoes.php" title="Configurações: perfil, aparência, app, notificações e sair" aria-label="Configurações">' . icone('config', 18) . '</a>'
-        . '<a class="conta-perfil" href="configuracoes.php#perfil" title="' . e($u) . ': foto do perfil e sair">' . avatar_html($u, 28) . '<span>' . e($u) . '</span></a>'
-        . '<button type="button" class="recolher" data-recolher aria-expanded="true" aria-label="Recolher a barra de cima" title="Recolher a barra de cima">' . icone('seta-cima', 16) . '</button></div>';
-}
 
 // Botao de atualizar (so o icone, com a dica): busca na hora e volta para $volta
 // $foco: a busca que vai primeiro (kiwify, meta ou instagram), a da tela em que o botao esta
@@ -971,10 +1008,28 @@ function botao_atualizar(string $volta, string $dica = 'Atualizar agora: busca a
         . icone('atualizar', 16) . '</button></form>';
 }
 
-// Topo das telas sem filtro (Usuarios, API Kiwify)
+// Topo das telas sem filtro (Usuarios, API Kiwify): a conta mora na barra lateral, entao nada
 function topo_pagina(): void
 {
-    echo '<header class="topo">' . conta_topo() . '</header>';
+}
+
+// Lista de varios (Produto, Fonte de trafego): caixas, com "Todos" no topo. O painel.js troca
+// pelo seletor do painel e aplica ao fechar; sem JavaScript fica o <details> e o Filtrar.
+// $opcoes: valor => rotulo; $nomes: [singular, plural] para o "3 produtos" do botao.
+function filtro_multi(string $nome, array $opcoes, array $marcados, string $rotuloTodos, array $nomes = ['item', 'itens'], string $vazio = 'Nada ainda.'): string
+{
+    $m = array_values(array_filter($marcados, fn($v) => isset($opcoes[$v])));
+    $rot = !$m ? $rotuloTodos : (count($m) === 1 ? $opcoes[$m[0]] : count($m) . ' ' . $nomes[1]);
+    $h = '<details class="multi" data-multi data-um="' . e($nomes[0]) . '" data-varios="' . e($nomes[1]) . '"><summary>' . e($rot) . '</summary><div class="multi-painel">'
+        . '<input type="hidden" name="' . e($nome) . '[]" value="">'
+        . '<label class="multi-todos"><input type="checkbox" data-multi-todos' . (!$m ? ' checked' : '') . '>' . e($rotuloTodos) . '</label>';
+    foreach ($opcoes as $v => $r) {
+        $h .= '<label><input type="checkbox" name="' . e($nome) . '[]" value="' . e((string)$v) . '"' . (in_array((string)$v, $m, true) ? ' checked' : '') . '>' . e($r) . '</label>';
+    }
+    if (!$opcoes) {
+        $h .= '<p class="suave">' . e($vazio) . '</p>';
+    }
+    return $h . '</div></details>';
 }
 
 // Cor do ROI, como na planilha de campanhas: abaixo de 1 vermelho, de 1 ate 2 laranja, 2 ou
@@ -995,7 +1050,6 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
     $soPeriodo = in_array($aba, ['gestor', 'campanha', 'geral', 'organico', 'financeiro'], true); // nessas telas, site e pagina nao se aplicam
     $comProduto = !in_array($aba, ['visitantes', 'eventos', 'financeiro'], true); // telas sem venda (e o Financeiro, que e a empresa toda)
     $marcados = $filtro['produto'] ?? [];
-    $rotuloProduto = !$marcados ? 'Todos (com order bump)' : (count($marcados) === 1 ? $marcados[0] : count($marcados) . ' produtos');
     $datas = periodo_datas($filtro['periodo']);
     // As datas do personalizado comecam no periodo que esta na tela
     [$d1, $d2] = $datas ?? periodo_dias($filtro['periodo']);
@@ -1041,28 +1095,16 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
     <span class="datas" data-datas<?= $datas ? '' : ' hidden' ?>>
       <label>De <input type="date" name="de" value="<?= e($d1) ?>" max="<?= e($hoje) ?>"<?= $datas ? '' : ' disabled' ?>></label>
       <label>Até <input type="date" name="ate" value="<?= e($d2) ?>" min="<?= e($d1) ?>" max="<?= e($hoje) ?>"<?= $datas ? '' : ' disabled' ?>></label>
-      <button type="submit" class="discreto neutro">Aplicar</button>
+      <noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript>
     </span>
   </div>
   <?php if ($comProduto): ?>
   <div class="campo"><span><?= com_info('Produto', 'Vale para as vendas de todas as telas: faturamento, vendas, CPA, ROI e lucro. Marque o produto principal (ou mais de um, como o Drive antigo e o novo) para tirar os order bumps da conta: cada order bump é outro produto na Kiwify. O gasto da Meta continua o das campanhas.') ?></span>
-    <details class="multi" data-multi>
-      <summary><?= e($rotuloProduto) ?></summary>
-      <div class="multi-painel">
-        <input type="hidden" name="produto[]" value="">
-        <?php foreach ($produtos as $p): ?>
-        <label><input type="checkbox" name="produto[]" value="<?= e($p) ?>"<?= in_array($p, $marcados, true) ? ' checked' : '' ?>><?= e($p) ?></label>
-        <?php endforeach; ?>
-        <?php if (!$produtos): ?><p class="suave">Nenhuma venda ainda.</p><?php endif; ?>
-        <div class="multi-pe"><button type="button" class="discreto neutro" data-multi-todos>Todos</button><button type="submit">Aplicar</button></div>
-      </div>
-    </details>
+    <?= filtro_multi('produto', array_combine($produtos, $produtos) ?: [], $marcados, 'Todos (com order bump)', ['produto', 'produtos'], 'Nenhuma venda ainda.') ?>
   </div>
   <?php endif; ?>
   <noscript><button type="submit">Filtrar</button></noscript>
 </form>
-<button type="button" class="topo-resumo" data-recolher title="Mostrar os filtros"><?= icone('filtro', 15) ?><span><?= e(implode(' · ', array_filter([periodo_rotulo($filtro['periodo']), $comProduto ? $rotuloProduto : '', !$soPeriodo && $filtro['dominio'] !== '' ? $filtro['dominio'] . $filtro['pagina'] : '']))) ?></span></button>
-<?= conta_topo() ?>
 </header>
 <?php
     abas_painel($aba, $filtro);
@@ -1074,6 +1116,9 @@ function abas_painel(string $aba, array $filtro = []): void
 {
     $abas = ['geral' => ['Resumo', 'resumo'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'financeiro' => ['Financeiro', 'carteira'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
         'visitantes' => ['Visitantes', 'visitantes'], 'eventos' => ['Eventos', 'eventos']];
+    if (!usuario_pode('utm')) {
+        return;
+    }
     $aba = $aba === 'campanha' ? 'gestor' : $aba; // a analise diaria e parte do gestor
     echo '<nav class="abas" aria-label="Seções do painel UTM"><span class="abas-titulo">UTM · Rastreio de vendas</span>';
     foreach ($abas as $id => [$rotulo, $ico]) {
@@ -1087,8 +1132,7 @@ function abas_painel(string $aba, array $filtro = []): void
     }
     echo '<a href="kiwify-api.php" class="' . ($aba === 'kiwify-api' ? 'atual' : '') . '">' . icone('chave') . 'API Kiwify</a>';
     echo '<a href="meta-api.php" class="' . ($aba === 'meta-api' ? 'atual' : '') . '">' . icone('meta') . 'API Meta</a>';
-    echo '<a href="instagram-api.php" class="' . ($aba === 'instagram-api' ? 'atual' : '') . '">' . icone('instagram') . 'API Instagram</a>';
-    echo '<a href="usuarios.php" class="' . ($aba === 'usuarios' ? 'atual' : '') . '">' . icone('usuario') . 'Usuários</a></nav>';
+    echo '<a href="instagram-api.php" class="' . ($aba === 'instagram-api' ? 'atual' : '') . '">' . icone('instagram') . 'API Instagram</a></nav>';
 
     // Celular: barra fixa embaixo com as 4 telas mais usadas; o resto em "Mais"
     $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1]));
@@ -1096,7 +1140,10 @@ function abas_painel(string $aba, array $filtro = []): void
     $mais = [['financeiro', $link('financeiro'), 'carteira', 'Financeiro'], ['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
         ['visitantes', $link('visitantes'), 'visitantes', 'Visitantes'], ['eventos', $link('eventos'), 'eventos', 'Eventos']];
     $config = [['configuracoes', 'configuracoes.php', 'config', 'Configurações'], ['kiwify-api', 'kiwify-api.php', 'chave', 'API Kiwify'],
-        ['meta-api', 'meta-api.php', 'meta', 'API Meta'], ['instagram-api', 'instagram-api.php', 'instagram', 'API Instagram'], ['usuarios', 'usuarios.php', 'usuario', 'Usuários']];
+        ['meta-api', 'meta-api.php', 'meta', 'API Meta'], ['instagram-api', 'instagram-api.php', 'instagram', 'API Instagram']];
+    if (usuario_pode('usuarios')) {
+        $config[] = ['usuarios', 'usuarios.php', 'usuarios', 'Usuários'];
+    }
     if (is_file(__DIR__ . '/../../guia/index.php')) {
         $config[] = ['guia', '../guia/', 'guia', 'Guia'];
     }

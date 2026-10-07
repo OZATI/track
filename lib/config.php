@@ -54,6 +54,38 @@ function track_usuarios(): array
     return !empty($cfg['senha_hash']) ? ['admin' => $cfg['senha_hash']] : [];
 }
 
+// O que cada usuario pode abrir no admin: os paineis (UTM e, quando o painel mora num admin com
+// CMS, o CMS) e "usuarios" (dar e tirar acessos). Fica em $cfg['acessos'][usuario]; usuario
+// sem a lista (os de antes) pode tudo.
+const TRACK_ACESSOS = ['cms' => 'CMS', 'utm' => 'UTM', 'usuarios' => 'Usuários'];
+
+// Os acessos que existem neste admin: o CMS so quando ha o link dele (config "menu_cms")
+function track_acessos(): array
+{
+    $a = TRACK_ACESSOS;
+    if (((track_config() ?? [])['menu_cms'] ?? '') === '') {
+        unset($a['cms']);
+    }
+    return $a;
+}
+
+// Lista do que o usuario pode abrir (todos os acessos que existem, se nao houver lista)
+function usuario_acessos(string $u): array
+{
+    $lista = (track_config() ?? [])['acessos'][$u] ?? null;
+    return is_array($lista) ? array_values(array_intersect(array_keys(track_acessos()), $lista)) : array_keys(track_acessos());
+}
+
+function usuario_pode(string $acesso, ?string $u = null): bool
+{
+    $u = $u ?? (function_exists('usuario_atual') ? usuario_atual() : null);
+    if ($u === null) {
+        return false;
+    }
+    $lista = (track_config() ?? [])['acessos'][$u] ?? null;
+    return !is_array($lista) || in_array($acesso, $lista, true);
+}
+
 // Grava a configuracao inteira. Arquivo temporario + rename: quem estiver lendo nunca
 // pega o arquivo pela metade.
 function track_salvar_config(array $cfg): bool

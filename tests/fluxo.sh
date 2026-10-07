@@ -148,11 +148,14 @@ confere "$(tem '<span>Direto / sem origem</span><span class="info"' "$r")" "Dire
 confere "$(grep -q 'id="form-sair"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Sair saiu do topo (fica em Configurações)"
 confere "$(tem 'id="csrf-painel"' "$r")" "token do painel num campo próprio no topo (busca em segundo plano e notificações)"
 confere "$(tem 'class="conta-icone" href="configuracoes.php"' "$r")" "Configurações só com a engrenagem"
-confere "$(tem 'class="conta-perfil"' "$r")" "bolinha do perfil no topo"
-confere "$(tem 'class="recolher" data-recolher' "$r")" "seta para recolher a barra de cima"
+confere "$(tem 'class="conta-perfil"' "$r")" "bolinha do perfil"
+confere "$(tem '<div class="lateral-conta">' "$r")" "a conta fica na barra lateral do admin (é do admin inteiro)"
+confere "$(tem 'data-lateral-alterna' "$r")" "no celular, a barra do admin recolhe numa linha (a seta abre)"
+confere "$(tem 'href="usuarios.php" title="Usuários' "$r")" "Usuários na barra lateral"
+confere "$(grep -q 'class="topo-resumo\|data-recolher' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "os filtros não recolhem mais: ficam sempre à mostra"
 confere "$(tem 'data-periodo-campo' "$r")" "período com o seletor de calendário"
-rr=$(curl -s -b "$JAR" --cookie "track_topo=recolhido" "$URL/index.php")
-confere "$(tem 'class="topo-recolhido"' "$rr")" "barra de cima recolhida fica lembrada (cookie), sem piscar"
+confere "$(tem '<label class="multi-todos"><input type="checkbox" data-multi-todos checked>Todos (com order bump)</label>' "$r")" "Produto com Todos como a primeira caixa"
+confere "$(grep -q '>Aplicar<' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem botão Aplicar: o filtro aplica ao escolher"
 confere "$(grep -q 'data-sair' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Sair não é mais uma aba"
 confere "$(tem 'orgânico · www.google.com' "$r")" "visita sem etiqueta vinda do Google aparece como orgânico · www.google.com"
 confere "$(tem 'direto (sem origem)' "$r")" "visita sem etiqueta e sem site de origem aparece como direto"
@@ -223,8 +226,9 @@ confere "$(tem 'kenio <span class="suave">(você)' "$r")" "tela de usuários lis
 csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 r=$(curl -s -b "$JAR" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" "$URL/usuarios.php")
 confere "$(tem 'Sessão expirada' "$r")" "criar acesso sem o token é recusado"
-r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" "$URL/usuarios.php")
-confere "$(tem 'Acesso criado para allan' "$r")" "kenio dá acesso ao allan"
+confere "$(tem 'name="acessos\[\]" value="cms" checked> CMS</label><label class="acesso"><input type="checkbox" name="acessos\[\]" value="utm" checked> UTM</label><label class="acesso"><input type="checkbox" name="acessos\[\]" value="usuarios" checked disabled> Usuários' "$r")" "cada usuário com CMS, UTM e Usuários (o próprio Usuários travado)"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" --data-urlencode "acessos[]=utm" --data-urlencode "acessos[]=usuarios" "$URL/usuarios.php")
+confere "$(tem 'Acesso criado para allan (UTM, Usuários)' "$r")" "kenio dá acesso ao allan, só ao UTM e aos usuários"
 J3="$DADOS/j3"
 r=$(curl -s -c "$J3" -b "$J3" "$URL/entrar.php?volta=/admin/")
 c=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
@@ -234,6 +238,25 @@ r=$(curl -s -b "$J3" "$URL/usuarios.php")
 c=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 r=$(curl -s -b "$J3" --data-urlencode "csrf=$c" --data-urlencode "acao=remover" --data-urlencode "usuario=allan" "$URL/usuarios.php")
 confere "$(tem 'não pode tirar o seu próprio acesso' "$r")" "ninguém tira o próprio acesso"
+r=$(curl -s -b "$J3" --data-urlencode "csrf=$c" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" --data-urlencode "acessos[]=utm" "$URL/usuarios.php")
+confere "$(tem 'Acessos de allan salvos' "$r")" "salvar os próprios acessos"
+confere "$(tem 'value="usuarios" checked disabled> Usuários' "$r")" "ninguém tira o próprio Usuários (continua na tela)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/index.php")
+confere "$([ "$code" = "200" ]; echo $?)" "allan abre o UTM ($code)"
+r=$(curl -s -b "$J3" "$URL/index.php")
+confere "$(grep -q 'title="CMS"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem acesso ao CMS, a barra lateral não mostra o CMS"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" --data-urlencode "acessos[]=cms" "$URL/usuarios.php")
+destino=$(curl -s -D - -o /dev/null -b "$J3" "$URL/index.php" | grep -i '^location:' | tr -d '')
+confere "$(tem 'ocation: \.\./$' "$destino")" "usuário só do CMS que abre o UTM vai para o CMS ($destino)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/usuarios.php")
+confere "$([ "$code" = "403" ]; echo $?)" "sem Usuários, a tela de usuários fica fechada ($code)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/configuracoes.php")
+r=$(curl -s -b "$J3" "$URL/configuracoes.php")
+confere "$([ "$code" = "200" ]; echo $?)" "Configurações (perfil, aparência e sair) abre para todo usuário"
+confere "$(grep -q 'data-push' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem o UTM, Configurações não mostra as notificações de venda"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" "$URL/usuarios.php")
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/index.php")
+confere "$([ "$code" = "403" ]; echo $?)" "usuário sem nenhum painel não abre o UTM ($code)"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" --data-urlencode "usuario=allan" "$URL/usuarios.php")
 confere "$(tem 'Acesso de allan removido' "$r")" "kenio tira o acesso do allan"
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J3" "$URL/index.php")
@@ -728,7 +751,10 @@ confere "$(tem 'aria-label="Vendas por dia da semana"' "$r")" "vendas por dia da
 confere "$(tem 'Qualidade do rastreio' "$(sem_tags "$r")")" "qualidade do rastreio: quanto das vendas o painel explica"
 confere "$(tem 'Taxa de aprovação' "$(sem_tags "$r")")" "taxa de aprovação com anéis"
 confere "$(tem 'name="produto\[\]"' "$r")" "filtro de produto (no topo, vários de uma vez)"
-confere "$(tem 'name="canal"' "$r")" "filtro de canal"
+confere "$(tem 'name="canal\[\]" value="organico"' "$r")" "filtro de fonte de tráfego com várias de uma vez"
+confere "$(tem 'data-multi-todos checked>Todas as fontes' "$r")" "fonte de tráfego com Todas como a primeira caixa"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&canal[]=organico&canal[]=direto")
+confere "$(tem 'contam só Orgânico, Direto / sem origem' "$(sem_tags "$r")")" "duas fontes de tráfego de uma vez"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&canal=organico")
 confere "$(tem 'Filtro ligado' "$(sem_tags "$r")")" "filtro de canal avisa que o gasto continua o da conta toda"
 confere "$(grep -q 'Faturamento líquidoR$ 202,00' < <(sem_tags "$r"); [ $? -ne 0 ]; echo $?)" "filtro de canal muda o faturamento"

@@ -1,8 +1,28 @@
-// Filtros do topo: mudar uma caixa ja atualiza o painel. Mudar o dominio zera a pagina.
-// "De uma data a outra" mostra as duas datas e so filtra quando as duas estao escolhidas.
-// Produto (varios de uma vez): filtra no Aplicar ou ao fechar a lista com algo mudado.
+// Painel: filtros, seletores, dicas e o resto da tela. Tudo o que liga eventos na tela fica em
+// iniciar(), que roda de novo quando a tela e trocada sem recarregar (navegacao suave, no fim
+// do arquivo): filtros, abas, ordenar e os formularios buscam a tela nova e trocam o corpo da
+// pagina, sem voltar para o topo. Os ouvintes de document e window passam por ouvir(), para
+// serem soltos antes da troca.
+// Filtros: escolher ja aplica (sem botao Aplicar). Mudar o dominio zera a pagina. Listas de
+// varios (Produto, Fonte de trafego) e o periodo aplicam ao fechar, clicando fora.
 (function () {
   'use strict';
+  var ouvintes = [];
+  function ouvir(alvo, tipo, fn, op) { alvo.addEventListener(tipo, fn, op); ouvintes.push([alvo, tipo, fn, op]); }
+  function soltarOuvintes() {
+    for (var i = 0; i < ouvintes.length; i++) { ouvintes[i][0].removeEventListener(ouvintes[i][1], ouvintes[i][2], ouvintes[i][3]); }
+    ouvintes = [];
+  }
+  // Envia um formulario pelo mesmo caminho do clique (a navegacao suave pega o "submit")
+  function enviar(f) {
+    var ev;
+    try { ev = new Event('submit', { bubbles: true, cancelable: true }); } catch (x) { f.submit(); return; }
+    if (f.dispatchEvent(ev)) { f.submit(); }
+  }
+  // App: o service worker deixa instalar o painel e mostra as notificacoes (sw.php). Uma vez so.
+  var sw = 'serviceWorker' in navigator ? navigator.serviceWorker.register('sw.php', { scope: './' }).catch(function () { return null; }) : null;
+
+  function iniciar() {
   var form = document.getElementById('filtros');
   if (form) {
     var datas = form.querySelector('[data-datas]');
@@ -14,7 +34,7 @@
     };
     form.addEventListener('change', function (e) {
       var alvo = e.target;
-      if (alvo.closest && alvo.closest('[data-multi]')) { return; }
+      if (alvo.closest && alvo.closest('[data-multi], .sel-multi')) { return; }
       if (alvo.hasAttribute('data-periodo')) {
         if (alvo.value === 'personalizado') {
           mostrarDatas(true);
@@ -35,27 +55,8 @@
       if (alvo.getAttribute('data-reinicia') === 'pagina' && form.elements.pagina) {
         form.elements.pagina.value = '';
       }
-      form.submit();
+      enviar(form);
     });
-    var multis = form.querySelectorAll('[data-multi]');
-    for (var mi = 0; mi < multis.length; mi++) {
-      (function (multi) {
-        var marcas = multi.querySelectorAll('input[type=checkbox]');
-        var antes = function () { return Array.prototype.map.call(marcas, function (c) { return c.checked ? '1' : '0'; }).join(''); };
-        var inicial = antes();
-        multi.addEventListener('toggle', function () {
-          if (!multi.open && antes() !== inicial) { form.submit(); }
-        });
-        var todos = multi.querySelector('[data-multi-todos]');
-        if (todos) {
-          todos.addEventListener('click', function () {
-            for (var i = 0; i < marcas.length; i++) { marcas[i].checked = false; }
-            form.submit();
-          });
-        }
-        document.addEventListener('click', function (e) { if (multi.open && !multi.contains(e.target)) { multi.open = false; } });
-      })(multis[mi]);
-    }
   }
   // Vendas pela API da Kiwify em segundo plano (so quando a ultima busca tem mais de
   // 10 minutos). Chegou venda nova ou mudou alguma: recarrega a tela com os numeros.
@@ -67,7 +68,7 @@
     fetch('sincronizar.php', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF': token.value } })
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if (d && d.buscou && (d.novas || d.atualizadas || !d.ok)) { location.reload(); return; }
+        if (d && d.buscou && (d.novas || d.atualizadas || !d.ok)) { navegar(location.href, { manter: true, substituir: true }); return; }
         if (texto) { texto.textContent = 'Vendas da Kiwify pelo webhook e pela API · nada novo agora'; }
       })
       .catch(function () {
@@ -110,13 +111,13 @@
     fixa = false;
   }
   var comDica = function (el) { return el && el.closest ? el.closest('[data-dica]') : null; };
-  document.addEventListener('pointerover', function (e) { var a = comDica(e.target); if (e.pointerType === 'mouse' && a && !fixa) { mostrar(a); } });
-  document.addEventListener('pointerout', function (e) { var a = comDica(e.target); if (e.pointerType === 'mouse' && a && !fixa && !a.contains(e.relatedTarget)) { esconder(); } });
-  document.addEventListener('focusin', function (e) { var a = comDica(e.target); if (a && !fixa) { mostrar(a); } });
-  document.addEventListener('focusout', function () { if (!fixa) { esconder(); } });
+  ouvir(document, 'pointerover', function (e) { var a = comDica(e.target); if (e.pointerType === 'mouse' && a && !fixa) { mostrar(a); } });
+  ouvir(document, 'pointerout', function (e) { var a = comDica(e.target); if (e.pointerType === 'mouse' && a && !fixa && !a.contains(e.relatedTarget)) { esconder(); } });
+  ouvir(document, 'focusin', function (e) { var a = comDica(e.target); if (a && !fixa) { mostrar(a); } });
+  ouvir(document, 'focusout', function () { if (!fixa) { esconder(); } });
   // Clique ou toque no (i) ou num grafico fixa a dica; dentro de link, aba ou rotulo, nao navega.
   // Botao com dica (data-dica-botao, ex.: a analise diaria so com o icone): o clique e do botao.
-  document.addEventListener('click', function (e) {
+  ouvir(document, 'click', function (e) {
     var a = comDica(e.target);
     if (a && a.hasAttribute('data-dica-botao')) { esconder(); return; }
     if (a) {
@@ -126,15 +127,11 @@
     }
     if (fixa) { esconder(); }
   }, true);
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && alvoDica) { esconder(); } });
-  window.addEventListener('scroll', function () { if (fixa) { posicionar(); } else { esconder(); } }, true);
-  window.addEventListener('resize', function () { if (fixa) { posicionar(); } });
+  ouvir(document, 'keydown', function (e) { if (e.key === 'Escape' && alvoDica) { esconder(); } });
+  ouvir(window, 'scroll', function () { if (fixa) { posicionar(); } else { esconder(); } }, true);
+  ouvir(window, 'resize', function () { if (fixa) { posicionar(); } });
 
-  // App: o service worker deixa instalar o painel e mostra as notificacoes (sw.php)
-  var sw = null;
-  if ('serviceWorker' in navigator) {
-    sw = navigator.serviceWorker.register('sw.php', { scope: './' }).catch(function () { return null; });
-  }
+  // Instalar como app (o service worker e registrado uma vez, la em cima)
   var instalavel = null;
   var instalado = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   var app = document.querySelector('[data-app]');
@@ -149,8 +146,8 @@
     estado.textContent = instalado ? 'O painel já está instalado como app neste aparelho.'
       : (instalavel ? 'Pode instalar o painel como app neste aparelho.' : 'Veja abaixo como instalar neste aparelho.');
   }
-  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); instalavel = e; mostrarApp(); });
-  window.addEventListener('appinstalled', function () { instalado = true; instalavel = null; mostrarApp(); });
+  ouvir(window, 'beforeinstallprompt', function (e) { e.preventDefault(); instalavel = e; mostrarApp(); });
+  ouvir(window, 'appinstalled', function () { instalado = true; instalavel = null; mostrarApp(); });
   if (app) {
     app.querySelector('[data-instalar]').addEventListener('click', function () {
       if (!instalavel) { return; }
@@ -261,7 +258,7 @@
   // Menu "Mais" da barra de baixo: fecha ao tocar fora ou ao escolher
   var navMais = document.querySelector('.nav-mais');
   if (navMais) {
-    document.addEventListener('click', function (e) { if (navMais.open && !navMais.contains(e.target)) { navMais.open = false; } });
+    ouvir(document, 'click', function (e) { if (navMais.open && !navMais.contains(e.target)) { navMais.open = false; } });
   }
 
   // Atualizar (so o icone): gira enquanto a busca roda
@@ -276,7 +273,7 @@
   // Formularios marcados com data-auto (filtros do Resumo) enviam ao mudar
   var autos = document.querySelectorAll('form[data-auto]');
   for (var a = 0; a < autos.length; a++) {
-    autos[a].addEventListener('change', function () { this.submit(); });
+    autos[a].addEventListener('change', function (e) { if (!e.target.closest('.sel-multi')) { enviar(this); } });
   }
 
 
@@ -299,11 +296,11 @@
       var hex = this.closest('form').querySelector('[data-tema-hex]');
       if (hex) { hex.textContent = this.value.toUpperCase(); }
     });
-    cores[tc].addEventListener('change', function () { this.form.submit(); });
+    cores[tc].addEventListener('change', function () { enviar(this.form); });
   }
   var menuTema = document.querySelector('.tema-menu');
   if (menuTema) {
-    document.addEventListener('click', function (e) { if (menuTema.open && !menuTema.contains(e.target)) { menuTema.open = false; } });
+    ouvir(document, 'click', function (e) { if (menuTema.open && !menuTema.contains(e.target)) { menuTema.open = false; } });
   }
 
   // Pergunta antes: ligar ou pausar na Meta (gestor), apagar despesa (financeiro) e mudar o
@@ -315,7 +312,7 @@
     var v = Math.round(parseFloat(t) * 100);
     return isNaN(v) ? null : v;
   }
-  document.addEventListener('submit', function (e) {
+  ouvir(document, 'submit', function (e) {
     var f = e.target;
     if (f && f.hasAttribute && f.hasAttribute('data-orcamento')) {
       var ob = f.elements.objeto;
@@ -342,7 +339,7 @@
     });
     d.querySelector('[data-orc-fecha]').addEventListener('click', function () { d.open = false; });
     f.addEventListener('keydown', function (e) { if (e.key === 'Escape') { d.open = false; d.querySelector('summary').focus(); } });
-    document.addEventListener('click', function (e) { if (d.open && !d.contains(e.target) && !e.target.closest('.sel-painel, .sel-fundo')) { d.open = false; } });
+    ouvir(document, 'click', function (e) { if (d.open && !d.contains(e.target) && !e.target.closest('.sel-painel, .sel-fundo')) { d.open = false; } });
     if (ob && ob.tagName === 'SELECT') {
       ob.addEventListener('change', function () {
         var c = parseInt(ob.options[ob.selectedIndex].getAttribute('data-atual'), 10) || 0;
@@ -633,7 +630,7 @@
     document.body.classList.remove('com-folha');
     if (aberto && aberto.painel === painel) { aberto = null; }
   }
-  document.addEventListener('click', function (e) { if (aberto && !aberto.caixa.contains(e.target) && !aberto.painel.contains(e.target)) { aberto.fechar(false); } });
+  ouvir(document, 'click', function (e) { if (aberto && !aberto.caixa.contains(e.target) && !aberto.painel.contains(e.target)) { aberto.fechar(false); } });
   function seta() { return '<svg class="sel-seta" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>'; }
 
   function seletor(sel) {
@@ -746,6 +743,62 @@
   }
   Array.prototype.forEach.call(document.querySelectorAll('select'), seletor);
 
+  // Listas de varios (Produto no topo, Fonte de trafego no Resumo): o mesmo botao e o mesmo painel
+  // dos seletores (no celular, painel de baixo). "Todos" e a primeira caixa: marcar Todos
+  // desmarca o resto; marcar um item desmarca Todos; sem nenhum, volta para Todos. Aplica ao
+  // fechar (clicar fora, tocar no fundo ou Esc), se mudou alguma coisa. Sem JavaScript, fica o
+  // <details> com as caixas e o botao Filtrar.
+  Array.prototype.forEach.call(document.querySelectorAll('details[data-multi]'), function (multi) {
+    var f = multi.closest('form');
+    var painel = multi.querySelector('.multi-painel');
+    if (!f || !painel) { return; }
+    var todos = painel.querySelector('[data-multi-todos]');
+    var marcas = Array.prototype.filter.call(painel.querySelectorAll('input[type=checkbox]'), function (c) { return c !== todos; });
+    var nomes = { um: multi.getAttribute('data-um') || 'item', varios: multi.getAttribute('data-varios') || 'itens' };
+    var caixa = document.createElement('div');
+    caixa.className = 'sel sel-multi';
+    var botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'sel-botao';
+    botao.setAttribute('aria-haspopup', 'dialog');
+    botao.setAttribute('aria-expanded', 'false');
+    botao.innerHTML = '<span class="sel-texto"></span>' + seta();
+    var rotuloTodos = todos ? todos.parentNode.textContent.trim() : 'Todos';
+    var estado = function () { return marcas.map(function (c) { return c.checked ? '1' : '0'; }).join(''); };
+    var mostrar = function () {
+      var m = marcas.filter(function (c) { return c.checked; });
+      if (todos) { todos.checked = !m.length; }
+      botao.querySelector('.sel-texto').textContent = !m.length ? rotuloTodos : (m.length === 1 ? m[0].parentNode.textContent.trim() : m.length + ' ' + nomes.varios);
+    };
+    painel.classList.add('sel-painel');
+    painel.setAttribute('role', 'dialog');
+    painel.hidden = true;
+    multi.parentNode.insertBefore(caixa, multi);
+    caixa.appendChild(botao);
+    caixa.appendChild(painel);
+    multi.parentNode.removeChild(multi);
+    var inicial = estado();
+    mostrar();
+    if (todos) {
+      todos.addEventListener('change', function () {
+        if (todos.checked) { marcas.forEach(function (c) { c.checked = false; }); }
+        mostrar();
+      });
+    }
+    marcas.forEach(function (c) { c.addEventListener('change', mostrar); });
+    var fechar = function (foco, desistir) {
+      botao.setAttribute('aria-expanded', 'false');
+      fecharPainel(painel);
+      if (foco) { botao.focus(); }
+      if (!desistir && estado() !== inicial) { inicial = estado(); enviar(f); }
+    };
+    botao.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (painel.hidden) { botao.setAttribute('aria-expanded', 'true'); abrirPainel(painel, caixa, fechar); } else { fechar(true); }
+    });
+    painel.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); fechar(true); } });
+  });
+
   // ---------------------------------------------------------------- calendario
   var MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   function doisDig(n) { return (n < 10 ? '0' : '') + n; }
@@ -834,53 +887,57 @@
       b.type = 'button';
       b.textContent = o.textContent;
       if (o.selected) { b.className = 'atual'; }
-      b.addEventListener('click', function () {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
         selP.value = o.value;
         Array.prototype.forEach.call(datasP.querySelectorAll('input'), function (i) { i.disabled = true; });
-        form.submit();
+        fecharP(false, true);
+        botaoP.querySelector('.sel-texto').textContent = o.textContent;
+        enviar(form);
       });
       prontos.appendChild(b);
     });
-    var de = campoP.getAttribute('data-de'), ate = campoP.getAttribute('data-ate'), hojeP = campoP.getAttribute('data-hoje');
+    // Calendario: o primeiro e o ultimo dia; clicar fora aplica (um dia so tambem vale). Esc desiste.
+    var de0 = campoP.getAttribute('data-de'), ate0 = campoP.getAttribute('data-ate'), hojeP = campoP.getAttribute('data-hoje');
+    var de = de0, ate = ate0;
     var escolhido = document.createElement('span');
-    var aplicar = document.createElement('button');
-    aplicar.type = 'button';
-    aplicar.textContent = 'Aplicar';
     var mostrarEscolha = function () {
-      escolhido.textContent = de && ate ? (de === ate ? br(de, true) : br(de) + ' a ' + br(ate, true)) : 'Escolha o último dia';
-      aplicar.disabled = !(de && ate);
+      escolhido.textContent = de && ate ? (de === ate ? br(de, true) : br(de) + ' a ' + br(ate, true)) + ' · clique fora para aplicar' : 'Agora o último dia (ou clique fora para ver só esse dia)';
     };
-    var cal = calendario({ intervalo: true, de: de, ate: ate, max: hojeP, aoEscolher: function (a, b) { de = a; ate = b; mostrarEscolha(); } });
+    var mexeu = false;
+    var cal = calendario({ intervalo: true, de: de, ate: ate, max: hojeP, aoEscolher: function (a, b) { de = a; ate = b; mexeu = true; mostrarEscolha(); } });
     var ladoCal = document.createElement('div');
     ladoCal.className = 'periodo-cal';
     ladoCal.appendChild(cal);
     var pe = document.createElement('div');
     pe.className = 'periodo-pe';
-    var cancelar = document.createElement('button');
-    cancelar.type = 'button';
-    cancelar.className = 'discreto neutro';
-    cancelar.textContent = 'Cancelar';
     pe.appendChild(escolhido);
-    pe.appendChild(cancelar);
-    pe.appendChild(aplicar);
     ladoCal.appendChild(pe);
     painelP.appendChild(prontos);
     painelP.appendChild(ladoCal);
-    mostrarEscolha();
-    aplicar.addEventListener('click', function () {
+    escolhido.textContent = 'Escolha um pronto ou, no calendário, o primeiro e o último dia';
+    var aplicarP = function () {
+      var fim = ate || de;
+      if (!de || (de === de0 && fim === ate0 && selP.value === 'personalizado')) { return; }
       selP.value = 'personalizado';
       Array.prototype.forEach.call(datasP.querySelectorAll('input'), function (i) { i.disabled = false; });
       form.elements.de.value = de;
-      form.elements.ate.value = ate;
-      form.submit();
-    });
-    var fecharP = function (foco) { botaoP.setAttribute('aria-expanded', 'false'); fecharPainel(painelP); if (foco) { botaoP.focus(); } };
-    cancelar.addEventListener('click', function () { fecharP(true); });
+      form.elements.ate.value = fim;
+      botaoP.querySelector('.sel-texto').textContent = de === fim ? br(de, true) : br(de) + ' a ' + br(fim);
+      enviar(form);
+    };
+    // desistir: Esc (fica o que estava); fechar de outro jeito (clique fora, tocar no fundo) aplica
+    var fecharP = function (foco, desistir) {
+      botaoP.setAttribute('aria-expanded', 'false');
+      fecharPainel(painelP);
+      if (foco) { botaoP.focus(); }
+      if (!desistir && mexeu) { mexeu = false; aplicarP(); }
+    };
     botaoP.addEventListener('click', function (e) {
       e.stopPropagation();
-      if (painelP.hidden) { botaoP.setAttribute('aria-expanded', 'true'); abrirPainel(painelP, caixaP, fecharP); } else { fecharP(true); }
+      if (painelP.hidden) { mexeu = false; botaoP.setAttribute('aria-expanded', 'true'); abrirPainel(painelP, caixaP, fecharP); } else { fecharP(true); }
     });
-    painelP.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); fecharP(true); } });
+    painelP.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); fecharP(true, true); } });
     caixaP.appendChild(botaoP);
     caixaP.appendChild(painelP);
     selP.classList.add('sel-nativo');
@@ -935,33 +992,195 @@
     mostrar();
   });
 
-  // ---------------------------------------------------------------- barra de cima recolhida
-  // A seta do canto (e o resumo dos filtros, com ela recolhida) abre e fecha; fica num cookie
-  // para a proxima tela ja vir do mesmo jeito, sem piscar.
-  Array.prototype.forEach.call(document.querySelectorAll('[data-recolher]'), function (b) {
-    b.addEventListener('click', function () {
-      var raiz = document.documentElement;
-      var sim = !raiz.classList.contains('topo-recolhido');
-      raiz.classList.toggle('topo-recolhido', sim);
-      document.cookie = 'track_topo=' + (sim ? 'recolhido' : 'aberto') + '; path=' + location.pathname.replace(/[^\/]*$/, '') + '; max-age=31536000; SameSite=Lax';
-      Array.prototype.forEach.call(document.querySelectorAll('.recolher'), function (r) {
-        r.setAttribute('aria-expanded', sim ? 'false' : 'true');
-        r.setAttribute('aria-label', sim ? 'Mostrar a barra de cima' : 'Recolher a barra de cima');
-        r.title = r.getAttribute('aria-label');
+  // ---------------------------------------------------------------- barra lateral
+  // No celular, a barra do admin (CMS, UTM, aparencia, configuracoes e perfil) fica recolhida
+  // numa linha so; a seta abre e fecha. Os filtros ficam sempre a mostra. No computador, a
+  // barra e a coluna da esquerda, sempre aberta.
+  var lateral = document.querySelector('[data-lateral]');
+  if (lateral) {
+    var alterna = lateral.querySelector('[data-lateral-alterna]');
+    if (alterna) {
+      alterna.addEventListener('click', function () {
+        var sim = !lateral.classList.contains('aberta');
+        lateral.classList.toggle('aberta', sim);
+        alterna.setAttribute('aria-expanded', sim ? 'true' : 'false');
       });
+    }
+    ouvir(document, 'click', function (e) {
+      if (lateral.classList.contains('aberta') && !lateral.contains(e.target)) { lateral.classList.remove('aberta'); if (alterna) { alterna.setAttribute('aria-expanded', 'false'); } }
     });
-  });
-  if (document.documentElement.classList.contains('topo-recolhido')) {
-    Array.prototype.forEach.call(document.querySelectorAll('.recolher'), function (r) { r.setAttribute('aria-expanded', 'false'); r.setAttribute('aria-label', 'Mostrar a barra de cima'); r.title = 'Mostrar a barra de cima'; });
   }
 
   // Esc fecha o que estiver aberto: colunas, produto, aparencia
-  document.addEventListener('keydown', function (e) {
+  ouvir(document, 'keydown', function (e) {
     if (e.key !== 'Escape') { return; }
     if (aberto) { aberto.fechar(true); return; }
     Array.prototype.forEach.call(document.querySelectorAll('details.colunas[open], details.multi[open], details.tema-menu[open], details.orc-inline[open]'), function (d) { d.open = false; });
+    var lat = document.querySelector('[data-lateral].aberta');
+    if (lat) { lat.classList.remove('aberta'); }
   });
-  // Foto do perfil: escolher ja envia
+  // Foto do perfil: qualquer imagem, de qualquer tamanho. O navegador corta no centro, reduz
+  // para 512 x 512 (nitida na bolinha mesmo em tela de iPhone) e comprime em JPEG ate caber em
+  // 64 KB, baixando a qualidade aos poucos (e o tamanho, se precisar). O servidor so confere.
   var foto = document.querySelector('[data-foto-arquivo]');
-  if (foto) { foto.addEventListener('change', function () { if (foto.files.length) { foto.form.submit(); } }); }
+  if (foto) {
+    foto.addEventListener('change', function () {
+      var arq = foto.files && foto.files[0];
+      var aviso = foto.form.querySelector('[data-foto-aviso]');
+      var dizer = function (t) { if (aviso) { aviso.textContent = t; } };
+      if (!arq) { return; }
+      dizer('Preparando a foto…');
+      comprimirFoto(arq, 64 * 1024).then(function (jpeg) {
+        var dados = new FormData(foto.form);
+        dados.set('foto', jpeg, 'perfil.jpg');
+        dizer('Enviando…');
+        navegar(foto.form.action, { corpo: dados, manter: true });
+      }).catch(function () { dizer('Não consegui abrir essa imagem. Tente uma foto em JPEG ou PNG.'); });
+    });
+  }
+  }
+
+  function comprimirFoto(arq, limite) {
+    return new Promise(function (ok, falha) {
+      var img = new Image();
+      var url = URL.createObjectURL(arq);
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var lado = Math.min(img.naturalWidth, img.naturalHeight);
+        if (!lado) { falha(); return; }
+        var tentar = function (tam, q) {
+          var c = document.createElement('canvas');
+          c.width = c.height = tam;
+          var g = c.getContext('2d');
+          g.imageSmoothingQuality = 'high';
+          g.fillStyle = '#fff';
+          g.fillRect(0, 0, tam, tam);
+          g.drawImage(img, (img.naturalWidth - lado) / 2, (img.naturalHeight - lado) / 2, lado, lado, 0, 0, tam, tam);
+          c.toBlob(function (b) {
+            if (!b) { falha(); return; }
+            if (b.size <= limite) { ok(b); return; }
+            if (q > 0.5) { tentar(tam, Math.round((q - 0.08) * 100) / 100); return; }
+            if (tam > 256) { tentar(Math.round(tam * 0.8), 0.86); return; }
+            falha();
+          }, 'image/jpeg', q);
+        };
+        tentar(Math.min(512, lado), 0.9);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); falha(); };
+      img.src = url;
+    });
+  }
+
+  // ---------------------------------------------------------------- navegacao suave
+  // Filtros, abas, ordenar, chaves e os formularios do painel trocam a tela sem recarregar: o
+  // painel busca a tela nova (ou envia o formulario e segue o redirecionamento), troca o corpo da
+  // pagina e liga tudo de novo, no mesmo ponto da rolagem. Mudou de tela (outra aba, outra
+  // campanha): volta para cima. O endereco, o voltar e o avancar continuam funcionando. Outra
+  // pagina (Configuracoes, CMS, sair), erro ou navegador antigo: vai do jeito normal.
+  var navegacao = 0;
+  function caminho(u) { return u.pathname.replace(/index\.php$/, ''); }
+  function mesmaPagina(u) { return u.origin === location.origin && caminho(u) === caminho(location); }
+  // A mesma tela: mesma aba e, na analise diaria, o mesmo objeto (os niveis do gestor, a ordem e
+  // os filtros nao contam: a rolagem fica onde estava)
+  function tela(u) {
+    var aba = u.searchParams.get('aba') || 'geral';
+    return aba + (aba === 'campanha' ? '|' + (u.searchParams.get('id') || '') + '|' + (u.searchParams.get('nivel') || '') : '');
+  }
+  function trocar(doc) {
+    var raiz = document.documentElement, nova = doc.documentElement;
+    ['class', 'data-tema', 'data-base', 'style'].forEach(function (a) {
+      var v = nova.getAttribute(a);
+      if (v === null) { raiz.removeAttribute(a); } else { raiz.setAttribute(a, v); }
+    });
+    document.title = doc.title;
+    var estilosNovos = doc.head.querySelectorAll('style'), estilos = document.head.querySelectorAll('style');
+    for (var i = 0; i < estilosNovos.length; i++) {
+      if (!estilos[i]) { document.head.appendChild(estilosNovos[i].cloneNode(true)); } else if (estilos[i].textContent !== estilosNovos[i].textContent) { estilos[i].textContent = estilosNovos[i].textContent; }
+    }
+    Array.prototype.forEach.call(doc.body.querySelectorAll('script'), function (sc) { sc.parentNode.removeChild(sc); });
+    soltarOuvintes();
+    raiz.replaceChild(document.adoptNode(doc.body), document.body);
+  }
+  function navegar(url, op) {
+    op = op || {};
+    var alvo = new URL(url, location.href);
+    if (!window.fetch || !window.DOMParser || !history.pushState) {
+      if (op.corpo && op.form) { op.form.submit(); } else { location.href = alvo.href; }
+      return;
+    }
+    var seq = ++navegacao;
+    var y = window.scrollY, antes = new URL(location.href);
+    document.documentElement.classList.add('navegando');
+    var pedido = op.corpo ? fetch(alvo.href, { method: 'POST', body: op.corpo, credentials: 'same-origin' }) : fetch(alvo.href, { credentials: 'same-origin' });
+    pedido.then(function (r) {
+      var final = new URL(r.url || alvo.href);
+      if (alvo.hash && !final.hash) { final.hash = alvo.hash; }
+      if (!mesmaPagina(final) || (r.headers.get('content-type') || '').indexOf('text/html') === -1) { location.href = final.href; return null; }
+      return r.text().then(function (html) { return [final, html]; });
+    }).then(function (res) {
+      if (!res || seq !== navegacao) { return; }
+      var doc = new DOMParser().parseFromString(res[1], 'text/html');
+      if (!doc.body || !doc.body.children.length) { location.href = res[0].href; return; }
+      var manter = op.manter !== undefined ? op.manter : tela(res[0]) === tela(antes);
+      if (op.historico !== false) {
+        try { history.replaceState({ y: y }, ''); } catch (x) {}
+        var igual = res[0].href === antes.href;
+        history[op.substituir || igual ? 'replaceState' : 'pushState']({ y: 0 }, '', res[0].href);
+        if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
+      }
+      trocar(doc);
+      ultima = semAncora(location.href);
+      iniciar();
+      var ancora = res[0].hash && document.getElementById(res[0].hash.slice(1));
+      if (op.y !== undefined) { window.scrollTo(0, op.y); } else if (ancora) { ancora.scrollIntoView(); } else { window.scrollTo(0, manter ? y : 0); }
+    }).catch(function () {
+      // Erro de rede: o formulario enviado pode ter ido; recarrega a tela que estava, sem reenviar
+      location.href = op.corpo ? location.href : alvo.href;
+    }).then(function () {
+      if (seq === navegacao) { document.documentElement.classList.remove('navegando'); }
+    });
+  }
+  // Links da mesma pagina do painel (abas, niveis do gestor, ordenar, trilha...). Depois dos
+  // ouvintes da tela (a dica do (i) num link cancela o clique).
+  window.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) { return; }
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a || a.target || a.hasAttribute('download') || a.hasAttribute('data-recarrega')) { return; }
+    var u = new URL(a.href, location.href);
+    if (!mesmaPagina(u)) { return; }
+    if (u.hash && u.search === location.search) { return; } // ancora na mesma tela
+    e.preventDefault();
+    navegar(u.href);
+  });
+  // Formularios: filtros (GET) buscam a tela nova; os de acao (POST: chave, orcamento, despesa,
+  // atualizar...) enviam e mostram a tela para onde o painel voltaria. Depois da confirmacao.
+  window.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (e.defaultPrevented || !f || f.tagName !== 'FORM' || f.target || f.hasAttribute('data-recarrega')) { return; }
+    var botao = e.submitter || null;
+    var metodo = ((botao && botao.getAttribute('formmethod')) || f.getAttribute('method') || 'get').toLowerCase();
+    var acao = new URL((botao && botao.getAttribute('formaction')) || f.getAttribute('action') || location.href, location.href);
+    if (acao.origin !== location.origin) { return; }
+    var dados = new FormData(f);
+    if (botao && botao.name) { dados.append(botao.name, botao.value); }
+    if (metodo === 'get') {
+      if (!mesmaPagina(acao)) { return; }
+      acao.search = new URLSearchParams(dados).toString();
+      e.preventDefault();
+      navegar(acao.href);
+      return;
+    }
+    e.preventDefault();
+    navegar(acao.href, { corpo: dados, form: f });
+  });
+  // Voltar e avancar: busca a tela daquele endereco e volta para a rolagem de la. So a ancora
+  // mudou (ex.: #perfil): fica com o navegador.
+  var semAncora = function (h) { return String(h).split('#')[0]; };
+  var ultima = semAncora(location.href);
+  window.addEventListener('popstate', function (e) {
+    if (semAncora(location.href) === ultima) { return; }
+    navegar(location.href, { historico: false, y: (e.state && e.state.y) || 0 });
+  });
+
+  iniciar();
 })();

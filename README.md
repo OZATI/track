@@ -6,7 +6,7 @@ Um painel atende vários sites: no topo, escolha o **site** e depois a **página
 
 - PHP 8.1+ e SQLite, sem build, sem framework, sem dependência. Roda na hospedagem compartilhada da Hostinger.
 - Não manda nada para Meta, Google ou UTMify. Só guarda e mostra.
-- Com login por usuário e senha, para quantas pessoas precisar (aba **Usuários**), com bloqueio após 5 tentativas erradas.
+- Com login por usuário e senha, para quantas pessoas precisar (**Usuários**, na barra lateral), com bloqueio após 5 tentativas erradas. Cada usuário abre só o que for liberado: o CMS (quando o painel mora num admin com CMS), o UTM e a própria tela de Usuários.
 - Código aberto, licença MIT. Feito pela [OZATI](https://ozati.co).
 
 **Por que não Umami, Plausible ou Matomo?** Eles medem visitas. Este painel existe para a pergunta seguinte: a **venda** que caiu na Kiwify veio de qual clique, e a etiqueta que a página mandou chegou inteira no pedido? Para isso ele liga o visitante ao pedido pelo `sck` e confere venda por venda.
@@ -43,13 +43,17 @@ track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 
 **Filtros do topo**, que valem para todas as telas e ficam lembrados: período (hoje, ontem, 7 e 30 dias, este mês, mês passado, tudo ou de uma data a outra) e produto, com mais de um de uma vez (ex.: o Drive antigo e o novo, sem os order bumps).
 
-**Seletores e calendário:** todo seletor do painel abre no mesmo padrão (no celular, como painel de baixo, com opções grandes para o dedo), com teclado (↑ ↓ Home End Enter Esc e busca digitando). O **Período** abre os períodos prontos e um calendário do mês para escolher o começo e o fim; datas do Financeiro e do Programar usam o mesmo calendário, e a hora do Programar vai de 15 em 15 minutos. Sem JavaScript, ficam os seletores e as datas do navegador. A **seta** no canto de cima recolhe a barra de filtros num resumo de uma linha (fica lembrado neste navegador).
+**Seletores e calendário:** todo seletor do painel abre no mesmo padrão (no celular, como painel de baixo, com opções grandes para o dedo), com teclado (↑ ↓ Home End Enter Esc e busca digitando). O **Período** abre os períodos prontos e um calendário do mês para escolher o começo e o fim; datas do Financeiro e do Programar usam o mesmo calendário, e a hora do Programar vai de 15 em 15 minutos. Sem JavaScript, ficam os seletores e as datas do navegador.
+
+**Filtros sem botão Aplicar e sem recarregar:** escolher já aplica. As listas de vários (Produto no topo, Fonte de tráfego no Resumo) têm **Todos** como a primeira caixa e aplicam ao fechar (clicar fora); o período aplica ao escolher um pronto ou, no calendário, ao clicar fora (Esc desiste). A tela troca no lugar, sem recarregar e sem voltar para o topo: filtros, abas, níveis e ordem do gestor, a chave de ligar e pausar, o orçamento, as despesas e o atualizar buscam a tela nova em segundo plano. O endereço, o voltar e o avançar continuam funcionando. Sem JavaScript, tudo funciona do jeito normal.
 
 **Aparência** (paleta no topo e Configurações): claro, escuro (no tom da UTMify), pretão (#000000) ou qualquer outra cor de fundo; cartões, linhas e realces saem da cor escolhida e o texto fica claro ou escuro sozinho, para continuar legível. Cada usuário escolhe a sua.
 
 **Financeiro**: o caixa da empresa no período, como as abas FLUXO e LUCRO da planilha. Entradas (vendas aprovadas, líquido da Kiwify), anúncios (gasto + imposto), outras despesas cadastradas ali (únicas, todo mês ou todo ano), saldo, ROI geral (entradas ÷ saídas) e o fluxo de caixa dia a dia.
 
-**Configurações** (a engrenagem no canto de cima; a bolinha com a foto e o nome leva ao perfil): **foto do perfil** (JPEG, PNG ou WebP, recortada e reduzida para 256 px; fica na pasta de dados, fora do site, e só sai para quem entrou), **Sair do painel**, **instalar o painel como app** no celular ou no computador (tela cheia, ícone próprio; no iPhone, por Compartilhar → Adicionar à Tela de Início) e as **notificações**. Venda aprovada e Pix/boleto gerado chegam na hora em que a venda entra (webhook ou busca na API), uma vez por situação, sem order bump; cada usuário escolhe mostrar ou esconder valor, produto, canal e campanha. Relatórios às 08h (resultado de ontem), 12h, 18h e 23h, no padrão **Status de lucro** ou **Resumo detalhado**. As notificações usam o Web Push dos navegadores (RFC 8291 e VAPID, sem serviço de terceiros): a chave privada fica na configuração, fora da pasta pública, e o painel só envia para os serviços de push do Google, Apple, Mozilla e Microsoft. Os relatórios e as buscas com o painel fechado dependem da **tarefa agendada** da hospedagem, a cada 5 minutos:
+**Barra lateral do admin:** em cima os painéis (CMS e UTM, os liberados para o usuário) e embaixo a conta, que é do admin inteiro: Usuários, aparência, Configurações e a foto. No celular, vira uma linha no alto, recolhida (a seta abre); os filtros ficam sempre à mostra.
+
+**Configurações** (a engrenagem na barra lateral; a bolinha com a foto leva ao perfil): **foto do perfil** (qualquer imagem, de qualquer tamanho: o navegador corta no centro, reduz para 512 × 512 e comprime em JPEG até 64 KB, então funciona mesmo com o PHP sem a biblioteca de imagem; fica na pasta de dados, fora do site, e só sai para quem entrou), **Sair do painel**, a aparência, e, para quem abre o UTM, **instalar o painel como app** no celular ou no computador (tela cheia, ícone próprio; no iPhone, por Compartilhar → Adicionar à Tela de Início) e as **notificações**. Venda aprovada e Pix/boleto gerado chegam na hora em que a venda entra (webhook ou busca na API), uma vez por situação, sem order bump; cada usuário escolhe mostrar ou esconder valor, produto, canal e campanha. Relatórios às 08h (resultado de ontem), 12h, 18h e 23h, no padrão **Status de lucro** ou **Resumo detalhado**. As notificações usam o Web Push dos navegadores (RFC 8291 e VAPID, sem serviço de terceiros): a chave privada fica na configuração, fora da pasta pública, e o painel só envia para os serviços de push do Google, Apple, Mozilla e Microsoft. Os relatórios e as buscas com o painel fechado dependem da **tarefa agendada** da hospedagem, a cada 5 minutos:
 
 ```bash
 php /caminho/do/painel/cron.php
@@ -113,7 +117,7 @@ if (!logado()) {
 // usuario_atual() diz quem entrou; token_csrf() vai no cabeçalho X-CSRF das chamadas fetch
 ```
 
-O `?volta=` só aceita caminho do próprio site. Quem entra e sai do painel se controla na aba **Usuários**: dar acesso, tirar acesso (o de outra pessoa) e trocar a própria senha.
+O `?volta=` só aceita caminho do próprio site. Quem entra e sai do admin se controla em **Usuários** (barra lateral): dar acesso, marcar o que cada um abre (CMS, UTM, Usuários; marcar já salva), tirar acesso (o de outra pessoa) e trocar a própria senha. Ninguém tira o próprio acesso nem o próprio Usuários. Quem não tinha a lista (os de antes) abre tudo. O CMS do admin confere o mesmo acesso (`cms_exigir_acesso` no engdesk).
 
 **Onde ficam os dados:** `.../track-dados/` (config.php e track.sqlite), ao lado do `public_html`, fora de qualquer site e do deploy. Em outro servidor, defina a variável `TRACK_DADOS`.
 

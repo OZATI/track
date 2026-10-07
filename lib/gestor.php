@@ -610,7 +610,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         . ($fConj !== '' ? '<input type="hidden" name="conjunto" value="' . e($fConj) . '">' : '')
         . '<input type="hidden" name="ordem" value="' . e($ordem) . '"><input type="hidden" name="dir" value="' . e($dir) . '">'
         . '<label><span>' . com_info('Nome', 'Mostra só as que têm este texto no nome. Aplica ao sair da caixa ou com Enter.') . '</span><input type="search" name="q" value="' . e($busca) . '" placeholder="Filtrar por nome"></label>'
-        . '<label><span>' . com_info('Status', 'Situação na Meta agora: ativos (rodando) ou pausados. Aplica na hora.') . '</span><select name="st"><option value="">Qualquer</option><option value="ativos"' . ($stFiltro === 'ativos' ? ' selected' : '') . '>Ativos</option>'
+        . '<label><span>' . com_info('Status', 'Situação na Meta agora: ativos (rodando) ou pausados. Aplica na hora.') . '</span><select name="st"><option value="">Todos</option><option value="ativos"' . ($stFiltro === 'ativos' ? ' selected' : '') . '>Ativos</option>'
         . '<option value="pausados"' . ($stFiltro === 'pausados' ? ' selected' : '') . '>Pausados</option></select></label>'
         . '<noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript>'
         . '</form>';

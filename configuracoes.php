@@ -9,7 +9,8 @@ require_once __DIR__ . '/lib/push.php';
 require_once __DIR__ . '/lib/orcamento.php';
 require_once __DIR__ . '/lib/perfil.php';
 
-exigir_login();
+exigir_login(null); // perfil, aparencia e sair sao de todo usuario do admin
+$comUtm = usuario_pode('utm');
 $usuario = (string)usuario_atual();
 $erros = [];
 $aviso = '';
@@ -17,7 +18,7 @@ $aviso = '';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!csrf_valido()) {
         $erros[] = 'Sessão expirada. Recarregue a página.';
-    } elseif (($_POST['acao'] ?? '') === 'salvar') {
+    } elseif (($_POST['acao'] ?? '') === 'salvar' && $comUtm) {
         push_salvar_prefs($usuario, [
             'aprovadas' => ($_POST['aprovadas'] ?? '') === '1', 'pendentes' => ($_POST['pendentes'] ?? '') === '1',
             'valor' => ($_POST['valor'] ?? '') === '1', 'produto' => ($_POST['produto'] ?? '') === '1',
@@ -42,7 +43,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     } elseif (($_POST['acao'] ?? '') === 'tirar_foto') {
         avatar_apagar($usuario);
         $aviso = 'Foto do perfil tirada.';
-    } elseif (($_POST['acao'] ?? '') === 'teto') {
+    } elseif (($_POST['acao'] ?? '') === 'teto' && $comUtm) {
         // Teto do orcamento pelo painel: vale para todos (e da conta, nao do usuario)
         $teto = fin_centavos((string)($_POST['teto'] ?? ''));
         if ($teto === null || $teto < ORC_MINIMO) {
@@ -84,12 +85,13 @@ abas_painel('configuracoes');
 
   <div class="cfg-grade">
     <section class="cartao" id="perfil">
-      <h2><?= com_info('Perfil', 'A foto aparece na bolinha do canto de cima. Só quem entrou no painel vê. JPEG, PNG ou WebP, até 3 MB: o painel corta no centro e reduz.') ?></h2>
+      <h2><?= com_info('Perfil', 'A foto aparece na bolinha da barra lateral. Só quem entrou no admin vê. Qualquer imagem, de qualquer tamanho: o navegador corta no centro, reduz para 512 x 512 e comprime até 64 KB, sem ficar feia nem na tela do iPhone.') ?></h2>
       <div class="perfil-linha"><?= avatar_html($usuario, 64) ?><div><b><?= e($usuario) ?></b>
         <form method="post" action="configuracoes.php" enctype="multipart/form-data" class="perfil-acoes" data-foto>
           <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="foto">
-          <label class="botao-arquivo"><input type="file" name="foto" accept="image/jpeg,image/png,image/webp" data-foto-arquivo> Escolher foto</label>
+          <label class="botao-arquivo"><input type="file" name="foto" accept="image/*" data-foto-arquivo> Escolher foto</label>
           <noscript><button type="submit" class="discreto neutro">Enviar</button></noscript>
+          <span class="suave" data-foto-aviso aria-live="polite"></span>
         </form>
         <?php if (is_file(avatar_arquivo($usuario))): ?>
         <form method="post" action="configuracoes.php"><input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="tirar_foto"><button type="submit" class="discreto">Tirar a foto</button></form>
@@ -99,6 +101,7 @@ abas_painel('configuracoes');
         <button type="submit" class="discreto neutro" title="Encerrar a sessão neste navegador"><?= icone('sair', 14) ?> Sair do painel</button></form>
     </section>
 
+    <?php if ($comUtm): ?>
     <section class="cartao" data-app>
       <h2><?= com_info('Aplicativo', 'Instala o painel como um app no celular ou no computador: abre em tela cheia, com ícone próprio, e recebe as notificações.') ?></h2>
       <p class="suave" data-app-estado>Veja abaixo como instalar neste aparelho.</p>
@@ -128,6 +131,7 @@ abas_painel('configuracoes');
       <p class="suave"><?= gestor_pode_editar() ? 'O token da API Meta pode mudar o orçamento.' : 'O token da API Meta só lê: gere um com ads_management na aba API Meta para mudar o orçamento por aqui.' ?></p>
       <button type="submit">Salvar teto</button>
     </form>
+    <?php endif; ?>
 
     <section class="cartao">
       <h2><?= com_info('Aparência', 'Claro, escuro ou qualquer cor de fundo (até o preto puro, #000000). O resto das cores se ajusta à escolhida. Vale só para o seu usuário, em todos os aparelhos; também abre pela paleta no topo.') ?></h2>
@@ -135,6 +139,7 @@ abas_painel('configuracoes');
     </section>
   </div>
 
+  <?php if ($comUtm): ?>
   <form method="post" action="configuracoes.php" class="cfg-grade">
     <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="salvar">
     <section class="cartao">
@@ -176,6 +181,7 @@ abas_painel('configuracoes');
       <div class="linha-botoes"><button type="submit">Salvar</button></div>
     </section>
   </form>
+  <?php endif; ?>
 </main>
 <?php
 casca_fim();

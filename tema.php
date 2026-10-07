@@ -5,7 +5,7 @@
 require __DIR__ . '/lib/util.php';
 require_once __DIR__ . '/lib/layout.php';
 
-exigir_login();
+exigir_login(null); // a aparencia e do admin inteiro
 header('Cache-Control: no-store');
 $volta = destino_seguro((string)($_POST['volta'] ?? ''));
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {

@@ -380,7 +380,8 @@ function aviso_pegar(): ?array
     return is_array($a) ? $a : null;
 }
 
-function exigir_login(): void
+// $acesso: o que a tela pede (padrao: o painel UTM; null = so ter entrado, como Configuracoes)
+function exigir_login(?string $acesso = 'utm'): void
 {
     if (!track_config()) {
         header('Location: instalar.php');
@@ -388,6 +389,22 @@ function exigir_login(): void
     }
     if (!logado()) {
         header('Location: entrar.php');
+        exit;
+    }
+    if ($acesso !== null && !usuario_pode($acesso)) {
+        // Usuario so do CMS que abriu o UTM: vai para o CMS
+        $cms = (track_config() ?? [])['menu_cms'] ?? '';
+        if ($acesso === 'utm' && $cms !== '' && usuario_pode('cms')) {
+            header('Location: ' . $cms);
+            exit;
+        }
+        http_response_code(403);
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sem acesso</title>'
+            . '<body style="font:15px/1.5 system-ui,sans-serif;max-width:480px;margin:15vh auto;padding:0 20px">'
+            . '<h1 style="font-size:20px">Sem acesso a esta parte do admin</h1><p>O seu usuário não tem acesso a ' . e(TRACK_ACESSOS[$acesso] ?? $acesso)
+            . '. Peça a quem cuida dos usuários para liberar.</p><p><a href="configuracoes.php">Configurações</a></p>'
+            . '<form method="post" action="sair.php"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><button type="submit">Sair</button></form>';
         exit;
     }
 }

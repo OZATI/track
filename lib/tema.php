@@ -53,10 +53,11 @@ function tema_atributos(): string
 
 // Escolha da aparencia: os prontos (com a previa, como na UTMify) e qualquer outra cor.
 // Escolher ja grava; a cor livre mostra a previa enquanto arrasta (painel.js).
-function tema_form(string $volta): string
+// $base: caminho ate a pasta do painel ('' dentro dele, 'utm/' no CMS)
+function tema_form(string $volta, string $base = ''): string
 {
     $atual = tema_atual();
-    $html = '<form method="post" action="tema.php" class="tema-form" data-tema-form><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
+    $html = '<form method="post" action="' . e($base) . 'tema.php" class="tema-form" data-tema-form><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
         . '<input type="hidden" name="volta" value="' . e($volta) . '"><div class="tema-prontos">';
     foreach (TEMA_PRONTOS as $k => [$nome, $cor]) {
         $html .= '<button type="submit" name="pronto" value="' . $k . '" class="tema-pronto' . ($atual === $cor ? ' atual' : '') . '" aria-pressed="' . ($atual === $cor ? 'true' : 'false') . '">'

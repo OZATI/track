@@ -266,7 +266,8 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     $fProduto = implode(', ', produto_filtro());
     $canaisNome = ['instagram' => 'Instagram · anúncio', 'facebook' => 'Facebook · anúncio', 'meta' => 'Anúncio sem posicionamento',
         'compartilhado' => 'Anúncio compartilhado', 'google' => 'Google · anúncio', 'organico' => 'Orgânico', 'outros' => 'Outras origens', 'direto' => 'Direto / sem origem'];
-    $fCanal = isset($canaisNome[$_GET['canal'] ?? '']) ? $_GET['canal'] : '';
+    // Fonte de trafego: varias de uma vez (canal[]); a forma antiga (canal=organico) ainda vale
+    $fCanais = array_values(array_unique(array_filter(array_map('strval', (array)($_GET['canal'] ?? [])), fn($c) => isset($canaisNome[$c]))));
 
     // Meta: gasto e funil no periodo
     $g = consulta($db, 'SELECT SUM(gasto) AS gasto, SUM(cliques) AS cliques, SUM(visualizacoes) AS vis, SUM(checkouts) AS ics FROM meta_gasto WHERE dia >= ? AND dia <= ?', [$dia1, $dia2])[0];
@@ -284,7 +285,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     $meios = ['pix' => 'Pix', 'credit_card' => 'Cartão', 'boleto' => 'Boleto'];
     foreach (consulta($db, 'SELECT * FROM vendas WHERE recebida_em >= ? AND recebida_em < ?', [$de, $ate]) as $v) {
         $cn = canal($v['utm_source'], $v['utm_medium'], $v['utm_term'], null, $v['utm_campaign']);
-        if (!venda_no_filtro($v) || ($fCanal !== '' && $cn[0] !== $fCanal)) {
+        if (!venda_no_filtro($v) || ($fCanais && !in_array($cn[0], $fCanais, true))) {
             continue;
         }
         $principal = !eh_bump($v);
@@ -351,16 +352,16 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     $vencida = meta_sync_vencida() || kiwify_sync_vencida();
     $datas = array_filter([$k['ok_em'], $meta['ok_em']]);
     $quando = $datas ? resumo_ha(min($datas)) : 'ainda não atualizado';
-    $opcoes = fn(array $lista, string $atual, string $todos) => '<option value="">' . e($todos) . '</option>'
-        . implode('', array_map(fn($val, $rot) => '<option value="' . e((string)$val) . '"' . ((string)$val === $atual ? ' selected' : '') . '>' . e($rot) . '</option>', array_keys($lista), $lista));
     echo '<section class="bloco resumo-cab"><div class="resumo-topo"><h2>' . com_info('Resumo', 'Os números do período escolhido no topo. As vendas vêm da Kiwify (webhook e API), o gasto e o funil da Meta, e as visitas do próprio painel.') . '</h2>'
         . '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '><span data-sync-texto>' . e(ucfirst($quando)) . '</span>'
-        . botao_atualizar('./?' . http_build_query(array_filter(['aba' => 'geral', 'periodo' => $periodo, 'canal' => $fCanal]))) . '</div></div>'
+        . botao_atualizar('./?' . http_build_query(array_filter(['aba' => 'geral', 'periodo' => $periodo, 'canal' => $fCanais]))) . '</div></div>'
         . '<form class="resumo-filtros" method="get" action="./" data-auto><input type="hidden" name="aba" value="geral"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
-        . '<label><span>' . com_info('Fonte de tráfego', 'Canal da venda, pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto... O produto se escolhe no topo e vale para todas as telas.') . '</span><select name="canal">' . $opcoes($canaisNome, $fCanal, 'Qualquer') . '</select></label>'
+        . '<div class="campo"><span>' . com_info('Fonte de tráfego', 'Canal da venda, pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto... Marque uma ou mais; Todas soma tudo. Aplica ao fechar a lista. O produto se escolhe no topo e vale para todas as telas.') . '</span>'
+        . filtro_multi('canal', $canaisNome, $fCanais, 'Todas as fontes', ['fonte', 'fontes']) . '</div>'
         . '<noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript></form>';
-    if ($fProduto !== '' || $fCanal !== '') {
-        echo '<p class="suave resumo-aviso">Filtro ligado: faturamento, vendas e lucro contam só ' . e(trim(($fProduto !== '' ? $fProduto : '') . ($fProduto !== '' && $fCanal !== '' ? ' · ' : '') . ($fCanal !== '' ? $canaisNome[$fCanal] : '')))
+    if ($fProduto !== '' || $fCanais) {
+        $nomesCanais = implode(', ', array_map(fn($c) => $canaisNome[$c], $fCanais));
+        echo '<p class="suave resumo-aviso">Filtro ligado: faturamento, vendas e lucro contam só ' . e(trim(($fProduto !== '' ? $fProduto : '') . ($fProduto !== '' && $fCanais ? ' · ' : '') . $nomesCanais))
             . '. O gasto e o funil da Meta continuam os da conta toda. <a href="' . e('./?' . http_build_query(['aba' => 'geral', 'periodo' => $periodo, 'produto' => ['']])) . '">Tirar o filtro</a></p>';
     }
     echo '</section>';
