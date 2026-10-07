@@ -670,6 +670,127 @@
     aplicarFix();
     contar();
   }
+  // ---------------------------------------------------------------- painel editavel
+  // Modo edicao do Painel (lib/painel.php): GridStack na grade, as metricas da biblioteca entram
+  // arrastando, o X (ou arrastar de volta para a lista) tira, e o layout vai no formulario de
+  // Salvar. Esc cancela, Ctrl+S salva; sair com mudanca sem salvar pergunta antes.
+  var pEd = document.querySelector('[data-painel-editar]');
+  if (pEd && window.GridStack) {
+    var pForm = document.querySelector('[data-painel-form]');
+    var pGradeEl = pEd.querySelector('.grid-stack');
+    var pSujo = false;
+    var pGrid = GridStack.init({
+      column: parseInt(pEd.getAttribute('data-colunas'), 10) || 12,
+      cellHeight: parseInt(pEd.getAttribute('data-linha'), 10) || 110,
+      margin: 6, float: false, animate: true, minRow: 4,
+      acceptWidgets: '.painel-novo', removable: '.painel-biblioteca',
+      resizable: { handles: 'se' },
+      draggable: { handle: '.grid-stack-item-content', cancel: 'button, a, input, select, textarea, summary, .info' }
+    }, pGradeEl);
+    var pModelo = function (tipo) {
+      var t = document.querySelector('template[data-painel-modelo="' + tipo + '"]');
+      return t ? t.innerHTML : '';
+    };
+    // Na lista, a metrica que ja esta no painel fica apagada (nao arrasta de novo); ao sair, volta
+    var pNaLista = function (tipo, livre) {
+      var it = pEd.querySelector('.painel-novo[data-tipo="' + tipo + '"]');
+      if (!it) { return; }
+      it.classList.toggle('usado', !livre);
+      if (livre) { it.removeAttribute('aria-disabled'); } else { it.setAttribute('aria-disabled', 'true'); }
+      var marca = it.querySelector('.painel-novo-usado');
+      if (!livre && !marca) {
+        marca = document.createElement('small');
+        marca.className = 'painel-novo-usado';
+        marca.textContent = 'no painel';
+        it.firstElementChild.appendChild(marca);
+      } else if (livre && marca) { marca.parentNode.removeChild(marca); }
+    };
+    var pMarcar = function () { pSujo = true; };
+    GridStack.setupDragIn('.painel-biblioteca .painel-novo', { appendTo: 'body', helper: 'clone' });
+    pGrid.on('dropped', function (e, antes, novo) {
+      var el = novo && novo.el;
+      if (!el) { return; }
+      var tipo = el.getAttribute('data-tipo') || el.getAttribute('gs-id');
+      el.classList.remove('painel-novo', 'usado');
+      ['hidden', 'data-tipo', 'data-dica', 'data-dica-titulo', 'data-dica-botao', 'aria-disabled'].forEach(function (a) { el.removeAttribute(a); });
+      var miolo = el.querySelector('.grid-stack-item-content');
+      if (miolo) { miolo.innerHTML = pModelo(tipo); }
+      pNaLista(tipo, false);
+      pMarcar();
+    });
+    pGrid.on('removed', function (e, itens) {
+      (itens || []).forEach(function (n) { var t = n.id || (n.el && n.el.getAttribute('gs-id')); if (t) { pNaLista(t, true); } });
+      pMarcar();
+    });
+    pGrid.on('change', pMarcar);
+    pEd.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('[data-painel-tirar]');
+      if (b) { e.preventDefault(); pGrid.removeWidget(b.closest('.grid-stack-item')); }
+    });
+    // Busca na biblioteca: pelo nome da metrica (as que ja estao no painel continuam escondidas)
+    var pBusca = pEd.querySelector('[data-painel-busca]');
+    if (pBusca) {
+      pBusca.addEventListener('input', function () {
+        var q = pBusca.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+        Array.prototype.forEach.call(pEd.querySelectorAll('.painel-novo'), function (it) {
+          var nome = it.textContent.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          it.classList.toggle('fora-da-busca', q !== '' && nome.indexOf(q) === -1);
+        });
+      });
+    }
+    // Voltar ao padrao: troca a grade pelo layout padrao (so vale depois de Salvar)
+    var pPadrao = document.querySelector('[data-painel-padrao]');
+    if (pPadrao) {
+      pPadrao.addEventListener('click', function () {
+        if (!window.confirm('Voltar este painel ao padrão? As mudanças só valem depois de Salvar.')) { return; }
+        var padrao = [];
+        try { padrao = JSON.parse(pEd.getAttribute('data-padrao') || '[]'); } catch (x) { padrao = []; }
+        pGrid.batchUpdate();
+        pGrid.removeAll(true, false);
+        Array.prototype.forEach.call(pEd.querySelectorAll('.painel-novo'), function (it) { pNaLista(it.getAttribute('data-tipo'), true); });
+        padrao.forEach(function (i) {
+          var lista = pEd.querySelector('.painel-novo[data-tipo="' + i.tipo + '"]');
+          var el = document.createElement('div');
+          el.className = 'grid-stack-item';
+          ['gs-min-w', 'gs-min-h', 'gs-max-w', 'gs-max-h'].forEach(function (a) { if (lista && lista.getAttribute(a)) { el.setAttribute(a, lista.getAttribute(a)); } });
+          el.setAttribute('gs-id', i.tipo);
+          el.setAttribute('gs-x', i.x); el.setAttribute('gs-y', i.y); el.setAttribute('gs-w', i.w); el.setAttribute('gs-h', i.h);
+          el.innerHTML = '<div class="grid-stack-item-content">' + pModelo(i.tipo) + '</div>';
+          pGradeEl.appendChild(el);
+          pGrid.makeWidget(el);
+          pNaLista(i.tipo, false);
+        });
+        pGrid.batchUpdate(false);
+        pMarcar();
+      });
+    }
+    // Salvar: o layout (tipo, x, y, largura e altura) vai no formulario
+    if (pForm) {
+      pForm.addEventListener('submit', function () {
+        var itens = pGrid.save(false).map(function (n) { return { tipo: n.id, x: n.x || 0, y: n.y || 0, w: n.w || 1, h: n.h || 1 }; });
+        pForm.elements.layout.value = JSON.stringify(itens);
+        pSujo = false;
+      });
+    }
+    // Sair com mudanca sem salvar: pergunta antes (Cancelar, trocar de aparelho, fechar a aba)
+    Array.prototype.forEach.call(document.querySelectorAll('[data-painel-cancelar], [data-painel-troca]'), function (a) {
+      a.addEventListener('click', function (e) {
+        if (pSujo && !window.confirm('Sair sem salvar? As mudanças deste painel se perdem.')) { e.preventDefault(); return; }
+        pSujo = false;
+      });
+    });
+    ouvir(window, 'beforeunload', function (e) { if (pSujo) { e.preventDefault(); e.returnValue = ''; } });
+    ouvir(document, 'keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S') && pForm) {
+        e.preventDefault();
+        if (pForm.requestSubmit) { pForm.requestSubmit(); } else { pForm.submit(); }
+      } else if (e.key === 'Escape' && !e.target.closest('input, select, textarea') && !document.querySelector('details[open].menu-linha')) {
+        var c = document.querySelector('[data-painel-cancelar]');
+        if (c) { c.click(); }
+      }
+    });
+  }
+
   // Modo foco: a tela fica so com o gestor; continua na troca de tela (ordenar, filtrar) ate sair
   // pelo mesmo botao ou com o Esc
   var bFoco = document.querySelector('[data-foco]');

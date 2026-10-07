@@ -1238,6 +1238,48 @@ fi
 r=$(curl -s -b "$JAR" "$URL/index.php")
 confere "$(tem 'class="avatar avatar-letra"' "$r")" "sem foto, a bolinha mostra a inicial"
 
+echo "Painel editável"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo")
+confere "$(tem 'class="painel-grade"' "$r")" "aba Painel com a grade"
+confere "$(tem 'href="./?aba=painel' "$r")" "Painel nas abas"
+confere "$(tem 'data-tipo="NetRevenue"' "$r")" "painel padrão com o faturamento líquido"
+confere "$(tem 'data-tipo="RevenueInvestmentProfitByHour"' "$r")" "painel padrão com faturamento, investimento e lucro por hora"
+confere "$(tem 'style="--c:1;--r:1;--w:4;--h:1;--mc:1;--mr:1;--mw:1;--mh:1;"' "$r")" "cada cartão com a posição no computador e no celular"
+vp=$(sem_tags "$r" | grep -o 'Faturamento líquidoR\$ [0-9.,]*' | head -1)
+vr=$(sem_tags "$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")" | grep -o 'Faturamento líquidoR\$ [0-9.,]*' | head -1)
+confere "$([ -n "$vp" ] && [ "$vp" = "$vr" ]; echo $?)" "painel e Resumo com o mesmo faturamento ($vp)"
+confere "$(tem 'editar=1" data-recarrega' "$r")" "botão Editar painel"
+confere "$(grep -q 'gridstack.js' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem editar, o painel não carrega o GridStack"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo&editar=1")
+confere "$(tem 'data-painel-editar data-colunas="12"' "$r")" "modo edição numa grade de 12 colunas"
+confere "$(tem 'Métricas disponíveis' "$r")" "biblioteca de métricas no modo edição"
+confere "$(tem 'gridstack.js?v=' "$r")" "modo edição carrega o GridStack"
+confere "$(tem '<template data-painel-modelo="GrossRevenue">' "$r")" "modelo de cada métrica para arrastar"
+confere "$(tem 'class="grid-stack-item painel-novo usado" data-tipo="NetRevenue"[^>]* aria-disabled="true"' "$r")" "métrica que já está no painel fica apagada na lista"
+confere "$(tem 'data-tipo="GrossRevenue"[^>]*data-dica-titulo="Faturamento bruto" data-dica="Valor cobrado do comprador' "$r")" "cada métrica da lista mostra a conta ao passar o mouse"
+confere "$(tem 'data-dica-titulo="ROAS" data-dica="[^"]*Precisa: API Meta.' "$r")" "a lista diz de que integração a métrica depende"
+confere "$(tem 'class="grid-stack-item painel-novo" data-tipo="GrossRevenue"[^>]*gs-w="4" gs-h="1"' "$r")" "métrica da lista com o tamanho padrão"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/gridstack.js")
+confere "$([ "$code" = "200" ]; echo $?)" "gridstack.js servido ($code)"
+cp=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+salvar() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "aparelho=$2" --data-urlencode "periodo=tudo" --data-urlencode "layout=$3" "$URL/painel-salvar.php"; curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo"; }
+r=$(salvar "$cp" computador '[{"tipo":"Profit","x":0,"y":0,"w":12,"h":1},{"tipo":"Inexistente","x":0,"y":1,"w":3,"h":1},{"tipo":"SalesByHour","x":0,"y":1,"w":12,"h":3},{"tipo":"Profit","x":0,"y":5,"w":3,"h":1}]')
+confere "$(tem 'Painel salvo (computador, 2 cartões)' "$r")" "salvar o painel: tipo desconhecido e repetido ficam de fora"
+confere "$(tem 'data-tipo="Profit"' "$r")" "o painel salvo mostra o lucro"
+confere "$(tem 'style="--c:1;--r:1;--w:4;--h:1;' "$r")" "largura limitada ao máximo da métrica (lucro até 4 colunas)"
+confere "$(grep -q 'data-tipo="NetRevenue"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "métrica que saiu some do painel"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo&editar=1&aparelho=celular")
+confere "$(tem 'data-painel-editar data-colunas="2"' "$r")" "celular numa grade de 2 colunas"
+confere "$(tem 'gs-id="Profit"[^>]*gs-x="0" gs-y="0" gs-w="1" gs-h="1"' "$r")" "celular sai do computador: número na metade da largura"
+r=$(salvar "$cp" celular '[{"tipo":"SalesByHour","x":0,"y":0,"w":2,"h":3}]')
+confere "$(tem 'Painel salvo (celular, 1 cartão)' "$r")" "salvar o painel do celular"
+confere "$(tem 'class="painel-item so-computador"' "$r")" "computador e celular com layouts separados (lucro só no computador)"
+r=$(salvar "" computador '[]')
+confere "$(tem 'Sessão expirada' "$r")" "salvar o painel sem o token do formulário é recusado"
+for ap in computador celular; do curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "aparelho=$ap" --data-urlencode "acao=padrao" "$URL/painel-salvar.php"; done
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo")
+confere "$(tem 'data-tipo="NetRevenue"' "$r")" "voltar ao padrão"
+
 echo "Painel da Bio"
 r=$(curl -s -b "$JAR" "$URL/bio.php?periodo=tudo")
 confere "$(tem 'Bio · Página de links' "$r")" "tela da Bio abre"

@@ -268,22 +268,14 @@ function resumo_ha(?string $utc): string
     return 'atualizado em ' . data_local($utc, 'd/m H:i');
 }
 
-function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
+// Os numeros do periodo (os do Resumo e do painel editavel, lib/painel.php): vendas da Kiwify com
+// os filtros de produto e fonte, gasto e funil da Meta, visitas do painel e as series por hora.
+// Devolve um array com os nomes das variaveis (o Resumo faz extract()).
+function resumo_dados(PDO $db, string $periodo, string $de, string $ate, array $fCanais = []): array
 {
     $pct = gestor_imposto_pct();
     [$dia1, $dia2] = gestor_dias($periodo);
-    $temMeta = (bool)meta_api_chave();
-    $num = fn(float $v, int $casas = 2) => number_format($v, $casas, ',', '.');
     $tz = fuso();
-
-    // Filtros das vendas: produto (no topo, vale para todas as telas) e fonte de trafego (aqui,
-    // como na UTMify). O gasto e o funil da Meta sao da conta toda (a Meta nao divide o gasto
-    // por produto nem por fonte).
-    $fProduto = implode(', ', produto_filtro());
-    $canaisNome = ['instagram' => 'Instagram · anúncio', 'facebook' => 'Facebook · anúncio', 'meta' => 'Anúncio sem posicionamento',
-        'compartilhado' => 'Anúncio compartilhado', 'google' => 'Google · anúncio', 'organico' => 'Orgânico', 'outros' => 'Outras origens', 'direto' => 'Direto / sem origem'];
-    // Fonte de trafego: varias de uma vez (canal[]); a forma antiga (canal=organico) ainda vale
-    $fCanais = array_values(array_unique(array_filter(array_map('strval', (array)($_GET['canal'] ?? [])), fn($c) => isset($canaisNome[$c]))));
 
     // Meta: gasto e funil no periodo
     $g = consulta($db, 'SELECT SUM(gasto) AS gasto, SUM(cliques) AS cliques, SUM(visualizacoes) AS vis, SUM(checkouts) AS ics FROM meta_gasto WHERE dia >= ? AND dia <= ?', [$dia1, $dia2])[0];
@@ -291,11 +283,11 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     $imposto = (int)round($gasto * $pct / 100);
 
     // Kiwify: vendas do periodo
-    $fat = $fatBruto = $fatMeta = $aprovadas = $pendValor = $pendN = $reembValor = $reembN = 0;
+    $fat = $fatBruto = $fatMeta = $aprovadas = $pendValor = $pendN = $reembValor = $reembN = $cbValor = $cbN = 0;
     $foraTipo = ['Orgânico' => 0, 'Anúncio compartilhado' => 0, 'Direto / sem origem' => 0, 'Outras origens' => 0];
     $metaIniciadas = $metaAprovadas = $siteIniciadas = $siteAprovadas = $comOrigem = $semOrigem = 0;
     $porPagamento = ['Pix' => 0, 'Cartão' => 0, 'Boleto' => 0, 'Outros' => 0];
-    $porProduto = $porCanal = $porHora = $fatHora = [];
+    $porProduto = $fatProduto = $porTermo = $porCanal = $porHora = $fatHora = [];
     $porSemana = ['Seg' => 0, 'Ter' => 0, 'Qua' => 0, 'Qui' => 0, 'Sex' => 0, 'Sáb' => 0, 'Dom' => 0];
     $tentativas = $aprovPorMeio = [];
     $meios = ['pix' => 'Pix', 'credit_card' => 'Cartão', 'boleto' => 'Boleto'];
@@ -321,6 +313,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
             $fatBruto += (int)($v['valor'] ?? 0);
             $fatMeta += $daMeta ? $liquido : 0;
             $porProduto[$v['produto'] ?: '—'] = ($porProduto[$v['produto'] ?: '—'] ?? 0) + 1;
+            $fatProduto[$v['produto'] ?: '—'] = ($fatProduto[$v['produto'] ?: '—'] ?? 0) + $liquido;
             $quando = (new DateTime($v['aprovada_em'] ?: $v['recebida_em'], new DateTimeZone('UTC')))->setTimezone($tz);
             $h = (int)$quando->format('G');
             $fatHora[$h] = ($fatHora[$h] ?? 0) + $liquido;
@@ -330,6 +323,8 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
                 $aprovPorMeio[$meio] = ($aprovPorMeio[$meio] ?? 0) + 1;
                 $porCanal[$cn[0]] = ['canal' => $cn, 'n' => ($porCanal[$cn[0]]['n'] ?? 0) + 1];
                 $porHora[$h] = ($porHora[$h] ?? 0) + 1;
+                $termo = trim((string)$v['utm_term']) !== '' && strpos((string)$v['utm_term'], '{') === false ? str_replace('_', ' ', (string)$v['utm_term']) : 'Sem posicionamento';
+                $porTermo[$termo] = ($porTermo[$termo] ?? 0) + 1;
                 $porSemana[array_keys($porSemana)[(int)$quando->format('N') - 1]]++;
                 $metaAprovadas += $daMeta ? 1 : 0;
                 $siteAprovadas += $v['visitante'] ? 1 : 0;
@@ -346,6 +341,10 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         } elseif (in_array($sit, ['Reembolsada', 'Chargeback'], true)) {
             $reembValor += (int)$v['valor'];
             $reembN += $principal ? 1 : 0;
+            if ($sit === 'Chargeback') {
+                $cbValor += (int)$v['valor'];
+                $cbN += $principal ? 1 : 0;
+            }
         }
     }
     $lucro = $fat - $gasto - $imposto;
@@ -355,12 +354,51 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     $investido = $gasto + $imposto;
     $roi = roi_campanha($fat, $gasto, $imposto);
     $roiMeta = roi_campanha($fatMeta, $gasto, $imposto);
-    $cor = fn(?float $v, float $limite = 0) => $v === null ? '' : ($v >= $limite ? 'positivo' : 'negativo');
-    $impostoTxt = number_format($pct, 2, ',', '.') . '%';
 
     // Site: visitantes e cliques no checkout (t.js)
     $visitantes = (int)valor($db, 'SELECT COUNT(DISTINCT visitante) FROM eventos WHERE em >= ? AND em < ?', [$de, $ate]);
     $clicaram = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'CliqueCheckout' AND em >= ? AND em < ?", [$de, $ate]);
+    // Leads: quem clicou no WhatsApp (pessoas diferentes) e os cliques
+    $leads = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'WhatsApp' AND em >= ? AND em < ?", [$de, $ate]);
+    $conversas = (int)valor($db, "SELECT COUNT(*) FROM eventos WHERE nome = 'WhatsApp' AND em >= ? AND em < ?", [$de, $ate]);
+
+    $gastoHora = [];
+    foreach (consulta($db, 'SELECT hora, SUM(gasto) AS g FROM meta_gasto_hora WHERE dia >= ? AND dia <= ? GROUP BY hora', [$dia1, $dia2]) as $r) {
+        $gastoHora[(int)$r['hora']] = (int)$r['g'];
+    }
+    $acF = $acG = $acL = $lucroHora = [];
+    $f = $gg = 0;
+    for ($h = 0; $h < 24; $h++) {
+        $f += $fatHora[$h] ?? 0;
+        $gg += $gastoHora[$h] ?? 0;
+        $acF[$h] = $f;
+        $acG[$h] = $gg;
+        $acL[$h] = $f - $gg - (int)round($gg * $pct / 100);
+        $lucroHora[$h] = ($fatHora[$h] ?? 0) - ($gastoHora[$h] ?? 0) - (int)round(($gastoHora[$h] ?? 0) * $pct / 100);
+    }
+    return compact('pct', 'dia1', 'dia2', 'g', 'gasto', 'imposto', 'fat', 'fatBruto', 'fatMeta', 'aprovadas', 'pendValor', 'pendN', 'reembValor', 'reembN', 'cbValor', 'cbN', 'foraTipo', 'metaIniciadas', 'metaAprovadas', 'siteIniciadas', 'siteAprovadas', 'comOrigem', 'semOrigem', 'porPagamento', 'porProduto', 'fatProduto', 'porTermo', 'porCanal', 'porHora', 'fatHora', 'porSemana', 'tentativas', 'aprovPorMeio', 'lucro', 'investido', 'roi', 'roiMeta', 'visitantes', 'clicaram', 'leads', 'conversas', 'gastoHora', 'acF', 'acG', 'acL', 'lucroHora');
+}
+
+function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
+{
+    $pct = gestor_imposto_pct();
+    [$dia1, $dia2] = gestor_dias($periodo);
+    $temMeta = (bool)meta_api_chave();
+    $num = fn(float $v, int $casas = 2) => number_format($v, $casas, ',', '.');
+    $tz = fuso();
+
+    // Filtros das vendas: produto (no topo, vale para todas as telas) e fonte de trafego (aqui,
+    // como na UTMify). O gasto e o funil da Meta sao da conta toda (a Meta nao divide o gasto
+    // por produto nem por fonte).
+    $fProduto = implode(', ', produto_filtro());
+    $canaisNome = ['instagram' => 'Instagram · anúncio', 'facebook' => 'Facebook · anúncio', 'meta' => 'Anúncio sem posicionamento',
+        'compartilhado' => 'Anúncio compartilhado', 'google' => 'Google · anúncio', 'organico' => 'Orgânico', 'outros' => 'Outras origens', 'direto' => 'Direto / sem origem'];
+    // Fonte de trafego: varias de uma vez (canal[]); a forma antiga (canal=organico) ainda vale
+    $fCanais = array_values(array_unique(array_filter(array_map('strval', (array)($_GET['canal'] ?? [])), fn($c) => isset($canaisNome[$c]))));
+
+    extract(resumo_dados($db, $periodo, $de, $ate, $fCanais));
+    $cor = fn(?float $v, float $limite = 0) => $v === null ? '' : ($v >= $limite ? 'positivo' : 'negativo');
+    $impostoTxt = number_format($pct, 2, ',', '.') . '%';
 
     // Cabecalho: titulo, ultima atualizacao, Atualizar e os filtros
     $meta = meta_sync_estado();
@@ -514,19 +552,6 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     // Graficos por hora
     $hoje = $periodo === 'hoje';
     $ateHora = $hoje ? (int)(new DateTime('now', $tz))->format('G') : 23;
-    $gastoHora = [];
-    foreach (consulta($db, 'SELECT hora, SUM(gasto) AS g FROM meta_gasto_hora WHERE dia >= ? AND dia <= ? GROUP BY hora', [$dia1, $dia2]) as $r) {
-        $gastoHora[(int)$r['hora']] = (int)$r['g'];
-    }
-    $acF = $acG = $acL = [];
-    $f = $gg = 0;
-    for ($h = 0; $h < 24; $h++) {
-        $f += $fatHora[$h] ?? 0;
-        $gg += $gastoHora[$h] ?? 0;
-        $acF[$h] = $f;
-        $acG[$h] = $gg;
-        $acL[$h] = $f - $gg - (int)round($gg * $pct / 100);
-    }
     echo '<section class="bloco">' . titulo('Vendas por horário', 'Percentual das vendas aprovadas em cada hora do dia (hora da aprovação, no horário de Brasília).')
         . resumo_svg_barras($porHora, $fatHora) . '</section>';
     echo '<section class="bloco">' . titulo('Faturamento × investimento × lucro por hora (acumulado)', 'Soma hora a hora ao longo do dia' . ($hoje ? '' : ' (os dias do período somados pela hora)') . '. Investimento = gasto na Meta; lucro já desconta o imposto.')

@@ -287,6 +287,66 @@ td.quebra{ white-space:normal; min-width:220px; }
 .gg-legenda i{ width:10px; height:10px; border-radius:3px; background:var(--gg); }
 .gg-legenda b{ font-weight:600; font-variant-numeric:tabular-nums; }
 .gg-c0{ --gg:#2563EB; } .gg-c1{ --gg:#16A34A; } .gg-c2{ --gg:#EA580C; } .gg-c3{ --gg:#9333EA; } .gg-c4{ --gg:#DB2777; }
+/* Painel editavel (lib/painel.php). Ver: CSS Grid com a posicao de cada cartao (--c --r --w --h no
+   computador, --mc --mr --mw --mh no celular). Editar: GridStack, a biblioteca do lado e a barra */
+.painel-cab{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 16px; }
+.painel-cab h2{ margin:0; }
+.painel-cab .barra-vendas{ margin:0; }
+.painel-grade{ display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); grid-auto-rows:110px; gap:12px; }
+.painel-item{ grid-column:var(--c) / span var(--w); grid-row:var(--r) / span var(--h); min-width:0; min-height:0; }
+.painel-item.so-celular{ display:none; }
+@media (max-width:767px){
+  .painel-grade{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+  .painel-item{ grid-column:var(--mc) / span var(--mw); grid-row:var(--mr) / span var(--mh); }
+  .painel-item.so-computador{ display:none; }
+  .painel-item.so-celular{ display:block; }
+}
+.pw{ display:flex; flex-direction:column; gap:6px; height:100%; min-height:0; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); overflow:hidden; }
+.pw-cab{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; color:var(--suave); font-size:13px; font-weight:500; flex:none; }
+.pw-tit{ display:inline-flex; align-items:center; gap:6px; min-width:0; }
+.pw-tit > span:first-child{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pw-corpo{ flex:1; min-height:0; overflow:auto; }
+.pw-numero .pw-corpo{ display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden; }
+.pw-num{ font-size:24px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pw-corpo > small{ color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pw-corpo .grafico{ width:100%; height:auto; }
+.pw-corpo .rosca-caixa{ margin:0; }
+.barra-ok{ fill:var(--ok); } .barra-ruim{ fill:var(--erro); }
+.painel-barra{ position:sticky; top:0; z-index:40; display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 10px; padding:10px 14px; background:var(--realce); border:1px solid var(--marca); border-radius:var(--r-md); }
+.painel-barra-txt{ display:inline-flex; align-items:center; gap:6px; font-weight:500; }
+.painel-barra .segmentos a{ display:inline-flex; align-items:center; gap:6px; }
+.painel-barra-acoes{ display:inline-flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
+.painel-dica{ margin:0 0 12px; font-size:12px; }
+.painel-edicao{ display:grid; grid-template-columns:260px minmax(0, 1fr); gap:16px; align-items:start; }
+.painel-biblioteca{ position:sticky; top:72px; max-height:calc(100vh - 90px); overflow:auto; padding:12px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); }
+.painel-biblioteca h2{ margin:0 0 10px; font-size:14px; }
+.painel-biblioteca .tcard-busca{ margin:0 0 10px; }
+.painel-biblioteca .tcard-busca input{ width:100%; }
+.painel-biblioteca details{ margin:0 0 8px; }
+.painel-biblioteca summary{ cursor:pointer; padding:6px 2px; color:var(--suave); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+.painel-lista{ display:flex; flex-direction:column; gap:6px; }
+.painel-novo{ position:static !important; width:auto !important; height:auto !important; cursor:grab; }
+.painel-novo > .grid-stack-item-content{ position:static !important; display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px dashed var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao-2); font-size:13px; }
+.painel-novo:hover > .grid-stack-item-content{ border-color:var(--marca); border-width:2px; padding:7px 9px; }
+.painel-novo-ico{ display:inline-flex; color:var(--suave); }
+.painel-novo.fora-da-busca{ display:none !important; }
+.painel-novo.usado{ pointer-events:none; cursor:default; }
+.painel-novo.usado > .grid-stack-item-content{ opacity:.45; border-style:solid; }
+.painel-novo-usado{ margin-left:auto; color:var(--suave); font-size:11px; }
+.pw-aviso{ display:flex; align-items:center; gap:5px; margin-top:auto; color:var(--suave); font-size:12px; white-space:normal !important; }
+.pw-sem-fonte .pw-corpo{ display:flex; flex-direction:column; justify-content:flex-end; }
+.painel-moldura{ min-width:0; }
+.painel-moldura.celular{ width:390px; max-width:100%; margin:0 auto; padding:10px; border:1px solid var(--linha-forte); border-radius:24px; background:var(--fundo); }
+.painel-moldura .grid-stack{ min-height:400px; border:1px dashed var(--linha); border-radius:var(--r-md); }
+.painel-moldura .grid-stack-item-content{ overflow:hidden !important; }
+.painel-moldura .grid-stack-item > .grid-stack-item-content{ cursor:move; }
+.painel-tirar{ position:absolute; top:8px; right:8px; z-index:5; width:26px; min-height:26px; padding:0; border-radius:999px; background:var(--cartao); color:var(--suave); border:1px solid var(--linha-forte); opacity:0; transition:opacity .12s; }
+.painel-tirar:hover{ background:var(--fundo-erro); color:var(--erro); border-color:var(--erro); }
+.grid-stack-item:hover .painel-tirar, .painel-tirar:focus-visible{ opacity:1; }
+.grid-stack-item:hover .pw .kpi-ico{ visibility:hidden; }
+@media (hover:none){ .painel-tirar{ opacity:1; } }
+.grid-stack-placeholder > .placeholder-content{ background:var(--realce) !important; border:2px dashed var(--marca); border-radius:var(--r-md); }
+@media (max-width:900px){ .painel-edicao{ grid-template-columns:1fr; } .painel-biblioteca{ position:static; max-height:none; } }
 /* Painel da Bio (bio.php) */
 .bio-topo{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 14px; }
 .bio-ordem{ display:inline-flex; gap:4px; }
@@ -826,6 +886,7 @@ function icone(string $nome, int $tam = 16): string
         'colunas' => '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
         'ordenar' => '<path d="M7 4v16M4 17l3 3 3-3M17 20V4M14 7l3-3 3 3"/>',
         'seta-baixo' => '<path d="M6 9l6 6 6-6"/>',
+        'grade' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 10h18M10 10v11"/>',
         'estrela' => '<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
         'paleta' => '<path d="M12 22a10 10 0 1 1 10-10c0 2.2-1.8 3.5-4 3.5h-1.6a1.9 1.9 0 0 0-1.4 3.2A2 2 0 0 1 12 22z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="10.5" cy="6.5" r="1"/><circle cx="15.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/>',
     ];
@@ -1024,7 +1085,7 @@ function cor_roi(?float $roi): string
 // sentido), periodo (prontos ou de uma data a outra) e produto. A conta fica a direita.
 function barra_topo(array $filtro, array $dominios, array $paginas, string $aba, array $produtos = []): void
 {
-    $soPeriodo = in_array($aba, ['gestor', 'campanha', 'geral', 'organico', 'financeiro'], true); // nessas telas, site e pagina nao se aplicam
+    $soPeriodo = in_array($aba, ['gestor', 'campanha', 'geral', 'painel', 'organico', 'financeiro'], true); // nessas telas, site e pagina nao se aplicam
     $comProduto = !in_array($aba, ['visitantes', 'eventos', 'financeiro'], true); // telas sem venda (e o Financeiro, que e a empresa toda)
     $marcados = $filtro['produto'] ?? [];
     $datas = periodo_datas($filtro['periodo']);
@@ -1091,7 +1152,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
 // Organico eles nao entram na conta, e o endereco nao deve sugerir o contrario)
 function abas_filtro(string $aba, array $filtro): array
 {
-    $leva = in_array($aba, ['gestor', 'campanha', 'geral', 'organico', 'financeiro'], true) ? ['periodo' => 1, 'produto' => 1] : ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1];
+    $leva = in_array($aba, ['gestor', 'campanha', 'geral', 'painel', 'organico', 'financeiro'], true) ? ['periodo' => 1, 'produto' => 1] : ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1];
     return array_intersect_key($filtro, $leva);
 }
 
@@ -1099,7 +1160,7 @@ function abas_filtro(string $aba, array $filtro): array
 // configuracao (API Kiwify e Usuarios) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
-    $abas = ['geral' => ['Resumo', 'resumo'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'financeiro' => ['Financeiro', 'carteira'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
+    $abas = ['geral' => ['Resumo', 'resumo'], 'painel' => ['Painel', 'grade'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'financeiro' => ['Financeiro', 'carteira'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
         'visitantes' => ['Visitantes', 'visitantes'], 'eventos' => ['Eventos', 'eventos']];
     if (!usuario_pode('utm')) {
         return;
@@ -1123,7 +1184,7 @@ function abas_painel(string $aba, array $filtro = []): void
     // Celular: barra fixa embaixo com as 4 telas mais usadas; o resto em "Mais"
     $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + abas_filtro($id, $filtro));
     $item = fn(string $href, string $id, string $ico, string $rotulo) => '<a href="' . e($href) . '"' . ($aba === $id ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico, 20) . '<span>' . e($rotulo) . '</span></a>';
-    $mais = [['financeiro', $link('financeiro'), 'carteira', 'Financeiro'], ['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
+    $mais = [['painel', $link('painel'), 'grade', 'Painel'], ['financeiro', $link('financeiro'), 'carteira', 'Financeiro'], ['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
         ['visitantes', $link('visitantes'), 'visitantes', 'Visitantes'], ['eventos', $link('eventos'), 'eventos', 'Eventos']];
     $config = [['configuracoes', 'configuracoes.php', 'config', 'Configurações'], ['kiwify-api', 'kiwify-api.php', 'chave', 'API Kiwify'],
         ['meta-api', 'meta-api.php', 'meta', 'API Meta'], ['instagram-api', 'instagram-api.php', 'instagram', 'API Instagram']];

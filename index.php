@@ -11,12 +11,13 @@ require_once __DIR__ . '/lib/resumo.php';
 require_once __DIR__ . '/lib/organico.php';
 require_once __DIR__ . '/lib/trafego.php';
 require_once __DIR__ . '/lib/financeiro.php';
+require_once __DIR__ . '/lib/painel.php';
 
 exigir_login();
 $db = track_db();
 
 // ---------------------------------------------------------------- filtros
-$abasValidas = ['geral', 'trafego', 'gestor', 'campanha', 'financeiro', 'organico', 'resumo', 'vendas', 'visitantes', 'eventos'];
+$abasValidas = ['geral', 'painel', 'trafego', 'gestor', 'campanha', 'financeiro', 'organico', 'resumo', 'vendas', 'visitantes', 'eventos'];
 $aba = in_array($_GET['aba'] ?? '', $abasValidas, true) ? $_GET['aba'] : 'geral';
 // Site, pagina, periodo e produto ficam lembrados na sessao: trocar de aba, abrir Configuracoes
 // ou uma API e voltar nao zera o filtro. Parametro presente no endereco (mesmo vazio) vale e e guardado.
@@ -401,6 +402,11 @@ if ($aba === 'trafego') {
 }
 
 // ---------------------------------------------------------------- resumo (tela inicial)
+// ---------------------------------------------------------------- painel editavel
+if ($aba === 'painel') {
+    painel_render($db, $periodo, $de, $ate);
+}
+
 if ($aba === 'geral') {
     resumo_render($db, $periodo, $de, $ate);
 }

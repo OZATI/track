@@ -294,6 +294,19 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 14;
             SQL);
     }
+    if ($versao < 15) {
+        // Painel editavel (lib/painel.php): o layout de cada pessoa em cada aparelho
+        track_migrar_para($pdo, 15, <<<'SQL'
+            CREATE TABLE IF NOT EXISTS painel_layouts (
+                usuario TEXT NOT NULL,
+                aparelho TEXT NOT NULL,
+                layout TEXT NOT NULL,
+                atualizado_em TEXT NOT NULL,
+                PRIMARY KEY (usuario, aparelho)
+            );
+            PRAGMA user_version = 15;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas
