@@ -9,8 +9,11 @@
 // total (tr.total) e a da tabela vazia (td com colspan) ficam sempre. Quem reordena as linhas
 // (o painel.js, ao clicar no titulo) avisa com o evento "tabela:mudou" na <table>; a linha com a
 // classe "fora-filtro" (posta por quem filtra por fora, ex.: so as marcadas do gestor) fica de fora.
-// Tabela.lembrar() guarda a pagina de cada tabela para a proxima tela (depois de ligar, pausar ou
-// mudar o orcamento, a tabela volta na mesma pagina).
+// Tabela.lembrar() guarda a pagina, a busca e os filtros de cada tabela para a proxima vez que ela
+// for desenhada (depois de ligar, pausar ou mudar o orcamento no painel, ou do CMS redesenhar a
+// tela, a tabela volta como estava).
+// Tambem aqui: o menu "..." (menu_linha), um aberto por vez, que abre junto do botao por cima de
+// tudo (a rolagem da tabela nao corta) e fecha ao clicar fora, rolar a tela ou com o Esc.
 (function () {
   'use strict';
   function sem(t) { return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); }
@@ -22,7 +25,7 @@
     return c.textContent.replace(/\s+/g, ' ').replace(/[↑↓]/g, '').trim();
   }
   var aberto = null;
-  var paginasGuardadas = {};
+  var guardados = {};
   function fecharPop() { if (aberto) { aberto.pop.hidden = true; aberto.botao.setAttribute('aria-expanded', 'false'); aberto = null; } }
   document.addEventListener('click', function (e) { if (aberto && !aberto.pop.contains(e.target) && !aberto.botao.contains(e.target)) { fecharPop(); } });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && aberto) { var b = aberto.botao; fecharPop(); b.focus(); } });
@@ -37,8 +40,9 @@
     var padraoPorPagina = parseInt(card.getAttribute('data-por-pagina') || '25', 10);
     var cab = tabela.tHead && tabela.tHead.rows.length ? tabela.tHead.rows[0] : tabela.rows[0];
     var ths = Array.prototype.slice.call(cab.cells);
-    var estado = { busca: '', filtros: {}, ocultas: salvo.ocultas || [], porPagina: salvo.porPagina !== undefined ? salvo.porPagina : padraoPorPagina, pagina: paginasGuardadas[chave] || 0 };
-    delete paginasGuardadas[chave];
+    var g = guardados[chave] || {};
+    delete guardados[chave];
+    var estado = { busca: g.busca || '', filtros: g.filtros || {}, ocultas: salvo.ocultas || [], porPagina: salvo.porPagina !== undefined ? salvo.porPagina : padraoPorPagina, pagina: g.pagina || 0 };
     card.__estado = estado;
     var busca = card.querySelector('[data-tabela-busca]');
     var porPagina = card.querySelector('[data-tabela-por-pagina]');
@@ -208,6 +212,7 @@
       });
     }
     if (busca) {
+      busca.value = estado.busca;
       busca.addEventListener('input', function () { estado.busca = busca.value; estado.pagina = 0; aplicar(); });
       busca.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); } });
     }
@@ -234,12 +239,50 @@
     aplicar();
   }
 
+  // Menu "...": o painel fica fixo na tela, embaixo do botao (ou em cima, se faltar espaco)
+  function posicionarMenu(d) {
+    var p = d.querySelector('.menu-linha-painel'), s = d.querySelector('summary');
+    if (!p || !s) { return; }
+    p.style.position = 'fixed'; p.style.right = 'auto'; p.style.left = '0px'; p.style.top = '0px'; p.style.visibility = 'hidden';
+    var r = s.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
+    var top = r.bottom + 4;
+    if (top + h > window.innerHeight - 8 && r.top - h - 4 >= 8) { top = r.top - h - 4; }
+    p.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
+    p.style.top = Math.max(8, top) + 'px';
+    p.style.maxHeight = (window.innerHeight - 16) + 'px';
+    p.style.overflow = 'auto';
+    p.style.visibility = '';
+  }
+  function fecharMenus(menos) {
+    Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (d) { if (d !== menos) { d.open = false; } });
+  }
+  document.addEventListener('click', function (e) {
+    var dentro = e.target.closest && e.target.closest('details.menu-linha');
+    fecharMenus(dentro);
+  });
+  document.addEventListener('toggle', function (e) {
+    var d = e.target;
+    if (d.matches && d.matches('details.menu-linha') && d.open) { fecharMenus(d); posicionarMenu(d); }
+  }, true);
+  document.addEventListener('scroll', function (e) {
+    var t = e.target;
+    if (t && t.nodeType === 1 && t.closest('.menu-linha-painel')) { return; }
+    fecharMenus(null);
+  }, true);
+  window.addEventListener('resize', function () { fecharMenus(null); });
+  document.addEventListener('keydown', function (e) {
+    var aberto = document.querySelector('details.menu-linha[open]');
+    if (e.key === 'Escape' && aberto) { aberto.open = false; aberto.querySelector('summary').focus(); }
+  });
+
   window.Tabela = {
     ligar: function (raiz) { Array.prototype.forEach.call((raiz || document).querySelectorAll('[data-tabela]'), ligarCard); },
-    lembrar: function () {
-      Array.prototype.forEach.call(document.querySelectorAll('[data-tabela]'), function (card) {
-        if (card.__estado) { paginasGuardadas[card.getAttribute('data-tabela')] = card.__estado.pagina; }
+    lembrar: function (raiz) {
+      Array.prototype.forEach.call((raiz || document).querySelectorAll('[data-tabela]'), function (card) {
+        var e = card.__estado;
+        if (e) { guardados[card.getAttribute('data-tabela')] = { pagina: e.pagina, busca: e.busca, filtros: JSON.parse(JSON.stringify(e.filtros)) }; }
       });
-    }
+    },
+    posicionarMenu: posicionarMenu
   };
 })();

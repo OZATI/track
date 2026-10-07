@@ -542,7 +542,7 @@
         orcNota.textContent = orcNotaInicial;
         if (!orcF.hidden) { orcF.elements.valor.focus(); }
         var d = orcF.closest('details');
-        if (d) { posicionarMenu(d); }
+        if (d && window.Tabela && window.Tabela.posicionarMenu) { window.Tabela.posicionarMenu(d); }
       });
       Array.prototype.forEach.call(orcF.querySelectorAll('input[name=modo]'), function (r) {
         r.addEventListener('change', function () { orcF.elements.valor.placeholder = r.value === 'pct' ? '15 ou -10' : '50,00'; orcF.elements.valor.focus(); });
@@ -1298,24 +1298,7 @@
     mostrar();
   });
 
-  // Menu "..." das linhas (componentes.php, menu_linha): um aberto por vez; abre junto do botao,
-  // por cima de tudo (a rolagem da tabela nao corta), e fecha ao clicar fora ou rolar a tela
-  ouvir(document, 'click', function (e) {
-    Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (d) { if (!d.contains(e.target)) { d.open = false; } });
-  });
-  ouvir(document, 'toggle', function (e) {
-    var d = e.target;
-    if (d.matches && d.matches('details.menu-linha') && d.open) {
-      Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (o) { if (o !== d) { o.open = false; } });
-      posicionarMenu(d);
-    }
-  }, true);
-  ouvir(document, 'scroll', function (e) {
-    var t = e.target;
-    if (t && t.nodeType === 1 && t.closest('.menu-linha-painel')) { return; }
-    Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (d) { d.open = false; });
-  }, true);
-  ouvir(window, 'resize', function () { Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (d) { d.open = false; }); });
+  // O menu "..." das linhas (menu_linha) e do tabela.js: abre por cima da tabela e fecha sozinho
 
   // ---------------------------------------------------------------- barra lateral
   // No celular, a barra do admin (CMS, UTM, aparencia, configuracoes e perfil) fica recolhida
@@ -1441,20 +1424,6 @@
     Array.prototype.forEach.call(doc.body.querySelectorAll('script'), function (sc) { sc.parentNode.removeChild(sc); });
     soltarOuvintes();
     raiz.replaceChild(document.adoptNode(doc.body), document.body);
-  }
-  // Painel do menu "..." fixo na tela, embaixo do botao (ou em cima, se faltar espaco embaixo)
-  function posicionarMenu(d) {
-    var p = d.querySelector('.menu-linha-painel'), s = d.querySelector('summary');
-    if (!p || !s) { return; }
-    p.style.position = 'fixed'; p.style.right = 'auto'; p.style.left = '0px'; p.style.top = '0px'; p.style.visibility = 'hidden';
-    var r = s.getBoundingClientRect(), w = p.offsetWidth, h = p.offsetHeight;
-    var top = r.bottom + 4;
-    if (top + h > window.innerHeight - 8 && r.top - h - 4 >= 8) { top = r.top - h - 4; }
-    p.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)) + 'px';
-    p.style.top = Math.max(8, top) + 'px';
-    p.style.maxHeight = (window.innerHeight - 16) + 'px';
-    p.style.overflow = 'auto';
-    p.style.visibility = '';
   }
   function navegar(url, op) {
     op = op || {};
