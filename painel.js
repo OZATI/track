@@ -25,6 +25,8 @@
   var sw = 'serviceWorker' in navigator ? navigator.serviceWorker.register(PAINEL + 'sw.php', { scope: PAINEL }).catch(function () { return null; }) : null;
 
   function iniciar() {
+  // Tabelas inteligentes (tabela.js): antes dos seletores, que desenham o "Por pagina"
+  if (window.Tabela) { window.Tabela.ligar(document); }
   var form = document.getElementById('filtros');
   if (form) {
     var datas = form.querySelector('[data-datas]');
@@ -526,6 +528,7 @@
       for (var j = 0; j < lista.length; j++) { corpo.appendChild(lista[j]); }
       for (var k = 0; k < ths.length; k++) { ths[k].removeAttribute('aria-sort'); }
       th.setAttribute('aria-sort', dir === 'asc' ? 'ascending' : 'descending');
+      tab.dispatchEvent(new Event('tabela:mudou'));
     }
     Array.prototype.forEach.call(ths, function (th) {
       if (th.hasAttribute('data-inicial')) { th.setAttribute('aria-sort', th.getAttribute('data-inicial') === 'asc' ? 'ascending' : 'descending'); }
@@ -994,6 +997,17 @@
     mostrar();
   });
 
+  // Menu "..." das linhas (componentes.php, menu_linha): um aberto por vez; fecha ao clicar fora
+  ouvir(document, 'click', function (e) {
+    Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (d) { if (!d.contains(e.target)) { d.open = false; } });
+  });
+  ouvir(document, 'toggle', function (e) {
+    var d = e.target;
+    if (d.matches && d.matches('details.menu-linha') && d.open) {
+      Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (o) { if (o !== d) { o.open = false; } });
+    }
+  }, true);
+
   // ---------------------------------------------------------------- barra lateral
   // No celular, a barra do admin (CMS, UTM, aparencia, configuracoes e perfil) fica recolhida
   // numa linha so; a seta abre e fecha. Os filtros ficam sempre a mostra. No computador, a
@@ -1017,7 +1031,7 @@
   ouvir(document, 'keydown', function (e) {
     if (e.key !== 'Escape') { return; }
     if (aberto) { aberto.fechar(true); return; }
-    Array.prototype.forEach.call(document.querySelectorAll('details.colunas[open], details.multi[open], details.tema-menu[open], details.orc-inline[open]'), function (d) { d.open = false; });
+    Array.prototype.forEach.call(document.querySelectorAll('details.colunas[open], details.multi[open], details.tema-menu[open], details.orc-inline[open], details.menu-linha[open]'), function (d) { d.open = false; });
     var lat = document.querySelector('[data-lateral].aberta');
     if (lat) { lat.classList.remove('aberta'); }
   });

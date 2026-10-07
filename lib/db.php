@@ -266,6 +266,13 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 12;
             SQL);
     }
+    if ($versao < 13) {
+        // Financeiro: despesa pausada (ativo = 0) para de contar sem ser apagada
+        track_migrar_para($pdo, 13, <<<'SQL'
+            ALTER TABLE gastos ADD COLUMN ativo INTEGER NOT NULL DEFAULT 1;
+            PRAGMA user_version = 13;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

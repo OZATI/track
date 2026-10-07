@@ -91,6 +91,9 @@ function fin_por_dia(PDO $db, string $dia1, string $dia2, array $gastos): array
         $dias[$g['dia']]['anuncios'] += (int)$g['g'] + (int)round((int)$g['g'] * $pct / 100);
     }
     foreach ($gastos as $g) {
+        if (!(int)($g['ativo'] ?? 1)) {
+            continue; // despesa pausada nao conta
+        }
         foreach (fin_ocorrencias($g, $dia1, $dia2) as $dia) {
             $dias[$dia] = $dias[$dia] ?? $vazio;
             $dias[$dia]['despesas'] += (int)$g['valor'];
@@ -169,22 +172,60 @@ function financeiro_render(PDO $db, string $periodo): void
             }
         }
     }
-    echo titulo('Despesas', 'Os gastos da empresa fora dos anúncios. Cadastre uma vez: as que se repetem entram sozinhas em cada mês (ou ano), até a data final, se tiver.')
-        . '<div class="tabela gestor"><table><tr><th class="nome">Descrição</th><th class="nome">Categoria</th><th>Valor</th><th class="nome">Repete</th><th class="nome">Desde</th><th class="nome">Até</th><th>' . com_info('No período', 'Quanto essa despesa soma no período escolhido no topo.') . '</th><th></th></tr>';
+    // Despesas: os cartoes do mes e a tabela inteligente (como "Custos gerais")
+    $mes1 = (new DateTime('first day of this month', fuso()))->format('Y-m-d');
+    $mes2 = (new DateTime('last day of this month', fuso()))->format('Y-m-d');
+    $doMes = fn(array $g) => (int)($g['ativo'] ?? 1) ? count(fin_ocorrencias($g, $mes1, $mes2)) * (int)$g['valor'] : 0;
+    $totalMes = array_sum(array_map($doMes, $gastos));
+    $ativosMes = count(array_filter($gastos, fn($g) => $doMes($g) > 0));
+    $fixoMensal = array_sum(array_map(fn($g) => (int)($g['ativo'] ?? 1) && $g['repete'] === 'mensal' && (!$g['fim'] || $g['fim'] >= $hoje) ? (int)$g['valor'] : 0, $gastos));
+    echo cartoes_kpi([
+        cartao_kpi('Custos cadastrados', (string)count($gastos), 'fixos e variáveis na sua conta', 'carteira'),
+        cartao_kpi('Ativos neste mês', (string)$ativosMes, 'de ' . count($gastos) . ' cadastrado' . (count($gastos) === 1 ? '' : 's'), 'atividade'),
+        cartao_kpi('Total do mês', reais($totalMes), 'o que incide neste mês', 'calendario'),
+        cartao_kpi('Fixo mensal', reais($fixoMensal), 'recorrente todo mês', 'repetir'),
+    ]);
+    // Historico de cada despesa: os ultimos 6 meses
+    $meses = [];
+    for ($i = 5; $i >= 0; $i--) {
+        $d = (new DateTime('first day of this month', fuso()))->modify('-' . $i . ' month');
+        $meses[] = [$d->format('Y-m-01'), $d->format('Y-m-t'), $d->format('m/Y')];
+    }
+    $tipos = ['mensal' => ['Fixo', 'azul'], 'anual' => ['Anual', 'roxo'], 'unico' => ['Variável', 'laranja']];
+    $csrf = '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="volta" value="' . e($volta) . '">';
+    echo tabela_card_inicio('despesas', 'Despesas', count($gastos), ['icone' => 'lista', 'busca' => 'Buscar por nome ou categoria', 'por_pagina' => 10,
+        'dica' => 'Os gastos da empresa fora dos anúncios. Cadastre uma vez: as que se repetem entram sozinhas em cada mês (ou ano), até a data final, se tiver. Pausar tira a despesa da conta sem apagar.']);
+    echo '<table><thead><tr><th class="nome">Nome</th><th data-filtro data-col="tipo">Tipo</th><th data-filtro data-col="categoria">Categoria</th><th data-col="valor">Valor</th>'
+        . '<th data-col="participacao">' . com_info('Participação', 'Quanto essa despesa pesa no total do mês.') . '</th><th data-col="historico">' . com_info('Histórico', 'O que a despesa somou em cada um dos últimos 6 meses.') . '</th>'
+        . '<th data-col="criado">Criado em</th><th data-col="ate">Válido até</th><th data-filtro data-col="ativo">' . com_info('Custo ativo', 'Desligado, a despesa fica cadastrada mas para de contar no Financeiro.') . '</th><th class="acoes"></th></tr></thead><tbody>';
     foreach ($gastos as $g) {
-        $noPeriodo = count(fin_ocorrencias($g, $dia1, $dia2)) * (int)$g['valor'];
-        echo '<tr><td class="nome quebra">' . e($g['descricao']) . '</td><td class="nome">' . e((string)$g['categoria']) . '</td><td>' . e(reais((int)$g['valor'])) . '</td>'
-            . '<td class="nome">' . e(FIN_REPETE[$g['repete']] ?? $g['repete']) . '</td><td class="nome">' . e((new DateTime($g['inicio']))->format('d/m/Y')) . '</td>'
-            . '<td class="nome">' . ($g['fim'] ? e((new DateTime($g['fim']))->format('d/m/Y')) : '<span class="suave">—</span>') . '</td><td>' . ($noPeriodo ? e(reais($noPeriodo)) : '<span class="suave">—</span>') . '</td>'
-            . '<td class="nome nw"><a href="' . e($volta . '&editar=' . (int)$g['id'] . '#despesa') . '">Editar</a> '
-            . '<form method="post" action="gastos.php" class="form-linha" data-confirma="' . e('Apagar a despesa "' . $g['descricao'] . '"?') . '"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
-            . '<input type="hidden" name="acao" value="apagar"><input type="hidden" name="id" value="' . (int)$g['id'] . '"><input type="hidden" name="volta" value="' . e($volta) . '">'
-            . '<button type="submit" class="discreto">Apagar</button></form></td></tr>';
+        $ativo = (bool)(int)($g['ativo'] ?? 1);
+        $noMes = $doMes($g);
+        $serie = array_map(fn($m) => count(fin_ocorrencias($g, $m[0], $m[1])) * (int)$g['valor'], $meses);
+        $rotulos = array_map(fn($m, $v) => $m[2] . ': ' . reais($v), $meses, $serie);
+        [$tipo, $cor] = $tipos[$g['repete']] ?? [FIN_REPETE[$g['repete']] ?? $g['repete'], 'cinza'];
+        $chave = '<form method="post" action="gastos.php" class="form-linha">' . $csrf . '<input type="hidden" name="acao" value="ativo"><input type="hidden" name="id" value="' . (int)$g['id'] . '">'
+            . '<input type="hidden" name="ativo" value="' . ($ativo ? '0' : '1') . '"><button type="submit" class="chave' . ($ativo ? ' ligada' : '') . '" role="switch" aria-checked="' . ($ativo ? 'true' : 'false') . '"'
+            . ' aria-label="' . e(($ativo ? 'Pausar ' : 'Ativar ') . $g['descricao']) . '" title="' . ($ativo ? 'Ativa: clique para pausar' : 'Pausada: clique para ativar') . '"><span></span></button></form>';
+        echo '<tr><td class="nome quebra"><b>' . e($g['descricao']) . '</b>' . celula_situacao($ativo, 'Ativa', 'Pausada') . '</td>'
+            . '<td>' . celula_selo($tipo, $cor) . '</td>'
+            . '<td>' . ($g['categoria'] ? celula_selo((string)$g['categoria']) : '<span class="suave">—</span>') . '</td>'
+            . '<td>' . e(reais((int)$g['valor'])) . '</td>'
+            . '<td>' . ($noMes && $totalMes ? celula_anel($noMes * 100 / $totalMes) : '<span class="suave">—</span>') . '</td>'
+            . '<td>' . celula_mini_grafico($serie, $rotulos) . '</td>'
+            . '<td>' . celula_data(data_local($g['criado_em'], 'm/Y')) . '</td>'
+            . '<td>' . ($g['repete'] === 'unico' ? celula_data((new DateTime($g['inicio']))->format('d/m/Y')) : celula_prazo($g['fim'])) . '</td>'
+            . '<td data-valor="' . ($ativo ? 'Ativa' : 'Pausada') . '">' . $chave . '</td>'
+            . '<td class="acoes">' . menu_linha([
+                '<a href="' . e($volta . '&editar=' . (int)$g['id'] . '#despesa') . '">' . icone('lapis', 14) . 'Editar</a>',
+                '<form method="post" action="gastos.php" data-confirma="' . e('Apagar a despesa "' . $g['descricao'] . '"?') . '">' . $csrf
+                    . '<input type="hidden" name="acao" value="apagar"><input type="hidden" name="id" value="' . (int)$g['id'] . '"><button type="submit" class="perigo">' . icone('lixo', 14) . 'Apagar</button></form>',
+            ], 'Ações da despesa') . '</td></tr>';
     }
     if (!$gastos) {
-        echo '<tr><td colspan="8" class="suave">Nenhuma despesa cadastrada. Use o formulário abaixo (ex.: hospedagem, ferramentas, equipe).</td></tr>';
+        echo '<tr><td colspan="10" class="suave">Nenhuma despesa cadastrada. Use o formulário abaixo (ex.: hospedagem, ferramentas, equipe).</td></tr>';
     }
-    echo '</table></div>';
+    echo '</tbody></table>' . tabela_card_fim('despesa', 'despesas');
 
     $categorias = array_values(array_unique(array_merge(FIN_CATEGORIAS, array_filter(array_column($gastos, 'categoria')))));
     $valor = $editar ? number_format((int)$editar['valor'] / 100, 2, ',', '.') : '';

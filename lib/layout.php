@@ -4,6 +4,7 @@
 require_once __DIR__ . '/tema.php';
 require_once __DIR__ . '/perfil.php';
 require_once __DIR__ . '/admin_tela.php'; // nucleo do admin: CSS comum, barra lateral, cabecalho
+require_once __DIR__ . '/componentes.php'; // cartoes com icone e a tabela inteligente
 
 
 function pagina_inicio(string $titulo): void
@@ -681,7 +682,8 @@ function pagina_fim(): void
 {
     // ?v= pela data do arquivo: dentro de um site cujo .htaccess manda cachear .js por
     // 1 ano (ex.: engdesk.pro), sem isso a mudanca no painel.js nao chegaria.
-    echo '<script src="' . e(admin_base()) . 'painel.js?v=' . (int)@filemtime(__DIR__ . '/../painel.js') . '"></script></body></html>';
+    echo '<script src="' . e(admin_base()) . 'tabela.js?v=' . (int)@filemtime(__DIR__ . '/../tabela.js') . '"></script>'
+        . '<script src="' . e(admin_base()) . 'painel.js?v=' . (int)@filemtime(__DIR__ . '/../painel.js') . '"></script></body></html>';
 }
 
 
@@ -730,6 +732,21 @@ function icone(string $nome, int $tam = 16): string
         'seta-cima' => '<path d="M6 15l6-6 6 6"/>',
         'grafico' => '<path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/><path d="M4 9l6-4 6 8 5-5"/>',
         'usuarios' => '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+        'busca' => '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+        'olho-fechado' => '<path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22"/>',
+        'restaurar' => '<path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/>',
+        'lista' => '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+        'infinito' => '<path d="M18.18 8a4 4 0 1 1 0 8c-2.18 0-3.72-2-6.18-4s-4-4-6.18-4a4 4 0 1 0 0 8c2.18 0 3.72-2 6.18-4s4-4 6.18-4z"/>',
+        'reticencias' => '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+        'atividade' => '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+        'repetir' => '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
+        'externo' => '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/>',
+        'copiar' => '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+        'fixar' => '<path d="M12 17v5M9 10.76V5h6v5.76l2 3.24H7z"/><path d="M8 2h8"/>',
+        'foco' => '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>',
+        'ligar' => '<path d="M9 11l3 3 8-8"/><rect x="3" y="3" width="18" height="18" rx="2"/>',
+        'pausar' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/>',
+        'lixo' => '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
         'lapis' => '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
         'ok' => '<path d="M20 6L9 17l-5-5"/>',
         'fechar' => '<path d="M18 6L6 18M6 6l12 12"/>',

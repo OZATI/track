@@ -1,5 +1,5 @@
 <?php
-// Cadastro das despesas do Financeiro (lib/financeiro.php): cadastrar, editar e apagar, e volta
+// Cadastro das despesas do Financeiro (lib/financeiro.php): cadastrar, editar, pausar e apagar, e volta
 // para a tela de antes com o resultado. So POST, com login e o token do formulario.
 
 require __DIR__ . '/lib/util.php';
@@ -27,6 +27,11 @@ if (!csrf_valido()) {
     $st = $db->prepare('DELETE FROM gastos WHERE id = ?');
     $st->execute([$id]);
     aviso_definir($st->rowCount() ? 'Despesa apagada.' : 'Essa despesa já não existe.', $st->rowCount() ? 'ok' : 'erro');
+} elseif ($acao === 'ativo' && $id) {
+    $ativo = ($_POST['ativo'] ?? '') === '1' ? 1 : 0;
+    $st = $db->prepare('UPDATE gastos SET ativo = ?, atualizado_em = ? WHERE id = ?');
+    $st->execute([$ativo, agora_utc(), $id]);
+    aviso_definir($st->rowCount() ? ($ativo ? 'Despesa ativa: volta a contar.' : 'Despesa pausada: para de contar até ser ativada.') : 'Essa despesa já não existe.', $st->rowCount() ? 'ok' : 'erro');
 } elseif ($acao === 'salvar') {
     $descricao = texto($_POST['descricao'] ?? '', 120);
     $categoria = texto($_POST['categoria'] ?? '', 40);

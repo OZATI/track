@@ -743,6 +743,20 @@ confere "$(tem 'data-confirma="Apagar a despesa &quot;Hospedagem&quot;?"' "$r")"
 ID=$(grep -o 'name="id" value="[0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[0-9]*')
 r=$(gasto "$csrf" salvar --data-urlencode "id=$ID" --data-urlencode "descricao=Hospedagem" --data-urlencode "valor=50" --data-urlencode "repete=unico" --data-urlencode "inicio=$HOJE")
 confere "$(tem 'Outras despesasR$ 50,00' "$(sem_tags "$r")")" "editar a despesa"
+confere "$(tem 'Custos cadastrados</span><span class="kpi-ico"' "$r")" "Financeiro: cartões com ícone (custos cadastrados, ativos, total e fixo do mês)"
+confere "$(tem '<section class="tcard" data-tabela="despesas" data-por-pagina="10">' "$r")" "despesas na tabela inteligente (busca, filtros, ocultos e por página)"
+confere "$(tem '<th data-filtro data-col="tipo">Tipo</th>' "$r")" "tabela de despesas filtra por tipo"
+confere "$(tem 'class="selo-p selo-laranja"><i aria-hidden="true"></i>Variável' "$r")" "despesa única aparece como Variável"
+confere "$(tem 'class="ponto ok" role="img" aria-label="Ativa"' "$r")" "ponto verde da despesa ativa"
+confere "$(tem 'class="menu-linha"' "$r")" "menu ... da linha (editar e apagar)"
+r=$(gasto "$csrf" ativo --data-urlencode "id=$ID" --data-urlencode "ativo=0")
+confere "$(tem 'Despesa pausada: para de contar' "$r")" "pausar a despesa sem apagar"
+confere "$(tem 'Outras despesasR$ 0,00' "$(sem_tags "$r")")" "despesa pausada sai das saídas"
+confere "$(tem 'aria-label="Pausada"' "$r")" "despesa pausada fica cinza na lista"
+r=$(gasto "$csrf" ativo --data-urlencode "id=$ID" --data-urlencode "ativo=1")
+confere "$(tem 'Outras despesasR$ 50,00' "$(sem_tags "$r")")" "ativar de novo volta a contar"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/tabela.js")
+confere "$([ "$code" = "200" ]; echo $?)" "tabela.js servido ($code)"
 r=$(gasto "$csrf" apagar --data-urlencode "id=$ID")
 confere "$(tem 'Despesa apagada.' "$r")" "apagar a despesa"
 confere "$(tem 'Nenhuma despesa cadastrada' "$r")" "despesa apagada some da lista"
