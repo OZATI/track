@@ -1011,6 +1011,14 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
     abas_painel($aba, $filtro);
 }
 
+// Filtros que o link de cada aba leva: site e pagina so onde valem (no Resumo, Gestor, Financeiro e
+// Organico eles nao entram na conta, e o endereco nao deve sugerir o contrario)
+function abas_filtro(string $aba, array $filtro): array
+{
+    $leva = in_array($aba, ['gestor', 'campanha', 'geral', 'organico', 'financeiro'], true) ? ['periodo' => 1, 'produto' => 1] : ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1];
+    return array_intersect_key($filtro, $leva);
+}
+
 // Abas: titulo e as telas de dados a esquerda (com icone, como no CMS); as de
 // configuracao (API Kiwify e Usuarios) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
@@ -1023,7 +1031,7 @@ function abas_painel(string $aba, array $filtro = []): void
     $aba = $aba === 'campanha' ? 'gestor' : $aba; // a analise diaria e parte do gestor
     echo '<nav class="abas" aria-label="Seções do painel UTM"><span class="abas-titulo">UTM · Rastreio de vendas</span>';
     foreach ($abas as $id => [$rotulo, $ico]) {
-        $q = http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1]));
+        $q = http_build_query(['aba' => $id] + abas_filtro($id, $filtro));
         echo '<a href="./?' . e($q) . '" class="' . ($aba === $id ? 'atual' : '') . '">' . icone($ico) . e($rotulo) . '</a>';
     }
     echo '<span class="abas-espaco"></span>';
@@ -1037,7 +1045,7 @@ function abas_painel(string $aba, array $filtro = []): void
     echo '<a href="configuracoes.php" class="' . ($aba === 'configuracoes' ? 'atual' : '') . '">' . icone('config') . 'Configurações</a></nav>';
 
     // Celular: barra fixa embaixo com as 4 telas mais usadas; o resto em "Mais"
-    $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + array_intersect_key($filtro, ['dominio' => 1, 'pagina' => 1, 'periodo' => 1, 'produto' => 1]));
+    $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + abas_filtro($id, $filtro));
     $item = fn(string $href, string $id, string $ico, string $rotulo) => '<a href="' . e($href) . '"' . ($aba === $id ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico, 20) . '<span>' . e($rotulo) . '</span></a>';
     $mais = [['financeiro', $link('financeiro'), 'carteira', 'Financeiro'], ['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
         ['visitantes', $link('visitantes'), 'visitantes', 'Visitantes'], ['eventos', $link('eventos'), 'eventos', 'Eventos']];

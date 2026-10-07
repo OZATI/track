@@ -206,6 +206,11 @@ confere "$(grep -q 'Visualização</strong>' < <(printf '%s\n' "$r"); [ $? -ne 0
 confere "$(tem 'Clique no checkout</strong>' "$r")" "filtro por tipo de evento mantém o evento escolhido"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=eventos&periodo=tudo&dominio=site.test")
 confere "$(tem '<option value="/drivedeprojetos"' "$r")" "caixa de páginas lista as páginas do domínio escolhido"
+confere "$(tem 'href="./?aba=visitantes&amp;dominio=site.test' "$r")" "aba que filtra por site leva o site no link"
+confere "$(grep -q 'aba=geral&amp;dominio' < <(printf '%s
+' "$r"); [ $? -ne 0 ]; echo $?)" "Resumo não leva o site no link (não filtra por site)"
+confere "$(grep -q 'aba=gestor&amp;dominio' < <(printf '%s
+' "$r"); [ $? -ne 0 ]; echo $?)" "Gestor não leva o site no link"
 # Com e sem a barra do fim (e com /index.html) e a mesma pagina
 curl -s -H "Origin: http://site.test" --data '{"evento":"PageView","url":"http://site.test/drivedeprojetos"}' "$URL/coletar.php" >/dev/null
 curl -s -H "Origin: http://site.test" --data '{"evento":"PageView","url":"http://site.test/drivedeprojetos/index.html"}' "$URL/coletar.php" >/dev/null
