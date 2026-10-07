@@ -178,8 +178,8 @@ function organico_render(PDO $db, string $periodo, string $de, string $ate): voi
         . resumo_barras(array_map(fn($l) => $l['vendas'], $porLink), fn($v) => $v . ' venda(s)')
         // Etiquetas que o proprio Instagram poe: explicadas embaixo da lista
         . (preg_grep('/^ig \/ social/', array_keys($porLink)) ? '<p class="suave legenda">ig / social: marca que o próprio Instagram põe no link clicado dentro do app (bio, story ou post). Sem o ID de uma campanha, é visita orgânica do Instagram.</p>' : '')
-        . (preg_grep('/^organico \/ instagram-bio/', array_keys($porLink)) ? '<p class="suave legenda">organico / instagram-bio: o link da bio com a nossa etiqueta (engdesk.pro/ig ou a marca link_in_bio).</p>' : '')
-        . (preg_grep('/^organico \/ instagram-stories/', array_keys($porLink)) ? '<p class="suave legenda">organico / instagram-stories: o link curto do adesivo do Story (ex.: engdesk.pro/story). O último trecho é o nome do story, ou "stories" quando o link não tem nome.</p>' : '')
+        . (preg_grep('/^organico \/ instagram-bio/', array_keys($porLink)) ? '<p class="suave legenda">organico / instagram-bio: o link da bio com a nossa etiqueta (a página da Bio, um link curto como /ig ou a marca link_in_bio).</p>' : '')
+        . (preg_grep('/^organico \/ instagram-stories/', array_keys($porLink)) ? '<p class="suave legenda">organico / instagram-stories: o link curto do adesivo do Story (ex.: /story). O último trecho é o nome do story, ou "stories" quando o link não tem nome.</p>' : '')
         . '</section>';
     uasort($paginas, fn($a, $b) => $b['vis'] <=> $a['vis']);
     $entrada = [];

@@ -65,7 +65,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $erros[] = $problema;
     }
     if (!$origens) {
-        $erros[] = 'Informe pelo menos um site (ex.: https://engdesk.pro).';
+        $erros[] = 'Informe pelo menos um site (ex.: https://seusite.com.br).';
     }
     if ($dias < 7 || $dias > 400) {
         $erros[] = 'Retenção entre 7 e 400 dias.';
@@ -116,7 +116,7 @@ pagina_inicio('Instalação');
     <label>Senha <input type="password" name="senha" autocomplete="new-password" required></label>
     <label>Repita a senha <input type="password" name="senha2" autocomplete="new-password" required></label>
     <label>Sites que vão mandar eventos, um por linha
-      <textarea name="origens" rows="3" placeholder="https://engdesk.pro" required><?= e($_POST['origens'] ?? '') ?></textarea></label>
+      <textarea name="origens" rows="3" placeholder="https://seusite.com.br" required><?= e($_POST['origens'] ?? '') ?></textarea></label>
     <label>Guardar os dados por quantos dias (LGPD) <input type="number" name="dias" value="<?= e($_POST['dias'] ?? '90') ?>" min="7" max="400"></label>
     <label>Link do CMS (opcional: só se o painel fica dentro de um admin, ex.: ../)
       <input type="text" name="menu_cms" value="<?= e($_POST['menu_cms'] ?? '') ?>" placeholder="../"></label>

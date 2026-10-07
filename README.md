@@ -1,12 +1,22 @@
-# Track — painel de rastreio e conferência de vendas
+# Track — admin de rastreio e vendas (núcleo + módulos)
 
-Painel próprio que registra **cada evento de cada visitante** nas páginas de venda e liga a **venda da Kiwify** a quem a fez. Serve para saber, venda por venda, se a origem que a página mandou é a mesma que a Kiwify e a UTMify registraram.
+**O que é:** a base de um admin para sites que vendem, feita para ser reproduzida em outros sites (com outra interface por cima) e vendida como produto. Tem três camadas:
+- **Núcleo:** login, usuários e acessos, Minha conta, barra lateral, tema, componentes de tela e navegação sem recarregar.
+- **Módulos:**
+  - **UTM:** rastreio, vendas, gestor da Meta, orgânico, financeiro;
+  - **Bio:** a página de links do Instagram;
+  - em seguida, **Pagamentos** e **Financeiro** como módulos próprios.
+- **Integração com o site:** copiar para dentro do site, o CMS do site com o mesmo visual e as páginas públicas com o `t.js`.
+
+O mapa completo, como acrescentar um módulo e o que ainda é de um site específico estão em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+
+**O módulo UTM** é um painel próprio que registra **cada evento de cada visitante** nas páginas de venda e liga a **venda da Kiwify** a quem a fez. Serve para saber, venda por venda, se a origem que a página mandou é a mesma que a Kiwify e a UTMify registraram.
 
 Um painel atende vários sites: no topo, escolha o **site** e depois a **página**. A tela inicial é a tabela de **Tráfego**: por origem (source / medium / campaign), quantos visitantes, visualizações, cliques no checkout, cliques no WhatsApp, vendas aprovadas e conversão, e embaixo o mesmo por página.
 
 - PHP 8.1+ e SQLite, sem build, sem framework, sem dependência. Roda na hospedagem compartilhada da Hostinger.
 - Não manda nada para Meta, Google ou UTMify. Só guarda e mostra.
-- Com login por usuário e senha, para quantas pessoas precisar (**Usuários**, na barra lateral), com bloqueio após 5 tentativas erradas. Cada usuário abre só o que for liberado: o CMS (quando o painel mora num admin com CMS), o UTM e a própria tela de Usuários.
+- Com login por usuário e senha, para quantas pessoas precisar (**Usuários**, na barra lateral), com bloqueio após 5 tentativas erradas. Cada usuário abre só o que for liberado: o CMS (quando o painel mora num admin com CMS), o UTM, a Bio e a própria tela de Usuários.
 - Código aberto, licença MIT. Feito pela [OZATI](https://ozati.co).
 
 **Por que não Umami, Plausible ou Matomo?** Eles medem visitas. Este painel existe para a pergunta seguinte: a **venda** que caiu na Kiwify veio de qual clique, e a etiqueta que a página mandou chegou inteira no pedido? Para isso ele liga o visitante ao pedido pelo `sck` e confere venda por venda.
@@ -35,6 +45,22 @@ track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 
 **Gestor de anúncios** (aba própria, no desenho do gestor da UTMify): contas, campanhas, conjuntos e anúncios da Meta com status, orçamento, gasto, vendas, faturamento líquido, lucro, CPA, ROI, custo por início de checkout e Pix pendentes. O gasto vem da Meta (aba **API Meta**, token só de leitura `ads_read`); as vendas se ligam ao anúncio pelo ID que a etiqueta carrega depois do `|`. Contas iguais às da UTMify: lucro desconta o gasto e o imposto de 12,15% que a Meta cobra sobre ele; ROI = (faturamento − imposto) ÷ gasto. Clicar na campanha abre os conjuntos dela, e o conjunto abre os anúncios; clicar no título da coluna ordena; setas comparam com o período anterior do mesmo tamanho, a semana ou o mês passado (menos em Hoje e Tudo). ROI em cores, como na planilha de campanhas: vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima. O ranking (painel de bolsa) fica embaixo da tabela. Colunas à parte para faturamento bruto e taxas da Kiwify. Com um token que também gerencia (`ads_management`), a chave de status liga e pausa na Meta, com confirmação e histórico.
 
+**Gestor no padrão da UTMify:**
+- **Em cima:** os níveis com ícone e, na mesma linha, as vendas fora de anúncio e o Atualizar.
+- **Uma barra numa linha só:**
+  - à esquerda, o nome e o status do nível (Nome da campanha, Status do conjunto...) e Comparar com;
+  - à direita, botões de ícone com o nome na dica: Colunas, Ordenar, Gráfico comparativo, Ações e Modo foco.
+- **Marcadas:** viram um selo "N marcadas ×".
+- **Ações das marcadas (a seta para baixo):**
+  - abrir no Gerenciador de Anúncios da Meta já selecionadas;
+  - gráfico comparativo (até 5, por dia ou acumulado: lucro, ROI, faturamento, gasto, vendas ou CPA);
+  - copiar ID, fixar no topo e filtrar as selecionadas;
+  - ver os conjuntos ou os anúncios delas;
+  - ativar e desativar de uma vez e alterar o orçamento por valor ou % (até 25 de uma vez, com confirmação e o aviso acima de 20%).
+- **"..." de cada linha:** análise diária, próximo nível, Gerenciador, copiar ID e fixar.
+- **Tabela:** linhas por página, com rolagem por dentro e o cabeçalho e o total fixos.
+- **Modo foco:** deixa a tela só com o gestor (Esc volta).
+
 **Orçamento pelo painel** (na análise diária): mudar o orçamento diário da campanha ou de um conjunto na Meta na hora (o **lápis** ao lado do orçamento, na linha do nome da campanha), ou programar (botão **Nova programação**, embaixo) (todo dia num horário, nos dias da semana marcados, ou uma vez numa data e hora). Precisa do token com `ads_management`. Travas: só campanhas e conjuntos da conta com orçamento diário, nunca acima do teto (Configurações, padrão R$ 300,00 por dia), confirmação na tela com a variação e aviso acima de 20% (a Meta pode reiniciar o aprendizado). A tarefa agendada (`cron.php`) aplica as programações: a diária até 30 minutos depois do horário (tarefa parada não muda fora de hora), a de uma vez até 2 horas depois. Cada mudança fica no histórico, com quem fez ou programou, e a programação avisa no celular.
 
 **Análise diária** (o botão do gráfico que aparece ao passar o mouse na campanha, no conjunto ou no anúncio): o objeto dia a dia, logo embaixo do cabeçalho, uma linha por dia como na planilha, com o orçamento que o painel viu na Meta em cada dia (guardado a cada busca); hoje aparece por último, ao vivo. Clicar no título da coluna ordena (data do mais recente, número do maior, de novo inverte; fica lembrado neste navegador). O botão **Colunas** é o mesmo do gestor, com os modelos **Campanha** (as 17 colunas da planilha, o padrão), **Conjunto** e **Criativo**; a escolha fica guardada. Embaixo da tabela, os números da campanha no período (compradores, ROI, lucro, gasto, CPA, custo por IC), o gráfico de compradores e ROI por dia, a **leitura da campanha** (dicas com as regras de otimização: custo por IC até 10% do ticket, CTR de 2% para cima, ponto de contato antes de pausar, subir o orçamento até 20% por vez, melhores horários de venda), o **gráfico de bolsa do ROI desde o início** (uma vela por dia: abre no ROI acumulado até a véspera, fecha no do fim do dia; o ROI aparece ao passar o mouse) e **quem compra** por sexo e idade, com as compras que a Meta atribui à campanha (a Kiwify não pergunta o sexo).
@@ -53,9 +79,22 @@ track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 
 **Núcleo do admin** (`lib/admin.php`, a lógica; `lib/admin_tela.php`, o visual): o que vale para o admin inteiro, não só para o UTM — login, **Usuários** (quem entra e o que cada um abre), **Minha conta** (`conta.php`: foto com o lápis na borda, trocar a senha, aparência e Sair), a barra lateral e o CSS comum, que o CMS do site também usa. As telas do núcleo têm o cabeçalho **Admin**, sem as abas do UTM. Num admin com as pastas `conta/` e `usuarios/` ao lado da pasta do painel, elas moram na raiz (ex.: `admin.engdesk.pro/conta/`): o `index.php` de cada pasta só define `TRACK_BASE` (o caminho até a pasta do painel, ex.: `'../utm/'`) e inclui a tela daqui (`require __DIR__ . '/../utm/conta.php';`). Sem essas pastas, ficam no próprio painel.
 
-**Componentes de tela** (`lib/componentes.php` e `tabela.js`, do núcleo, usados pelo UTM e pelo CMS): cartões de número com o ícone no canto (`cartao_kpi`) e a **tabela inteligente** — cabeçalho com ícone, título, contagem, busca, **Filtros** (das colunas com `data-filtro`), **Ocultos** (colunas escondidas) e restaurar; a tabela rola por dentro com o título fixo; embaixo, "Mostrando 1–10 de N" e **Por página** (10, 25, 50, 100 ou todas). Células prontas: etiqueta com ponto de cor, ponto de situação, anel de %, mini gráfico, data, prazo ("Sem prazo") e o menu "…" da linha. Primeira tela no formato: **Financeiro → Despesas** (cartões do mês, participação, histórico de 6 meses e a chave para pausar a despesa sem apagar).
+**Componentes de tela** (`lib/componentes.php` e `tabela.js`, do núcleo, usados pelo UTM e pelo CMS): cartões de número com o ícone no canto (`cartao_kpi`) e a **tabela inteligente** — cabeçalho com ícone, título, contagem, busca, **Filtros** (das colunas com `data-filtro`), **Ocultos** (colunas escondidas) e restaurar; a tabela rola por dentro com o título fixo; embaixo, "Mostrando 1–10 de N" e **Por página** (10, 25, 50, 100 ou todas). Células prontas: etiqueta com ponto de cor, ponto de situação, anel de %, mini gráfico, data, prazo ("Sem prazo") e o menu "…" da linha. Telas no formato:
+- **Financeiro → Despesas:** cartões do mês, participação, histórico de 6 meses e a chave para pausar a despesa sem apagar.
+- **Vendas, Visitantes, Eventos e Usuários:** busca, filtros (produto, situação, canal, conferência, aparelho, evento, venda), colunas ocultas e por página.
+- **Gestor e Bio.**
+- **No CMS do site:** a matriz de preços e as vendas.
 
-**Barra lateral do admin:** em cima os painéis (CMS e UTM, os liberados para o usuário) e embaixo a conta: Usuários, aparência, a engrenagem (Minha conta) e a foto. No celular, vira uma linha no alto, recolhida (a seta abre); os filtros ficam sempre à mostra.
+Os cartões de número do Resumo, do Financeiro, da análise diária, do Tráfego e do Orgânico têm o ícone no canto.
+
+**Painel da Bio** (`bio.php`, acesso **Bio** na barra lateral): os links e os textos da página de links do Instagram.
+- **Cartões:** visitas da página, cliques nos links, taxa de clique e link campeão.
+- **Tabela dos links:** cliques, % das visitas, últimos 7 dias, subir e descer, ligar e desligar sem apagar, e o "...".
+- **Textos:** nome, selo, chamada, WhatsApp (número e mensagem), Instagram, LinkedIn e o endereço da página.
+- **Endereços:** links do próprio site ganham `organico / instagram-bio / bio / <nome do link>`. Só aceita `https`, `http`, `mailto`, `tel` ou caminho do site (nunca `javascript:`).
+- **Página pública:** fica no site e chama `bio_dados()`. O `t.js` conta o clique de cada link com `data-bio` (evento **BioClique**).
+
+**Barra lateral do admin:** em cima os painéis (CMS, UTM e Bio, os liberados para o usuário) e embaixo a conta: Usuários, aparência, a engrenagem (Minha conta) e a foto. No celular, vira uma linha no alto, recolhida (a seta abre); os filtros ficam sempre à mostra.
 
 A **foto do perfil** (Minha conta) aceita qualquer imagem, de qualquer tamanho: o navegador corta no centro, reduz para 512 × 512 e comprime em JPEG até 64 KB (lendo o arquivo com `createImageBitmap`, que a CSP do painel aceita), então funciona mesmo com o PHP sem a biblioteca de imagem. Fica na pasta de dados, fora do site, e só sai para quem entrou.
 
