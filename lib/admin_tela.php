@@ -71,6 +71,7 @@ function admin_css_base(): string
 .lateral-conta{ gap:6px; }
 .lateral .conta-icone, .lateral .tema-menu > summary{ display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:var(--r-sm); color:#9CA3AF; }
 .lateral .conta-icone:hover, .lateral .tema-menu > summary:hover, .lateral .tema-menu[open] > summary{ background:rgba(255,255,255,.08); color:#fff; text-decoration:none; }
+.lateral .conta-icone.atual{ background:rgba(255,255,255,.1); color:#fff; }
 .lateral .conta-perfil{ display:inline-flex; align-items:center; gap:8px; padding:3px; margin-top:4px; border-radius:999px; color:#fff; font-weight:500; }
 .lateral .conta-perfil:hover{ background:rgba(255,255,255,.08); text-decoration:none; }
 .lateral .conta-perfil > span:not(.avatar){ display:none; }

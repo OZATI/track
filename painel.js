@@ -1128,6 +1128,8 @@
     }
     var seq = ++navegacao;
     var y = window.scrollY, antes = new URL(location.href);
+    // Rolagem para o lado de cada tabela (ordenar pela coluna do fim nao volta a tabela para o comeco)
+    var lados = Array.prototype.map.call(document.querySelectorAll('.tabela'), function (t) { return t.scrollLeft; });
     document.documentElement.classList.add('navegando');
     var pedido = op.corpo ? fetch(alvo.href, { method: 'POST', body: op.corpo, credentials: 'same-origin' }) : fetch(alvo.href, { credentials: 'same-origin' });
     pedido.then(function (r) {
@@ -1151,6 +1153,9 @@
       iniciar();
       var ancora = res[0].hash && document.getElementById(res[0].hash.slice(1));
       if (op.y !== undefined) { window.scrollTo(0, op.y); } else if (ancora) { ancora.scrollIntoView(); } else { window.scrollTo(0, manter ? y : 0); }
+      if (manter) {
+        Array.prototype.forEach.call(document.querySelectorAll('.tabela'), function (t, i) { if (lados[i]) { t.scrollLeft = lados[i]; } });
+      }
     }).catch(function () {
       // Erro de rede: o formulario enviado pode ter ido; recarrega a tela que estava, sem reenviar
       location.href = op.corpo ? location.href : alvo.href;
