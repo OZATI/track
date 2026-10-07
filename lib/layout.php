@@ -1160,7 +1160,7 @@ function abas_filtro(string $aba, array $filtro): array
 // configuracao (API Kiwify e Usuarios) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
-    $abas = ['geral' => ['Resumo', 'resumo'], 'painel' => ['Painel', 'grade'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'financeiro' => ['Financeiro', 'carteira'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
+    $abas = ['geral' => ['Resumo', 'resumo'], 'painel' => ['Painel', 'grade'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
         'visitantes' => ['Visitantes', 'visitantes'], 'eventos' => ['Eventos', 'eventos']];
     if (!usuario_pode('utm')) {
         return;
@@ -1184,7 +1184,7 @@ function abas_painel(string $aba, array $filtro = []): void
     // Celular: barra fixa embaixo com as 4 telas mais usadas; o resto em "Mais"
     $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + abas_filtro($id, $filtro));
     $item = fn(string $href, string $id, string $ico, string $rotulo) => '<a href="' . e($href) . '"' . ($aba === $id ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico, 20) . '<span>' . e($rotulo) . '</span></a>';
-    $mais = [['painel', $link('painel'), 'grade', 'Painel'], ['financeiro', $link('financeiro'), 'carteira', 'Financeiro'], ['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
+    $mais = [['painel', $link('painel'), 'grade', 'Painel'], ['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
         ['visitantes', $link('visitantes'), 'visitantes', 'Visitantes'], ['eventos', $link('eventos'), 'eventos', 'Eventos']];
     $config = [['configuracoes', 'configuracoes.php', 'config', 'Configurações'], ['kiwify-api', 'kiwify-api.php', 'chave', 'API Kiwify'],
         ['meta-api', 'meta-api.php', 'meta', 'API Meta'], ['instagram-api', 'instagram-api.php', 'instagram', 'API Instagram']];

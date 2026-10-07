@@ -33,7 +33,7 @@ Regras de sempre:
 |---|---|---|
 | Configuração e dados | `lib/config.php`, `lib/db.php` | Pasta de dados fora do `public_html` (`track-dados/`, ou `TRACK_DADOS`). SQLite com migrações numeradas (`track_migrar_para`, hoje v14). `ajustes` guarda as escolhas do painel (chave e valor). |
 | Utilitários | `lib/util.php` | Escape (`e()`), texto de fora (`texto()`), sessão, CSRF, limite de tentativas, períodos e fuso, `exigir_login($acesso)`. |
-| Acessos | `lib/admin.php` | `TRACK_ACESSOS` (cms, utm, usuarios, bio); `config['acessos'][usuario]`; quem não tem lista abre tudo. Endereços das telas do núcleo (`admin_url`), na raiz do admin quando existem as pastas `conta/` e `usuarios/`. Regra da senha. |
+| Acessos | `lib/admin.php` | `TRACK_ACESSOS` (cms, utm, usuarios, bio, financeiro); `config['acessos'][usuario]`; quem não tem lista abre tudo. Endereços das telas do núcleo (`admin_url`), na raiz do admin quando existem as pastas `conta/` e `usuarios/`. Regra da senha. |
 | Visual comum | `lib/admin_tela.php` | `admin_css_base()` (tokens do tema, barra lateral, cartões, tabela inteligente, menu "..."), `admin_lateral()` (painéis liberados e a conta) e `admin_cabecalho()`. O CMS do site usa os mesmos. |
 | Tema | `lib/tema.php` | Claro, escuro, pretão ou cor livre, por usuário. |
 | Telas do núcleo | `conta.php`, `usuarios.php`, `entrar.php`, `sair.php`, `instalar.php` | Minha conta (foto, senha, aparência, sair), Usuários (quem entra e o que abre), login e instalação. |
@@ -55,7 +55,7 @@ Regras de sempre:
   - as Ações das marcadas (Gerenciador, ativar/desativar, orçamento por valor ou %);
   - o orçamento programado (`cron.php`).
 - **Orgânico e Instagram:** `lib/organico*.php` e `lib/instagram_*.php`.
-- **Financeiro:** `lib/financeiro.php` e `gastos.php` (hoje dentro do UTM; ver a seção 6).
+- **Financeiro:** virou módulo próprio em 07/10/2026 (`financeiro.php`, acesso `financeiro`, na barra lateral), com o caixa e as despesas (`lib/financeiro.php`, `gastos.php`). É onde entram os pagamentos próprios.
 - **Notificações e app:** `lib/push.php`, `sw.php`, `manifest.php` e `notificacoes.php`.
 
 ### Bio

@@ -31,6 +31,11 @@ if ($periodo === 'personalizado') {
     $periodo = periodo_personalizado($_GET['de'] ?? null, $_GET['ate'] ?? null) ?? '';
 }
 $periodo = periodo_valido($periodo) ? $periodo : '7d';
+// O Financeiro virou modulo proprio (financeiro.php, na barra lateral): o endereco antigo leva para la
+if ($aba === 'financeiro') {
+    header('Location: financeiro.php?' . http_build_query(['periodo' => $periodo]));
+    exit;
+}
 
 $dominios = $db->query('SELECT DISTINCT dominio FROM eventos ORDER BY dominio')->fetchAll(PDO::FETCH_COLUMN);
 $dominio = in_array($escolhido('dominio'), $dominios, true) ? $escolhido('dominio') : '';
@@ -97,20 +102,6 @@ if ($produtos) {
         $parVd[':prod' . $i] = $p;
     }
     $condVd .= ' AND v.produto IN (' . implode(', ', $marcas) . ')';
-}
-
-function consulta(PDO $db, string $sql, array $par): array
-{
-    $st = $db->prepare($sql);
-    $st->execute($par);
-    return $st->fetchAll();
-}
-
-function valor(PDO $db, string $sql, array $par)
-{
-    $st = $db->prepare($sql);
-    $st->execute($par);
-    return $st->fetchColumn();
 }
 
 // Como a venda chegou ao painel
@@ -424,11 +415,6 @@ if ($aba === 'gestor') {
 // ---------------------------------------------------------------- analise diaria de uma campanha
 if ($aba === 'campanha') {
     gestor_dias_render($db, $periodo);
-}
-
-// ---------------------------------------------------------------- financeiro
-if ($aba === 'financeiro') {
-    financeiro_render($db, $periodo);
 }
 
 // ---------------------------------------------------------------- conferencia (resumo)

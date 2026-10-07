@@ -85,7 +85,7 @@ track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 
 **Aparência** (paleta no topo e Configurações): claro, escuro (no tom da UTMify), pretão (#000000) ou qualquer outra cor de fundo; cartões, linhas e realces saem da cor escolhida e o texto fica claro ou escuro sozinho, para continuar legível. Cada usuário escolhe a sua.
 
-**Financeiro**: o caixa da empresa no período, como as abas FLUXO e LUCRO da planilha. Entradas (vendas aprovadas, líquido da Kiwify), anúncios (gasto + imposto), outras despesas cadastradas ali (únicas, todo mês ou todo ano), saldo, ROI geral (entradas ÷ saídas) e o fluxo de caixa dia a dia.
+**Financeiro** (módulo próprio, `financeiro.php`, na barra lateral, acesso **Financeiro**; o endereço antigo `?aba=financeiro` leva para lá): o caixa da empresa no período, como as abas FLUXO e LUCRO da planilha. Entradas (vendas aprovadas, líquido da Kiwify), anúncios (gasto + imposto), outras despesas cadastradas ali (únicas, todo mês ou todo ano), saldo, ROI geral (entradas ÷ saídas) e o fluxo de caixa dia a dia.
 
 **Núcleo do admin** (`lib/admin.php`, a lógica; `lib/admin_tela.php`, o visual): o que vale para o admin inteiro, não só para o UTM — login, **Usuários** (quem entra e o que cada um abre), **Minha conta** (`conta.php`: foto com o lápis na borda, trocar a senha, aparência e Sair), a barra lateral e o CSS comum, que o CMS do site também usa. As telas do núcleo têm o cabeçalho **Admin**, sem as abas do UTM. Num admin com as pastas `conta/` e `usuarios/` ao lado da pasta do painel, elas moram na raiz (ex.: `admin.engdesk.pro/conta/`): o `index.php` de cada pasta só define `TRACK_BASE` (o caminho até a pasta do painel, ex.: `'../utm/'`) e inclui a tela daqui (`require __DIR__ . '/../utm/conta.php';`). Sem essas pastas, ficam no próprio painel.
 
@@ -104,7 +104,7 @@ Os cartões de número do Resumo, do Financeiro, da análise diária, do Tráfeg
 - **Endereços:** links do próprio site ganham `organico / instagram-bio / bio / <nome do link>`. Só aceita `https`, `http`, `mailto`, `tel` ou caminho do site (nunca `javascript:`).
 - **Página pública:** fica no site e chama `bio_dados()`. O `t.js` conta o clique de cada link com `data-bio` (evento **BioClique**).
 
-**Barra lateral do admin:** em cima os painéis (CMS, UTM e Bio, os liberados para o usuário) e embaixo a conta: Usuários, aparência, a engrenagem (Minha conta) e a foto. No celular, vira uma linha no alto, recolhida (a seta abre); os filtros ficam sempre à mostra.
+**Barra lateral do admin:** em cima os painéis (CMS, UTM, Financeiro e Bio, os liberados para o usuário) e embaixo a conta: Usuários, aparência, a engrenagem (Minha conta) e a foto. No celular, vira uma linha no alto, recolhida (a seta abre); os filtros ficam sempre à mostra.
 
 A **foto do perfil** (Minha conta) aceita qualquer imagem, de qualquer tamanho: o navegador corta no centro, reduz para 512 × 512 e comprime em JPEG até 64 KB (lendo o arquivo com `createImageBitmap`, que a CSP do painel aceita), então funciona mesmo com o PHP sem a biblioteca de imagem. Fica na pasta de dados, fora do site, e só sai para quem entrou.
 

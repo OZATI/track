@@ -9,10 +9,10 @@
 // TRACK_BASE (o caminho ate a pasta do painel, ex.: '../utm/') e inclui a tela daqui. Sem essas
 // pastas (painel avulso), elas ficam no proprio painel: conta.php e usuarios.php.
 
-// O que cada usuario pode abrir no admin: os paineis (UTM, a Bio e, quando o painel mora num
+// O que cada usuario pode abrir no admin: os paineis (UTM, Financeiro, a Bio e, quando o painel mora num
 // admin com CMS, o CMS) e "usuarios" (dar e tirar acessos). Fica em $cfg['acessos'][usuario];
 // usuario sem a lista (os de antes) pode tudo.
-const TRACK_ACESSOS = ['cms' => 'CMS', 'utm' => 'UTM', 'usuarios' => 'Usuários', 'bio' => 'Bio'];
+const TRACK_ACESSOS = ['cms' => 'CMS', 'utm' => 'UTM', 'usuarios' => 'Usuários', 'bio' => 'Bio', 'financeiro' => 'Financeiro'];
 
 // Os acessos que existem neste admin: o CMS so quando ha o link dele (config "menu_cms")
 function track_acessos(): array

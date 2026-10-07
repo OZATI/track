@@ -115,7 +115,7 @@ function painel_fontes(): array
     $f = [
         'meta' => [(bool)meta_api_chave(), 'Conecte a conta de anúncios', 'meta-api.php'],
         'site' => [(bool)$db->query('SELECT 1 FROM eventos LIMIT 1')->fetchColumn(), 'Ponha o t.js nas páginas', ''],
-        'financeiro' => [(bool)$db->query('SELECT 1 FROM gastos LIMIT 1')->fetchColumn(), 'Cadastre as despesas', './?aba=financeiro'],
+        'financeiro' => [(bool)$db->query('SELECT 1 FROM gastos LIMIT 1')->fetchColumn(), 'Cadastre as despesas', 'financeiro.php'],
     ];
     return $f;
 }

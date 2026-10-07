@@ -6,14 +6,14 @@ require __DIR__ . '/lib/util.php';
 require_once __DIR__ . '/lib/vendas.php';
 require_once __DIR__ . '/lib/financeiro.php';
 
-exigir_login();
+exigir_login('financeiro');
 header('Cache-Control: no-store');
 $volta = destino_seguro((string)($_POST['volta'] ?? ''));
 if ($volta === './') {
-    $volta = './?aba=financeiro';
+    $volta = 'financeiro.php';
 }
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    header('Location: ./?aba=financeiro');
+    header('Location: financeiro.php');
     exit;
 }
 $db = track_db();

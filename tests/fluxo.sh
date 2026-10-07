@@ -271,6 +271,8 @@ confere "$([ "$code" = "200" ]; echo $?)" "Minha conta (foto, senha, aparência 
 confere "$(grep -q 'data-push\|Rastreio de vendas' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Minha conta é do núcleo: sem notificações nem abas do UTM"
 destino=$(curl -s -D - -o /dev/null -b "$J3" "$URL/configuracoes.php" | grep -i '^location:' | tr -d '\r')
 confere "$(tem 'ocation: \.\./$' "$destino")" "Configurações do UTM ficam com o UTM (usuário só do CMS vai para o CMS)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/financeiro.php")
+confere "$([ "$code" = "403" ]; echo $?)" "Financeiro fechado para quem não tem o acesso Financeiro ($code)"
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/bio.php")
 confere "$([ "$code" = "403" ]; echo $?)" "Bio fechada para quem não tem o acesso Bio ($code)"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" "$URL/usuarios.php")
@@ -790,12 +792,16 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'Faturamento brutoR$ 223,39' "$(sem_tags "$r")")" "Resumo: faturamento bruto"
 confere "$(tem 'Taxas da KiwifyR$ 21,39' "$(sem_tags "$r")")" "Resumo: taxas da Kiwify à parte"
 confere "$(tem 'Orgânico <b>1</b>' "$r")" "Resumo: gráfico das vendas fora de anúncio por tipo"
-r=$(curl -s -b "$JAR" "$URL/index.php?aba=financeiro&periodo=tudo")
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$JAR" "$URL/index.php?aba=financeiro&periodo=tudo")
+confere "$(tem 'financeiro.php?periodo=tudo$' "$destino")" "endereço antigo do Financeiro leva para o módulo ($destino)"
+r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo")
+confere "$(tem 'href="financeiro.php" class="atual" aria-current="page" title="Financeiro"' "$r")" "Financeiro na barra lateral, como módulo próprio"
+confere "$(grep -q 'href="./?aba=financeiro' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro fora das abas do UTM"
 confere "$(tem 'EntradasR$ 202,00' "$(sem_tags "$r")")" "Financeiro: entradas (todas as vendas aprovadas, líquido)"
 confere "$(tem 'AnúnciosR$ 67,29' "$(sem_tags "$r")")" "Financeiro: anúncios com o imposto da Meta"
 confere "$(tem 'Nenhuma despesa cadastrada' "$r")" "Financeiro começa sem despesas"
 confere "$(grep -q 'name="produto\[\]"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro é a empresa toda (sem filtro de produto)"
-gasto() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=$2" "${@:3}" --data-urlencode "volta=./?aba=financeiro&periodo=tudo" "$URL/gastos.php"; curl -s -b "$JAR" "$URL/index.php?aba=financeiro&periodo=tudo"; }
+gasto() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=$2" "${@:3}" --data-urlencode "volta=financeiro.php?periodo=tudo" "$URL/gastos.php"; curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo"; }
 r=$(gasto "" salvar --data-urlencode "descricao=Hospedagem" --data-urlencode "valor=40" --data-urlencode "repete=mensal" --data-urlencode "inicio=$HOJE")
 confere "$(tem 'Sessão expirada' "$r")" "despesa sem o token do formulário é recusada"
 r=$(gasto "$csrf" salvar --data-urlencode "descricao=Hospedagem" --data-urlencode "valor=abc" --data-urlencode "repete=mensal" --data-urlencode "inicio=$HOJE")

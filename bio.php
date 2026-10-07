@@ -155,3 +155,4 @@ echo '<section class="cartao" id="pagina"><h2>' . com_info('Textos e redes da p√
 </main>
 <?php
 casca_fim();
+pagina_fim();

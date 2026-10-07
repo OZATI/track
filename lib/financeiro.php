@@ -127,7 +127,7 @@ function financeiro_render(PDO $db, string $periodo): void
     $saldo = $entradas - $saidas;
     $roi = $saidas ? $entradas / $saidas : null;
     $num = fn(float $v, int $c = 2) => number_format($v, $c, ',', '.');
-    $volta = './?' . http_build_query(['aba' => 'financeiro', 'periodo' => $periodo]);
+    $volta = 'financeiro.php?' . http_build_query(['periodo' => $periodo]);
 
     if ($aviso = aviso_pegar()) {
         echo '<p class="' . ($aviso[1] === 'erro' ? 'erro' : 'aviso-ok') . '">' . e($aviso[0]) . '</p>';
