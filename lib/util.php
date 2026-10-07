@@ -383,12 +383,14 @@ function aviso_pegar(): ?array
 // $acesso: o que a tela pede (padrao: o painel UTM; null = so ter entrado, como Configuracoes)
 function exigir_login(?string $acesso = 'utm'): void
 {
+    // Telas do nucleo na raiz do admin (TRACK_BASE): o login e a instalacao estao na pasta do
+    // painel, e o login volta para a tela pedida
     if (!track_config()) {
-        header('Location: instalar.php');
+        header('Location: ' . admin_base() . 'instalar.php');
         exit;
     }
     if (!logado()) {
-        header('Location: entrar.php');
+        header('Location: ' . admin_base() . 'entrar.php' . (admin_base() !== '' ? '?volta=' . rawurlencode((string)($_SERVER['REQUEST_URI'] ?? '/')) : ''));
         exit;
     }
     if ($acesso !== null && !usuario_pode($acesso)) {
