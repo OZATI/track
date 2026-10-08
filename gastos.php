@@ -8,9 +8,9 @@ require_once __DIR__ . '/lib/financeiro.php';
 
 exigir_login('financeiro');
 header('Cache-Control: no-store');
-$volta = destino_seguro((string)($_POST['volta'] ?? ''));
+$volta = grade_volta_segura((string)($_POST['volta'] ?? '')); // so um endereco do proprio painel (financeiro.php?...)
 if ($volta === './') {
-    $volta = 'financeiro.php';
+    $volta = 'financeiro.php?aba=despesas';
 }
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     header('Location: financeiro.php');
@@ -32,6 +32,23 @@ if (!csrf_valido()) {
     $st = $db->prepare('UPDATE gastos SET ativo = ?, atualizado_em = ? WHERE id = ?');
     $st->execute([$ativo, agora_utc(), $id]);
     aviso_definir($st->rowCount() ? ($ativo ? 'Despesa ativa: volta a contar.' : 'Despesa pausada: para de contar até ser ativada.') : 'Essa despesa já não existe.', $st->rowCount() ? 'ok' : 'erro');
+} elseif ($acao === 'imposto') {
+    // Imposto sobre o faturamento (o DRE estima o imposto da nota): o regime e o jeito, % sobre o
+    // faturamento (com a aliquota) ou valor fixo por mes (o DAS do MEI)
+    $regime = isset(FIN_REGIMES[$_POST['regime'] ?? '']) ? (string)$_POST['regime'] : '';
+    $modo = isset(FIN_IMPOSTO_MODOS[$_POST['modo'] ?? '']) ? (string)$_POST['modo'] : ($regime === 'mei' ? 'fixo' : 'percentual');
+    $txt = str_replace(',', '.', trim((string)($_POST['aliquota'] ?? '')));
+    $pct = $txt === '' ? 0.0 : (is_numeric($txt) ? (float)$txt : -1.0);
+    $fixo = trim((string)($_POST['fixo'] ?? '')) === '' ? 0 : fin_centavos((string)$_POST['fixo']);
+    if ($regime === '' || ($regime !== 'nenhum' && $modo === 'percentual' && ($pct <= 0 || $pct > 50)) || ($regime !== 'nenhum' && $modo === 'fixo' && !$fixo)) {
+        aviso_definir('Confira o imposto: escolha o regime e informe a alíquota em % (de 0 a 50, ex.: 6 ou 8,93) ou o valor fixo por mês (ex.: 81,05).', 'erro');
+    } else {
+        definir_ajuste('fin_regime', $regime);
+        definir_ajuste('fin_imposto_modo', $modo);
+        definir_ajuste('fin_imposto_pct', (string)round(max(0.0, $pct), 4));
+        definir_ajuste('fin_imposto_fixo', (string)(int)$fixo);
+        aviso_definir('Imposto sobre o faturamento salvo: ' . ($regime === 'nenhum' ? 'Não calcular' : fin_imposto_texto(fin_imposto_config())) . '.');
+    }
 } elseif ($acao === 'salvar') {
     $descricao = texto($_POST['descricao'] ?? '', 120);
     $categoria = texto($_POST['categoria'] ?? '', 40);

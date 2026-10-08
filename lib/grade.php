@@ -35,6 +35,7 @@ const GRADE_LINHA_PX = 110;
 const GRADE_TELAS = [
     'resumo' => [['painel.php'], 'resumo_grade'],
     'financeiro' => [['resumo.php', 'financeiro.php'], 'financeiro_grade'],
+    'fluxo' => [['resumo.php', 'financeiro.php'], 'fluxo_grade'],
 ];
 
 // A tela aberta e montavel: a tela chama antes de casca_inicio() e a barra lateral mostra o lapis

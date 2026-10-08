@@ -15,16 +15,22 @@ exigir_login('financeiro');
 header('Cache-Control: no-store');
 
 $periodo = periodo_da_tela('mes'); // o mesmo seletor e o mesmo periodo lembrado do UTM
+$aba = isset(FIN_ABAS[$_GET['aba'] ?? '']) ? (string)$_GET['aba'] : 'dre';
 $db = track_db();
 
 pagina_inicio('DRE');
-grade_lapis('financeiro'); // o caixa e montavel: o lapis aparece na barra lateral
+if ($aba !== 'despesas') {
+    grade_lapis($aba === 'fluxo' ? 'fluxo' : 'financeiro'); // DRE e fluxo sao montaveis: o lapis na barra lateral
+}
 casca_inicio('financeiro');
-barra_periodo('financeiro.php', $periodo);
-echo '<nav class="abas abas-nucleo" aria-label="DRE"><span class="abas-titulo">DRE · Resultado da empresa</span>'
-    . '<a href="financeiro.php" class="atual" aria-current="page">' . icone('carteira') . 'Caixa e despesas</a></nav>';
+barra_periodo('financeiro.php', $periodo, ['aba' => $aba]);
+echo '<nav class="abas abas-nucleo" aria-label="DRE"><span class="abas-titulo">DRE · Resultado da empresa</span>';
+foreach (FIN_ABAS as $k => [$rot, $ico]) {
+    echo '<a href="' . e('financeiro.php?' . http_build_query(['aba' => $k])) . '"' . ($k === $aba ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico) . e($rot) . '</a>';
+}
+echo '</nav>';
 echo '<main>';
-financeiro_render($db, $periodo);
+financeiro_render($db, $periodo, $aba);
 echo '</main>';
 casca_fim();
 pagina_fim();

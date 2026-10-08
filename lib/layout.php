@@ -406,8 +406,22 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela .dre tr.dre-subtotal > td, .tabela .dre tr.dre-subtotal > td.nome{ background:var(--cartao-2); }
 .dre .dre-resultado td{ border-top:2px solid var(--linha-forte); }
 .dre .dre-deducao td.nome{ padding-left:20px; }
-.dre-margem{ display:flex; align-items:center; gap:6px; margin:10px 0 0; color:var(--suave); font-size:13px; }
+.dre-margem{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; margin:10px 0 0; color:var(--suave); font-size:13px; }
 .dre-margem b{ font-size:15px; }
+.dre-pe{ display:inline-flex; flex-wrap:wrap; align-items:center; gap:6px; margin-left:auto; color:var(--texto); }
+.tabela .dre tr.dre-grupo > td{ padding:12px 12px 4px; background:none; color:var(--suave); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.dre .dre-subtotal td.nome a, .dre td.nome a{ color:inherit; text-decoration:underline; text-decoration-color:var(--linha-forte); text-underline-offset:3px; }
+.dre td.nome{ white-space:normal; }
+.dre .dre-nota{ display:block; color:var(--suave); font-size:12px; font-weight:400; }
+.fin-imposto{ margin:0 0 16px; }
+.fin-imposto h2{ margin:0 0 12px; }
+.fin-imposto .fin-campos{ grid-template-columns:repeat(3, minmax(160px, 1fr)) auto; margin:0; }
+/* So o campo do jeito escolhido (% ou valor fixo) */
+.fin-imposto:has(select[name=modo] option[value=fixo]:checked) [data-imposto=percentual],
+.fin-imposto:has(select[name=modo] option[value=percentual]:checked) [data-imposto=fixo]{ display:none; }
+.tabela td.acoes .botao-ico{ display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; margin-right:2px; border-radius:var(--r-sm); color:var(--suave); vertical-align:middle; }
+.tabela td.acoes .botao-ico:hover{ background:var(--hover); color:var(--marca); }
+.fin-imposto .linha-botoes{ margin:0; }
 @media (max-width:767px){ .dre td, .dre th{ padding:6px 8px; } .dre .dre-deducao td.nome{ padding-left:12px; } .dre .dre-valor .delta{ display:block; margin:1px 0 0; } }
 /* Lapis da barra lateral (lib/grade.php): aceso enquanto a tela esta sendo montada */
 .lateral .lapis-tela.atual{ background:var(--marca-fundo); color:#fff; }
@@ -1344,10 +1358,12 @@ function periodo_da_tela(string $padrao): string
     return $p;
 }
 
-// Barra do topo so com o periodo, para os modulos fora das abas do UTM (o mesmo seletor do UTM)
-function barra_periodo(string $acao, string $periodo): void
+// Barra do topo so com o periodo, para os modulos fora das abas do UTM (o mesmo seletor do UTM).
+// $ocultos: o que mais o endereco leva (ex.: a aba), porque o formulario GET troca o endereco inteiro
+function barra_periodo(string $acao, string $periodo, array $ocultos = []): void
 {
-    echo '<header class="topo"><form class="filtros" method="get" action="' . e($acao) . '" id="filtros">' . campo_periodo($periodo)
+    $campos = implode('', array_map(fn($k, $v) => '<input type="hidden" name="' . e((string)$k) . '" value="' . e((string)$v) . '">', array_keys($ocultos), $ocultos));
+    echo '<header class="topo"><form class="filtros" method="get" action="' . e($acao) . '" id="filtros">' . $campos . campo_periodo($periodo)
         . '<noscript><button type="submit">Filtrar</button></noscript></form></header>';
 }
 

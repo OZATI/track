@@ -827,24 +827,28 @@ r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo")
 confere "$(tem 'href="financeiro.php" class="atual" aria-current="page" title="DRE: resultado da empresa (receita, anúncios, despesas e lucro)">' "$r")" "DRE (o antigo Financeiro) na barra lateral, como módulo próprio"
 confere "$(tem '<span>DRE</span></a>' "$r")" "barra lateral com a sigla DRE"
 confere "$(grep -q 'href="./?aba=financeiro' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro fora das abas do UTM"
-confere "$(tem 'EntradasR$ 202,00' "$(sem_tags "$r")")" "Financeiro: entradas (todas as vendas aprovadas, líquido)"
-confere "$(tem 'AnúnciosR$ 67,29' "$(sem_tags "$r")")" "Financeiro: anúncios com o imposto da Meta"
-confere "$(tem 'Nenhuma despesa cadastrada' "$r")" "Financeiro começa sem despesas"
+confere "$(tem '>DRE</a><a href="financeiro.php?aba=fluxo">.*Fluxo de caixa</a><a href="financeiro.php?aba=despesas">.*Despesas</a>' "$r")" "DRE em três abas: DRE, Fluxo de caixa e Despesas"
+fluxo() { curl -s -b "$JAR" "$URL/financeiro.php?aba=fluxo&periodo=tudo"; }
+confere "$(tem 'EntradasR$ 202,00' "$(sem_tags "$(fluxo)")")" "Fluxo de caixa: entradas (todas as vendas aprovadas, líquido)"
+confere "$(tem 'AnúnciosR$ 67,29' "$(sem_tags "$(fluxo)")")" "Fluxo de caixa: anúncios com o imposto da Meta"
+confere "$(tem 'Nenhuma despesa cadastrada' "$(curl -s -b "$JAR" "$URL/financeiro.php?aba=despesas&periodo=tudo")")" "Financeiro começa sem despesas"
 confere "$(grep -q 'name="produto\[\]"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro é a empresa toda (sem filtro de produto)"
-gasto() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=$2" "${@:3}" --data-urlencode "volta=financeiro.php?periodo=tudo" "$URL/gastos.php"; curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo"; }
+gasto() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=$2" "${@:3}" --data-urlencode "volta=financeiro.php?aba=despesas&periodo=tudo" "$URL/gastos.php"; curl -s -b "$JAR" "$URL/financeiro.php?aba=despesas&periodo=tudo"; }
 r=$(gasto "" salvar --data-urlencode "descricao=Hospedagem" --data-urlencode "valor=40" --data-urlencode "repete=mensal" --data-urlencode "inicio=$HOJE")
 confere "$(tem 'Sessão expirada' "$r")" "despesa sem o token do formulário é recusada"
 r=$(gasto "$csrf" salvar --data-urlencode "descricao=Hospedagem" --data-urlencode "valor=abc" --data-urlencode "repete=mensal" --data-urlencode "inicio=$HOJE")
 confere "$(tem 'Confira a despesa' "$r")" "valor inválido é recusado"
 r=$(gasto "$csrf" salvar --data-urlencode "descricao=Hospedagem" --data-urlencode "categoria=Hospedagem" --data-urlencode "valor=R\$ 40,00" --data-urlencode "repete=mensal" --data-urlencode "inicio=$HOJE")
 confere "$(tem 'Despesa cadastrada.' "$r")" "cadastrar despesa que se repete todo mês"
-confere "$(tem 'Outras despesasR$ 40,00' "$(sem_tags "$r")")" "despesa entra nas saídas do período"
-confere "$(tem '<span>ROI geral</span><span class="info".*<b class="pw-num medio">1,88</b>' "$r")" "ROI geral com as despesas (entradas ÷ saídas), em laranja entre 1 e 2"
-confere "$(tem 'SaldoR$ 94,71' "$(sem_tags "$r")")" "saldo: entradas − anúncios − despesas"
+confere "$(tem 'Outras despesasR$ 40,00' "$(sem_tags "$(fluxo)")")" "despesa entra nas saídas do período"
+confere "$(tem '<span>ROI geral</span><span class="info".*<b class="pw-num medio">1,88</b>' "$(curl -s -b "$JAR" "$URL/financeiro.php?aba=dre&periodo=tudo")")" "ROI geral com as despesas (entradas ÷ saídas), em laranja entre 1 e 2"
+confere "$(tem 'SaldoR$ 94,71' "$(sem_tags "$(fluxo)")")" "saldo: entradas − anúncios − despesas"
+confere "$(tem 'Despesas fixas(−) Hospedagem− R\$ 40,00' "$(sem_tags "$(curl -s -b "$JAR" "$URL/financeiro.php?aba=dre&periodo=tudo")" | tr -d '\n')")" "despesa que se repete todo mês é despesa fixa na DRE"
 confere "$(tem 'data-confirma="Apagar a despesa &quot;Hospedagem&quot;?"' "$r")" "apagar pede confirmação"
 ID=$(grep -o 'name="id" value="[0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[0-9]*')
 r=$(gasto "$csrf" salvar --data-urlencode "id=$ID" --data-urlencode "descricao=Hospedagem" --data-urlencode "valor=50" --data-urlencode "repete=unico" --data-urlencode "inicio=$HOJE")
-confere "$(tem 'Outras despesasR$ 50,00' "$(sem_tags "$r")")" "editar a despesa"
+confere "$(tem 'Outras despesasR$ 50,00' "$(sem_tags "$(fluxo)")")" "editar a despesa"
+confere "$(tem 'Custos variáveis.*(−) Sem categoria− R\$ 50,00.*(=) Margem de contribuição' "$(sem_tags "$(curl -s -b "$JAR" "$URL/financeiro.php?aba=dre&periodo=tudo")" | tr -d '\n')")" "despesa de uma vez só é custo variável na DRE (antes da margem de contribuição)"
 confere "$(tem 'Custos cadastrados</span><span class="kpi-ico"' "$r")" "Financeiro: cartões com ícone (custos cadastrados, ativos, total e fixo do mês)"
 confere "$(tem '<section class="tcard" data-tabela="despesas" data-por-pagina="10">' "$r")" "despesas na tabela inteligente (busca, filtros, ocultos e por página)"
 confere "$(tem '<th data-filtro data-col="tipo">Tipo</th>' "$r")" "tabela de despesas filtra por tipo"
@@ -853,12 +857,26 @@ confere "$(tem 'class="ponto ok" role="img" aria-label="Ativa"' "$r")" "ponto ve
 confere "$(tem 'class="menu-linha"' "$r")" "menu ... da linha (editar e apagar)"
 r=$(gasto "$csrf" ativo --data-urlencode "id=$ID" --data-urlencode "ativo=0")
 confere "$(tem 'Despesa pausada: para de contar' "$r")" "pausar a despesa sem apagar"
-confere "$(tem 'Outras despesasR$ 0,00' "$(sem_tags "$r")")" "despesa pausada sai das saídas"
+confere "$(tem 'Outras despesasR$ 0,00' "$(sem_tags "$(fluxo)")")" "despesa pausada sai das saídas"
 confere "$(tem 'aria-label="Pausada"' "$r")" "despesa pausada fica cinza na lista"
 r=$(gasto "$csrf" ativo --data-urlencode "id=$ID" --data-urlencode "ativo=1")
-confere "$(tem 'Outras despesasR$ 50,00' "$(sem_tags "$r")")" "ativar de novo volta a contar"
+confere "$(tem 'Outras despesasR$ 50,00' "$(sem_tags "$(fluxo)")")" "ativar de novo volta a contar"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/tabela.js")
 confere "$([ "$code" = "200" ]; echo $?)" "tabela.js servido ($code)"
+r=$(gasto "$csrf" imposto --data-urlencode "regime=simples" --data-urlencode "modo=percentual" --data-urlencode "aliquota=abc")
+confere "$(tem 'Confira o imposto' "$r")" "alíquota inválida é recusada"
+r=$(gasto "$csrf" imposto --data-urlencode "regime=simples" --data-urlencode "modo=percentual" --data-urlencode "aliquota=6")
+confere "$(tem 'Imposto sobre o faturamento salvo: Simples Nacional · 6,00% do faturamento.' "$r")" "imposto sobre o faturamento: % sobre o faturamento (Simples)"
+dre=$(sem_tags "$(curl -s -b "$JAR" "$URL/financeiro.php?aba=dre&periodo=tudo")" | tr -d '\n')
+confere "$(tem '(−) Impostos sobre o faturamentoSimples Nacional · 6,00% do faturamento− R\$ [1-9][0-9]*,[0-9][0-9]' "$dre")" "DRE desconta o imposto sobre o faturamento (Simples Nacional, 6%)"
+r=$(gasto "$csrf" imposto --data-urlencode "regime=mei" --data-urlencode "modo=fixo" --data-urlencode "fixo=")
+confere "$(tem 'Confira o imposto' "$r")" "MEI sem o valor do DAS é recusado"
+r=$(gasto "$csrf" imposto --data-urlencode "regime=mei" --data-urlencode "modo=fixo" --data-urlencode "fixo=81,05")
+confere "$(tem 'Imposto sobre o faturamento salvo: MEI · R\$ 81,05 por mês.' "$r")" "imposto sobre o faturamento: valor fixo por mês (DAS do MEI)"
+dre=$(sem_tags "$(curl -s -b "$JAR" "$URL/financeiro.php?aba=dre&periodo=tudo")" | tr -d '\n')
+confere "$(tem '(−) Impostos sobre o faturamentoMEI · R\$ 81,05 por mês− R\$ [1-9]' "$dre")" "DRE desconta o DAS do MEI, dividido pelos dias do período"
+r=$(gasto "$csrf" imposto --data-urlencode "regime=nenhum" --data-urlencode "aliquota=")
+confere "$(tem 'Imposto sobre o faturamento salvo: Não calcular.' "$r")" "desligar o cálculo do imposto"
 r=$(gasto "$csrf" apagar --data-urlencode "id=$ID")
 confere "$(tem 'Despesa apagada.' "$r")" "apagar a despesa"
 confere "$(tem 'Nenhuma despesa cadastrada' "$r")" "despesa apagada some da lista"
@@ -1334,15 +1352,18 @@ confere "$(tem 'data-tipo="NetRevenue"' "$r")" "voltar ao padrão"
 # Financeiro: a mesma grade, com os blocos do caixa
 r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo")
 confere "$(tem 'class="painel-grade" data-grade="financeiro"' "$r")" "Financeiro montado na grade"
-confere "$(tem 'data-tipo="CashFlowTable"' "$r")" "fluxo de caixa num bloco"
+confere "$(tem 'data-tipo="CashFlowTable"' "$(curl -s -b "$JAR" "$URL/financeiro.php?aba=fluxo&periodo=tudo")")" "fluxo de caixa num bloco, na aba Fluxo de caixa"
+confere "$(tem 'class="painel-grade" data-grade="fluxo"' "$(curl -s -b "$JAR" "$URL/financeiro.php?aba=fluxo&periodo=tudo")")" "a aba Fluxo de caixa também é montável"
 confere "$(tem 'DRE · Resultado da empresa' "$r")" "o módulo financeiro se chama DRE na tela"
-confere "$(tem 'class="painel-item" style="--c:1;--r:1;--w:7;--h:4;[^"]*"><div class="pw pw-grafico" data-tipo="IncomeStatement"' "$r")" "DRE do período é o primeiro bloco do padrão"
+confere "$(tem 'class="painel-item" style="--c:1;--r:1;--w:6;--h:6;[^"]*"><div class="pw pw-grafico" data-tipo="IncomeStatement"' "$r")" "DRE do período é o primeiro bloco do padrão"
 dre=$(sem_tags "$r")
-confere "$(tem 'Receita brutaR$ 290,39.*(−) Taxas da plataforma− R\$ 21,39.*(=) Receita líquidaR$ 269,00100,0%.*(−) Anúncios− R\$ 60,00.*(−) Imposto sobre os anúncios− R\$ 7,29.*(=) Resultado do períodoR$ 201,71' "$(printf '%s' "$dre" | tr -d '\n')")" "DRE: receita bruta − taxas = líquida − anúncios − imposto − despesas = resultado"
-confere "$(tem 'Margem do resultado.*75,0%' "$(printf '%s' "$dre" | tr -d '\n')")" "DRE: margem do resultado sobre a receita líquida"
+confere "$(tem 'Receita brutaR\$ 290,39.*(−) Reembolsos e chargebacksR\$ 0,00.*(=) Receita líquidaR\$ 290,39100,0%.*Custos variáveis(−) Taxas da plataforma− R\$ 21,39.*(−) Anúncios− R\$ 60,00.*(−) Imposto sobre os anúncios− R\$ 7,29.*(=) Margem de contribuiçãoR\$ 201,71.*Despesas fixas.*(=) Resultado do períodoR\$ 201,71' "$(printf '%s' "$dre" | tr -d '\n')")" "DRE: receita bruta − reembolsos − imposto = líquida − custos variáveis = margem de contribuição − fixas = resultado"
+confere "$(tem 'Margem do resultado.*69,5%' "$(printf '%s' "$dre" | tr -d '\n')")" "DRE: margem do resultado sobre a receita líquida"
 confere "$(tem 'data-tipo="CashRoiGauge"' "$r")" "ROI do caixa no mostrador"
-confere "$(tem 'class="conta-icone lapis-tela" href="financeiro.php?periodo=tudo&amp;montar=1"' "$r")" "lápis na barra lateral monta o Financeiro"
-confere "$(tem '<form class="filtros" method="get" action="financeiro.php" id="filtros"><div class="campo campo-periodo" data-periodo-campo' "$r")" "Financeiro com o seletor de período do UTM"
+confere "$(tem 'class="conta-icone lapis-tela" href="financeiro.php?periodo=tudo&amp;montar=1"' "$r")" "lápis na barra lateral monta o DRE"
+confere "$(tem 'class="conta-icone lapis-tela" href="financeiro.php?aba=fluxo&amp;periodo=tudo&amp;montar=1"' "$(curl -s -b "$JAR" "$URL/financeiro.php?aba=fluxo&periodo=tudo")")" "lápis na aba Fluxo de caixa monta o fluxo"
+confere "$(grep -q 'class="conta-icone lapis-tela' < <(curl -s -b "$JAR" "$URL/financeiro.php?aba=despesas&periodo=tudo"); [ $? -ne 0 ]; echo $?)" "a aba Despesas (cadastro) não é montável"
+confere "$(tem '<form class="filtros" method="get" action="financeiro.php" id="filtros"><input type="hidden" name="aba" value="dre"><div class="campo campo-periodo" data-periodo-campo' "$r")" "DRE com o seletor de período do UTM (e a aba no formulário)"
 r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=mes_passado")
 r=$(curl -s -b "$JAR" "$URL/bio.php")
 confere "$(tem '<option value="mes_passado" selected>' "$r")" "Bio com o mesmo seletor e o período lembrado do Financeiro"
@@ -1350,14 +1371,14 @@ confere "$(grep -q 'class="segmentos" role="group" aria-label="Período"' < <(pr
 r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo&montar=1")
 confere "$(tem 'name="tela" value="financeiro"' "$r")" "montar o Financeiro grava a tela do Financeiro"
 confere "$(grep -q 'data-tabela="despesas"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "montando, o cadastro de despesas sai da frente"
-r=$(salvar "$cp" financeiro computador 'financeiro.php?periodo=tudo' '[{"tipo":"Balance","x":0,"y":0,"w":3,"h":1}]' 'financeiro.php?periodo=tudo')
+r=$(salvar "$cp" financeiro computador 'financeiro.php?periodo=tudo' '[{"tipo":"DreResult","x":0,"y":0,"w":3,"h":1}]' 'financeiro.php?periodo=tudo')
 confere "$(tem 'O DRE salvo (computador, 1 bloco)' "$r")" "salvar o DRE (o módulo financeiro)"
-confere "$(grep -q 'data-tipo="CashIn"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro salvo só com o saldo"
+confere "$(grep -q 'data-tipo="IncomeStatement"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "DRE salvo só com o resultado"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'data-tipo="NetRevenue"' "$r")" "cada tela com o seu layout (o Resumo não mudou)"
 curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "tela=financeiro" --data-urlencode "aparelho=computador" --data-urlencode "acao=padrao" "$URL/painel-salvar.php"
 r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo")
-confere "$(tem 'data-tipo="CashIn"' "$r")" "Financeiro de volta ao padrão"
+confere "$(tem 'data-tipo="IncomeStatement"' "$r")" "DRE de volta ao padrão"
 
 echo "Painel da Bio"
 r=$(curl -s -b "$JAR" "$URL/bio.php?periodo=tudo")
