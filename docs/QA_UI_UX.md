@@ -116,3 +116,26 @@ Combinar antes quem pega o quê, porque os dois terminais usam a mesma pasta.
 - **UX-22:** `<link rel="icon">` (o favicon do admin, se houver, ou o `app-192.png`).
 
 **Testes:** 714 ok, com o bloco "QA de interface".
+
+## Situação (07/10/2026, terminal 1)
+
+**Feito:**
+- **UX-01 e UX-13:**
+  - o título dos blocos vai até 2 linhas, no lugar das reticências;
+  - no bloco estreito, o ícone do canto sai para dar lugar ao nome;
+  - os cartões de número das outras telas (`.kpis`: Vendas, Financeiro, Bio, Usuários) ficam no celular no mesmo padrão do Resumo: 2 colunas compactas.
+- **UX-03 (Resumo e Financeiro):** a seta só aparece quando o período anterior tem algum dado (venda, gasto, visita ou despesa). Conta nova ou período antes do começo fica sem comparação.
+- **UX-05:**
+  - no celular, a altura do bloco vem do conteúdo; a ordem e a largura continuam as que a pessoa montou (`--mo`);
+  - no computador, o padrão novo deixa Taxa de aprovação, Vendas por produto e Vendas por canal com 2 linhas, e o Financeiro com despesas e fluxo em 3;
+  - quem já salvou um layout continua com o seu; "Voltar ao padrão" pega o novo.
+- **UX-08:**
+  - eixo X com até 5 datas espalhadas, a primeira e a última encostadas na borda (nunca sobrepõem); no bloco estreito ficam 3;
+  - vendas por dia da semana e por hora em colunas HTML (`grafico_colunas`), legíveis no celular;
+  - lucro e faturamento × investimento × lucro por hora nos gráficos novos;
+  - na análise diária, até 6 datas sem sobrepor, e texto maior no celular.
+- **UX-11 (painel):** a seta dos blocos e os rótulos dos gráficos com 12 px.
+- **UX-17:** a legenda da rosca não mostra a categoria zerada.
+- **UX-23:** o Financeiro e a Bio usam o mesmo seletor de período do UTM (`campo_periodo()`, `barra_periodo()`), e o período fica lembrado entre as telas (`periodo_da_tela()`).
+
+**Testes:** 719 ok.

@@ -898,7 +898,8 @@ confere "$(tem '<span class="nw">Visuali.*zações&nbsp;' "$r")" "funil com visu
 confere "$(tem 'Funil do site' "$(sem_tags "$r")")" "funil do site"
 confere "$(tem '<div class="fluxo" style="--n:5">' "$r")" "funil da Meta em fluxo, com os 5 passos"
 confere "$(tem '<b class="dentro">100,0%</b>' "$r")" "primeiro passo do funil com 100% dentro da faixa"
-confere "$(tem 'class="grafico"' "$r")" "gráficos por hora em SVG"
+confere "$(tem 'class="pw-graf graf-colunas muitas" role="img" aria-label="Vendas por horário"' "$r")" "vendas por horário em colunas (legíveis no celular)"
+confere "$(grep -q 'rosca-leg.*</i>[^<]* <b>0</b>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "legenda da rosca sem a categoria zerada (Outros 0 0%)"
 confere "$(tem 'data-dica="(Faturamento líquido − imposto da Meta) ÷ gasto, a conta da UTMify' "$r")" "número do Resumo tem o (i) com a conta"
 confere "$(tem 'class="info" tabindex="0" role="button" aria-label="(Faturamento líquido − imposto da Meta)' "$r")" "(i) é um botão acessível com a explicação"
 confere "$(grep -q '<title>' < <(printf '%s\n' "${r#*</head>}"); [ $? -ne 0 ]; echo $?)" "gráficos sem dica nativa (title) por cima da nossa"
@@ -1281,15 +1282,17 @@ confere "$(grep -q 'Editar painel' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $
 confere "$(tem 'class="conta-icone lapis-tela" href="[^"]*aba=geral&amp;periodo=tudo&amp;montar=1" data-recarrega' "$r")" "lápis na barra lateral monta o Resumo"
 confere "$(tem 'data-tipo="NetRevenue"' "$r")" "Resumo padrão com o faturamento líquido"
 confere "$(tem 'data-tipo="RevenueInvestmentProfitByHour"' "$r")" "Resumo padrão com faturamento, investimento e lucro por hora"
-confere "$(tem 'style="--c:1;--r:1;--w:3;--h:1;--mc:1;--mr:1;--mw:1;--mh:1;"' "$r")" "cada bloco com a posição no computador e no celular"
+confere "$(tem 'style="--c:1;--r:1;--w:3;--h:1;--mc:1;--mr:1;--mw:1;--mh:1;--mo:0;"' "$r")" "cada bloco com a posição no computador e no celular (e a ordem no celular)"
 confere "$(tem 'data-tipo="RevenueByDay".*class="graf-legenda"' "$r")" "gráfico novo: faturamento × investimento por dia"
 confere "$(tem 'data-tipo="ProfitByDay".*class="barra-ok"' "$r")" "gráfico novo: lucro por dia, em barras"
 confere "$(tem 'class="pw-graf mapa-calor"' "$r")" "gráfico novo: mapa de calor das vendas (dia da semana × hora)"
 confere "$(tem 'class="velocimetro".*class="vel-valor [a-z]*">[0-9],[0-9][0-9]<' "$r")" "gráfico novo: ROI no mostrador"
 confere "$(tem 'data-tipo="NetRevenue".*class="pw-mini"' "$r")" "linhazinha do período no cartão do faturamento"
 confere "$(grep -q 'gridstack.js' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem montar, a tela não carrega o GridStack"
-r7=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=7d")
-confere "$(tem 'class="delta[^"]*" title="Antes: R\$ [0-9.,]* ([0-9/]* a [0-9/]*)"' "$r7")" "seta contra o período anterior do mesmo tamanho"
+r7=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=${AMANHA}_${AMANHA}")
+confere "$(tem 'class="delta ruim" title="Antes: R\$ [0-9.,]* ([0-9/]*)">▼ 100%<' "$r7")" "seta contra o período anterior do mesmo tamanho (amanhã contra hoje)"
+r7=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=2001-01-02_2001-01-02")
+confere "$(grep -q 'class="delta' < <(printf '%s\n' "$r7"); [ $? -ne 0 ]; echo $?)" "período anterior sem dado nenhum: sem comparação (nada de \"▲ de 0\")"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
 confere "$(grep -q 'class="conta-icone lapis-tela' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "tela que não é montável não mostra o lápis"
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$JAR" "$URL/index.php?aba=painel&periodo=tudo&editar=1")
@@ -1333,6 +1336,11 @@ confere "$(tem 'class="painel-grade" data-grade="financeiro"' "$r")" "Financeiro
 confere "$(tem 'data-tipo="CashFlowTable"' "$r")" "fluxo de caixa num bloco"
 confere "$(tem 'data-tipo="CashRoiGauge"' "$r")" "ROI do caixa no mostrador"
 confere "$(tem 'class="conta-icone lapis-tela" href="financeiro.php?periodo=tudo&amp;montar=1"' "$r")" "lápis na barra lateral monta o Financeiro"
+confere "$(tem '<form class="filtros" method="get" action="financeiro.php" id="filtros"><div class="campo campo-periodo" data-periodo-campo' "$r")" "Financeiro com o seletor de período do UTM"
+r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=mes_passado")
+r=$(curl -s -b "$JAR" "$URL/bio.php")
+confere "$(tem '<option value="mes_passado" selected>' "$r")" "Bio com o mesmo seletor e o período lembrado do Financeiro"
+confere "$(grep -q 'class="segmentos" role="group" aria-label="Período"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Bio sem as pílulas de período"
 r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo&montar=1")
 confere "$(tem 'name="tela" value="financeiro"' "$r")" "montar o Financeiro grava a tela do Financeiro"
 confere "$(grep -q 'data-tabela="despesas"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "montando, o cadastro de despesas sai da frente"

@@ -283,7 +283,7 @@ function grade_render(array $tela, array $ctx): void
             $m = $cel[$i['tipo']] ?? null;
             $soCel = !in_array($i['tipo'], $noDesk, true);
             $estilo = $soCel ? '' : '--c:' . ($i['x'] + 1) . ';--r:' . ($i['y'] + 1) . ';--w:' . $i['w'] . ';--h:' . $i['h'] . ';';
-            $estilo .= $m ? '--mc:' . ($m['x'] + 1) . ';--mr:' . ($m['y'] + 1) . ';--mw:' . $m['w'] . ';--mh:' . $m['h'] . ';' : '';
+            $estilo .= $m ? '--mc:' . ($m['x'] + 1) . ';--mr:' . ($m['y'] + 1) . ';--mw:' . $m['w'] . ';--mh:' . $m['h'] . ';--mo:' . ($m['y'] * 2 + $m['x']) . ';' : '';
             echo '<div class="painel-item' . ($m ? '' : ' so-computador') . ($soCel ? ' so-celular' : '') . '" style="' . $estilo . '">' . grade_cartao($tela, $i['tipo'], $ctx) . '</div>';
         }
         echo '</div>';

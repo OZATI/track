@@ -90,67 +90,6 @@ function resumo_funil(array $passos): string
     return $html . '</div></div>';
 }
 
-// Grafico de linhas por hora (0 a 23). $series = [[rotulo, cor, [hora => centavos]]]
-function resumo_svg_linhas(array $series, int $ateHora): string
-{
-    $L = 1400; $A = 260; $esq = 80; $dir = 10; $cima = 12; $baixo = 26;
-    $max = 1;
-    foreach ($series as [, , $v]) {
-        $max = max($max, 0, ...array_map('abs', $v));
-    }
-    $min = 0;
-    foreach ($series as [, , $v]) {
-        $min = min($min, ...$v);
-    }
-    $passo = ($L - $esq - $dir) / 23;
-    $y = fn($c) => $cima + ($max - $c) * ($A - $cima - $baixo) / (($max - $min) ?: 1);
-    $svg = '<svg class="grafico" viewBox="0 0 ' . $L . ' ' . $A . '" role="img" aria-label="Gráfico por hora">';
-    for ($i = 0; $i <= 4; $i++) {
-        $c = $min + ($max - $min) * $i / 4;
-        $yy = round($y($c), 1);
-        $svg .= '<line x1="' . $esq . '" x2="' . ($L - $dir) . '" y1="' . $yy . '" y2="' . $yy . '" class="grade-l"/>'
-            . '<text x="' . ($esq - 8) . '" y="' . ($yy + 4) . '" text-anchor="end">' . e(reais((int)round($c))) . '</text>';
-    }
-    for ($h = 0; $h < 24; $h += 2) {
-        $svg .= '<text x="' . round($esq + $h * $passo, 1) . '" y="' . ($A - 6) . '" text-anchor="middle">' . sprintf('%02d h', $h) . '</text>';
-    }
-    foreach ($series as [$rotulo, $cor, $v]) {
-        $pts = [];
-        for ($h = 0; $h <= $ateHora; $h++) {
-            $pts[] = round($esq + $h * $passo, 1) . ',' . round($y($v[$h] ?? 0), 1);
-        }
-        // Area de leve embaixo da linha, ate o zero (como no grafico da UTMify)
-        $zero = round($y(0), 1);
-        $svg .= '<polygon fill="' . $cor . '" fill-opacity="0.08" stroke="none" points="' . round($esq, 1) . ',' . $zero . ' ' . implode(' ', $pts) . ' ' . round($esq + $ateHora * $passo, 1) . ',' . $zero . '"></polygon>'
-            . '<polyline fill="none" stroke="' . $cor . '" stroke-width="2" points="' . implode(' ', $pts) . '"></polyline>';
-    }
-    return $svg . '</svg>';
-}
-
-// Barras por hora com a % em cima. $fatHora: faturamento de cada hora (para a dica)
-function resumo_svg_barras(array $porHora, array $fatHora = []): string
-{
-    $L = 1400; $A = 190; $esq = 10; $baixo = 22; $cima = 18;
-    $total = array_sum($porHora);
-    $max = max(1, 0, ...array_values($porHora)); // (o 0: sem venda nenhuma, max() com um numero so quebra)
-    $larg = ($L - 2 * $esq) / 24;
-    $svg = '<svg class="grafico" viewBox="0 0 ' . $L . ' ' . $A . '" role="img" aria-label="Vendas por horário">';
-    for ($h = 0; $h < 24; $h++) {
-        $n = $porHora[$h] ?? 0;
-        $x = $esq + $h * $larg;
-        $alt = $n * ($A - $cima - $baixo) / $max;
-        if ($n) {
-            $svg .= '<g class="dia-graf"' . dica_attr(sprintf('%02dh às %02dh', $h, ($h + 1) % 24), [$n . ' venda' . ($n === 1 ? '' : 's') . ' · ' . resumo_pct($n, $total) . ' do período',
-                    !empty($fatHora[$h]) ? 'Faturamento ' . reais((int)$fatHora[$h]) : '']) . '>'
-                . '<rect class="vela-alvo" x="' . round($x, 1) . '" y="0" width="' . round($larg, 1) . '" height="' . ($A - $baixo) . '"></rect>'
-                . '<rect x="' . round($x + 6, 1) . '" y="' . round($A - $baixo - $alt, 1) . '" width="' . round($larg - 12, 1) . '" height="' . round($alt, 1) . '" rx="3" class="barra"></rect></g>'
-                . '<text x="' . round($x + $larg / 2, 1) . '" y="' . round($A - $baixo - $alt - 5, 1) . '" text-anchor="middle">' . e(resumo_pct($n, $total)) . '</text>';
-        }
-        $svg .= '<text x="' . round($x + $larg / 2, 1) . '" y="' . ($A - 6) . '" text-anchor="middle">' . sprintf('%02d', $h) . '</text>';
-    }
-    return $svg . '</svg>';
-}
-
 // Icone de cada cartao de numero, pelo nome (Resumo, Financeiro, analise diaria, Trafego e Organico)
 const RESUMO_ICONES = [
     'Faturamento líquido' => 'carteira', 'Faturamento bruto' => 'carteira', 'Faturamento' => 'carteira', 'Entradas' => 'carteira',
@@ -214,37 +153,12 @@ function resumo_rosca(array $partes, array $cores, string $centro): string
     $svg .= '<text x="21" y="19.5" class="rosca-rot">' . e($centro) . '</text><text x="21" y="26" class="rosca-num">' . $total . '</text></svg>';
     $leg = '<ul class="rosca-leg">';
     foreach ($partes as $rot => $n) {
+        if (!$n && $total) {
+            continue; // categoria zerada nao entra na legenda ("Outros 0 0%")
+        }
         $leg .= '<li><i style="background:' . e($cores[$rot] ?? '#9CA3AF') . '"></i>' . e($rot) . ' <b>' . $n . '</b> <span class="suave">' . e($total ? number_format($n * 100 / $total, 0) . '%' : '—') . '</span></li>';
     }
     return '<div class="rosca-caixa">' . $svg . $leg . '</ul></div>';
-}
-
-// Colunas com a % em cima (ex.: vendas por dia da semana). $itens = [rotulo => n]
-function resumo_svg_colunas(array $itens, string $nome): string
-{
-    $L = 460; $A = 200; $esq = 6; $baixo = 22; $cima = 18;
-    $total = array_sum($itens);
-    $max = max(1, 0, ...array_values($itens));
-    $larg = ($L - 2 * $esq) / max(1, count($itens));
-    $svg = '<svg class="grafico" viewBox="0 0 ' . $L . ' ' . $A . '" role="img" aria-label="' . e($nome) . '">';
-    for ($i = 1; $i <= 4; $i++) {
-        $yy = round($cima + ($A - $cima - $baixo) * ($i - 1) / 4, 1);
-        $svg .= '<line x1="' . $esq . '" x2="' . ($L - $esq) . '" y1="' . $yy . '" y2="' . $yy . '" class="grade-l"></line>';
-    }
-    $i = 0;
-    foreach ($itens as $rot => $n) {
-        $x = $esq + $i * $larg;
-        $alt = $n * ($A - $cima - $baixo) / $max;
-        if ($n) {
-            $svg .= '<g class="dia-graf"' . dica_attr((string)$rot, [$n . ' venda' . ($n === 1 ? '' : 's') . ' · ' . resumo_pct($n, $total) . ' do período']) . '>'
-                . '<rect class="vela-alvo" x="' . round($x, 1) . '" y="0" width="' . round($larg, 1) . '" height="' . ($A - $baixo) . '"></rect>'
-                . '<rect x="' . round($x + $larg * .22, 1) . '" y="' . round($A - $baixo - $alt, 1) . '" width="' . round($larg * .56, 1) . '" height="' . round($alt, 1) . '" rx="3" class="barra"></rect></g>'
-                . '<text x="' . round($x + $larg / 2, 1) . '" y="' . round($A - $baixo - $alt - 6, 1) . '" text-anchor="middle">' . e(resumo_pct($n, $total)) . '</text>';
-        }
-        $svg .= '<text x="' . round($x + $larg / 2, 1) . '" y="' . ($A - 6) . '" text-anchor="middle">' . e($rot) . '</text>';
-        $i++;
-    }
-    return $svg . '</svg>';
 }
 
 // "há 3 minutos" a partir de uma data UTC

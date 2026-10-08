@@ -70,19 +70,48 @@ function grafico_eixo_y(array $valores): array
     return [$min, $max, $eixo, $grade];
 }
 
-// Rotulos do eixo X (no maximo uns 8), em % da largura
+// Rotulos do eixo X: no maximo 5, espalhados por igual, o primeiro encostado na esquerda e o
+// ultimo na direita (nunca passam da borda nem encostam um no outro). No bloco estreito (celular)
+// ficam so o primeiro, o do meio e o ultimo (classe "opc", CSS).
 function grafico_eixo_x(array $chaves, callable $pos): string
 {
+    $chaves = array_values($chaves);
     $qtd = count($chaves);
-    $cada = max(1, (int)ceil($qtd / 8));
+    $m = min($qtd, 5);
     $h = '';
-    foreach (array_values($chaves) as $i => $ch) {
-        if ($i % $cada === 0) {
-            // O rotulo encostado na direita nao passa da borda do bloco
-            $h .= '<span' . ($pos($i) > 960 ? ' class="fim"' : '') . ' style="left:' . round($pos($i) / 10, 2) . '%">' . e(grafico_rotulo((string)$ch)) . '</span>';
+    $vistos = [];
+    for ($k = 0; $k < $m; $k++) {
+        $i = $m === 1 ? 0 : (int)round($k * ($qtd - 1) / ($m - 1));
+        if (isset($vistos[$i])) {
+            continue;
         }
+        $vistos[$i] = true;
+        $classe = $m === 1 ? '' : ($k === 0 ? 'ini' : ($k === $m - 1 ? 'fim' : ($k % 2 ? 'opc' : '')));
+        $h .= '<span' . ($classe !== '' ? ' class="' . $classe . '"' : '') . ' style="left:' . round($pos($i) / 10, 2) . '%">' . e(grafico_rotulo((string)$chaves[$i])) . '</span>';
     }
     return '<div class="graf-x">' . $h . '</div>';
+}
+
+// Colunas em HTML (vendas por dia da semana ou por hora): a coluna, a % do total em cima e o rotulo
+// embaixo, legiveis em qualquer largura; a dica de cada coluna traz o numero. $itens: [rotulo => n];
+// $titulos: [rotulo => titulo da dica]; $extras: [rotulo => [linhas a mais na dica]]; $cada: um
+// rotulo a cada tantas colunas (as 24 horas).
+function grafico_colunas(array $itens, string $nome, array $titulos = [], array $extras = [], int $cada = 1): string
+{
+    $total = array_sum($itens);
+    $max = max(1, 0, ...array_values($itens));
+    $muitas = count($itens) > 12;
+    $h = '<div class="pw-graf graf-colunas' . ($muitas ? ' muitas' : '') . '" role="img" aria-label="' . e($nome) . '" style="--n:' . count($itens) . '">';
+    $i = 0;
+    foreach ($itens as $rot => $n) {
+        $n = (int)$n;
+        $pct = $total ? $n * 100 / $total : 0;
+        $dica = dica_attr($titulos[$rot] ?? (string)$rot, array_merge([$n ? $n . ' venda' . ($n === 1 ? '' : 's') . ' · ' . number_format($pct, 1, ',', '.') . '% do período' : 'Nenhuma venda'], $extras[$rot] ?? []));
+        $h .= '<div class="col"' . $dica . '><span class="trilho">' . ($n && !$muitas ? '<b>' . e(number_format($pct, $pct >= 10 ? 0 : 1, ',', '.')) . '%</b>' : '')
+            . '<i style="--p:' . round($n * 100 / $max, 1) . '"></i></span><span class="rot">' . ($i % $cada === 0 ? e((string)$rot) : '') . '</span></div>';
+        $i++;
+    }
+    return $h . '</div>';
 }
 
 // $chaves: ['2026-10-01', ...] (ou meses, ou horas); $series: [[rotulo, cor, [centavos na ordem das chaves]]]

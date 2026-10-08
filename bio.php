@@ -10,7 +10,7 @@ require_once __DIR__ . '/lib/bio.php';
 exigir_login('bio');
 header('Cache-Control: no-store');
 
-$periodo = in_array($_GET['periodo'] ?? '', ['hoje', '7d', '30d', 'tudo'], true) ? $_GET['periodo'] : '30d';
+$periodo = periodo_da_tela('30d'); // o mesmo seletor e o mesmo periodo lembrado do UTM
 $volta = 'bio.php?' . http_build_query(['periodo' => $periodo]);
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -61,7 +61,7 @@ $num = fn(float $v, int $c = 1) => number_format($v, $c, ',', '.');
 
 pagina_inicio('Bio');
 casca_inicio('bio');
-$periodos = ['hoje' => 'Hoje', '7d' => '7 dias', '30d' => '30 dias', 'tudo' => 'Tudo'];
+barra_periodo('bio.php', $periodo);
 echo '<nav class="abas abas-nucleo" aria-label="Bio"><span class="abas-titulo">Bio · Página de links</span>'
     . '<a href="bio.php" class="atual" aria-current="page">' . icone('link') . 'Links</a>'
     . ($cfg['endereco'] !== '' ? '<a href="' . e($cfg['endereco']) . '" target="_blank" rel="noopener">' . icone('externo') . 'Ver a página</a>' : '')
@@ -72,11 +72,7 @@ echo '<nav class="abas abas-nucleo" aria-label="Bio"><span class="abas-titulo">B
 if ($aviso = aviso_pegar()) {
     echo '<p class="' . ($aviso[1] === 'erro' ? 'erro' : 'aviso-ok') . '">' . e($aviso[0]) . '</p>';
 }
-echo '<div class="bio-topo"><div class="segmentos" role="group" aria-label="Período">';
-foreach ($periodos as $k => $rot) {
-    echo '<a href="' . e('bio.php?periodo=' . $k) . '"' . ($k === $periodo ? ' class="atual" aria-current="true"' : '') . '>' . e($rot) . '</a>';
-}
-echo '</div><span class="suave">' . e('Visitas da página ' . implode('', array_slice(bio_caminho($cfg), 1)) . ' e cliques nos links (t.js do painel).') . '</span></div>';
+echo '<div class="bio-topo"><span class="suave">' . e('Visitas da página ' . implode('', array_slice(bio_caminho($cfg), 1)) . ' e cliques nos links (t.js do painel).') . '</span></div>';
 
 echo cartoes_kpi([
     cartao_kpi('Visitas da Bio', (string)$visitas, $pessoas . ' pessoa' . ($pessoas === 1 ? '' : 's') . ' no período', 'visitantes', 'Vezes que a página da bio foi aberta (PageView do t.js).'),

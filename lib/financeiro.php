@@ -140,7 +140,7 @@ const FIN_PADRAO = [
     ['CashIn', 0, 0, 3, 1], ['AdsCost', 3, 0, 3, 1], ['Expenses', 6, 0, 2, 1], ['Balance', 8, 0, 2, 1], ['CashRoi', 10, 0, 2, 1],
     ['CashFlowChart', 0, 1, 8, 3], ['CashRoiGauge', 8, 1, 4, 3],
     ['BalanceByDay', 0, 4, 6, 3], ['CumulativeBalance', 6, 4, 6, 3],
-    ['ExpensesByCategory', 0, 7, 4, 4], ['CashFlowTable', 4, 7, 8, 4],
+    ['ExpensesByCategory', 0, 7, 4, 3], ['CashFlowTable', 4, 7, 8, 3],
 ];
 
 // A tela do caixa para o motor (lib/grade.php): os numeros, os graficos e o fluxo dia a dia. O
@@ -180,10 +180,14 @@ function financeiro_ctx(PDO $db, string $periodo, array $gastos): array
     [$dia1, $dia2] = fin_dias($db, $periodo, $gastos);
     $porDia = fin_por_dia($db, $dia1, $dia2, $gastos);
     $ctx = ['dia1' => $dia1, 'dia2' => $dia2, 'porDia' => $porDia, 'somas' => fin_somas($porDia), 'antes' => null, 'antesNome' => '', 'categorias' => []];
+    // Periodo anterior: so compara quando teve movimento (conta nova nao vira "subiu de 0")
     if (($ant = grade_periodo_anterior($periodo)) !== null) {
         [$a1, $a2] = periodo_dias($ant);
-        $ctx['antes'] = fin_somas(fin_por_dia($db, $a1, $a2, $gastos));
-        $ctx['antesNome'] = periodo_rotulo($ant);
+        $antes = fin_somas(fin_por_dia($db, $a1, $a2, $gastos));
+        if ($antes['entradas'] || $antes['anuncios'] || $antes['despesas']) {
+            $ctx['antes'] = $antes;
+            $ctx['antesNome'] = periodo_rotulo($ant);
+        }
     }
     foreach ($gastos as $g) {
         if ((int)($g['ativo'] ?? 1) && ($q = count(fin_ocorrencias($g, $dia1, $dia2)))) {

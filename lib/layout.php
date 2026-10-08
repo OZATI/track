@@ -323,21 +323,28 @@ td.quebra{ white-space:normal; min-width:220px; }
 .painel-item{ grid-column:var(--c) / span var(--w); grid-row:var(--r) / span var(--h); min-width:0; min-height:0; }
 .painel-item.so-celular{ display:none; }
 @media (max-width:767px){
-  .painel-grade{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
-  .painel-item{ grid-column:var(--mc) / span var(--mw); grid-row:var(--mr) / span var(--mh); }
+  /* Celular: a ordem e a largura que a pessoa montou, a altura pelo conteudo (sem espaco vazio) */
+  .painel-grade{ grid-template-columns:repeat(2, minmax(0, 1fr)); grid-auto-rows:auto; gap:10px; }
+  .painel-item{ grid-column:var(--mc) / span var(--mw); grid-row:auto; order:var(--mo); }
   .painel-item.so-computador{ display:none; }
   .painel-item.so-celular{ display:block; }
+  .painel-grade .pw-corpo{ overflow:visible; }
+  .painel-grade .pw-graf{ height:230px; min-height:0; }
+  .painel-grade .mapa-calor{ height:250px; }
+  .painel-grade .vel-caixa{ height:210px; }
 }
 .pw{ container-type:inline-size; display:flex; flex-direction:column; gap:6px; height:100%; min-height:0; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); overflow:hidden; }
 .pw-cab{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; color:var(--suave); font-size:13px; font-weight:500; flex:none; }
 .pw-tit{ display:inline-flex; align-items:center; gap:6px; min-width:0; }
-.pw-tit > span:first-child{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pw-tit > span:first-child{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.3; }
 .pw-corpo{ flex:1; min-height:0; overflow:auto; }
 .pw-numero .pw-corpo{ display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden; }
 .pw-num{ font-size:24px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pw-corpo > small{ color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* Cartao estreito (2 colunas): o numero diminui para caber inteiro */
 @container (max-width:190px){ .pw-num{ font-size:19px; } }
+.pw-numero{ padding:12px 14px; gap:4px; }
+@container (max-width:210px){ .pw-numero .kpi-ico{ display:none; } }
 .pw-corpo .grafico{ width:100%; height:auto; }
 .pw-corpo .rosca-caixa{ margin:0; }
 .barra-ok{ fill:var(--ok); } .barra-ruim{ fill:var(--erro); }
@@ -375,13 +382,26 @@ td.quebra{ white-space:normal; min-width:220px; }
 .grid-stack-item:hover .pw .kpi-ico{ visibility:hidden; }
 @media (hover:none){ .painel-tirar{ opacity:1; } }
 .grid-stack-placeholder > .placeholder-content{ background:var(--realce) !important; border:2px dashed var(--marca); border-radius:var(--r-md); }
+/* Cartoes de numero (cartoes_kpi) no celular: 2 colunas compactas, como os blocos do Resumo */
+@media (max-width:767px){
+  .kpis{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+  .kpi{ padding:12px 14px; }
+  .kpi-cab{ font-size:12.5px; }
+  .kpi .kpi-ico{ display:none; }
+  .kpi > b{ margin-top:2px; font-size:19px; }
+}
+/* Graficos da analise diaria (SVG largo): no celular, texto maior e menos datas no eixo */
+@media (max-width:767px){
+  .grafico.velas text, .grafico.compradores text{ font-size:24px; }
+  .grafico .x-opc{ display:none; }
+}
 /* Lapis da barra lateral (lib/grade.php): aceso enquanto a tela esta sendo montada */
 .lateral .lapis-tela.atual{ background:var(--marca-fundo); color:#fff; }
 /* Numero do bloco: o valor, a seta contra o periodo anterior e a linhazinha do periodo */
 .pw-valor{ display:flex; align-items:flex-end; justify-content:space-between; gap:10px; min-width:0; }
 .pw-valor-txt{ display:flex; flex-direction:column; min-width:0; }
 .pw-valor-txt > small{ color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.pw-valor-txt .delta{ font-size:11.5px; font-weight:600; }
+.pw-valor-txt .delta{ font-size:12px; font-weight:600; }
 .pw-mini{ flex:none; width:min(44%, 130px); height:34px; overflow:visible; cursor:help; }
 .pw-mini .mini-linha{ fill:none; stroke:var(--marca); stroke-width:2; stroke-linejoin:round; }
 .pw-mini .mini-area{ fill:color-mix(in srgb, var(--marca) 14%, transparent); stroke:none; }
@@ -398,12 +418,22 @@ td.quebra{ white-space:normal; min-width:220px; }
 .graf-legenda i{ display:inline-block; width:12px; height:3px; border-radius:2px; }
 .graf-corpo{ flex:1; min-height:0; display:grid; grid-template-columns:auto minmax(0, 1fr); grid-template-rows:minmax(0, 1fr); padding-top:8px; }
 .graf-y{ position:relative; min-width:50px; margin:0 8px 20px 0; }
-.graf-y span{ position:absolute; right:0; transform:translateY(-50%); font-size:11px; color:var(--suave); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.graf-y span{ position:absolute; right:0; transform:translateY(-50%); font-size:12px; color:var(--suave); white-space:nowrap; font-variant-numeric:tabular-nums; }
 .graf-plot{ position:relative; min-width:0; min-height:0; }
 .graf-plot svg{ position:absolute; top:0; left:0; display:block; width:100%; height:calc(100% - 20px); overflow:visible; }
 .graf-x{ position:absolute; left:0; right:0; bottom:0; height:20px; overflow:visible; }
-.graf-x span{ position:absolute; top:4px; transform:translateX(-50%); font-size:11px; line-height:14px; color:var(--suave); white-space:nowrap; }
-.graf-x span.fim{ transform:translateX(-100%); }
+.graf-x span{ position:absolute; top:4px; transform:translateX(-50%); font-size:12px; line-height:14px; color:var(--suave); white-space:nowrap; }
+.graf-x span.ini{ transform:none; } .graf-x span.fim{ transform:translateX(-100%); }
+@container (max-width:420px){ .graf-x span.opc{ display:none; } }
+/* Colunas em HTML (vendas por dia da semana e por hora): legiveis em qualquer largura */
+.graf-colunas{ display:grid; grid-template-columns:repeat(var(--n), minmax(0, 1fr)); grid-template-rows:minmax(0, 1fr); gap:4px; padding-top:6px; }
+.graf-colunas.muitas{ gap:2px; }
+.graf-colunas .col{ display:flex; flex-direction:column; min-width:0; min-height:0; border-radius:6px; cursor:help; }
+.graf-colunas .col:hover, .graf-colunas .col:focus{ background:var(--hover); outline:none; }
+.graf-colunas .trilho{ flex:1; min-height:0; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:3px; }
+.graf-colunas i{ display:block; width:min(70%, 34px); height:calc((100% - 20px) * var(--p) / 100); min-height:2px; border-radius:4px 4px 2px 2px; background:linear-gradient(180deg, var(--grad-b), var(--grad-a)); }
+.graf-colunas b{ font-size:12px; font-weight:600; color:var(--suave); white-space:nowrap; font-variant-numeric:tabular-nums; }
+.graf-colunas .rot{ flex:none; height:20px; padding-top:4px; font-size:12px; line-height:14px; color:var(--suave); text-align:center; white-space:nowrap; overflow:visible; }
 .graf-plot polygon, .graf-plot polyline{ pointer-events:none; }
 .graf-plot .graf-linha{ fill:none; stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
 .graf-plot .grade-l{ stroke:var(--linha); stroke-width:1; }
@@ -416,8 +446,8 @@ td.quebra{ white-space:normal; min-width:220px; }
 .mapa-calor i{ min-height:8px; border-radius:4px; background:var(--cartao-2); cursor:help; }
 .mapa-calor i.calor{ background:var(--marca); opacity:var(--q); }
 .mapa-calor i:hover, .mapa-calor i:focus{ outline:2px solid var(--marca); outline-offset:1px; opacity:1; }
-.calor-dia{ align-self:center; font-size:11px; color:var(--suave); }
-.calor-hora{ font-size:10.5px; color:var(--suave); white-space:nowrap; }
+.calor-dia{ align-self:center; font-size:12px; color:var(--suave); }
+.calor-hora{ font-size:12px; color:var(--suave); white-space:nowrap; }
 /* Mostrador do ROI: o ponteiro entra girando do zero */
 .vel-caixa{ align-items:center; justify-content:center; gap:2px; }
 .velocimetro{ display:block; flex:1; min-height:0; width:100%; height:100%; }
@@ -1217,13 +1247,6 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
     $soPeriodo = in_array($aba, ['gestor', 'campanha', 'geral', 'organico', 'financeiro'], true); // nessas telas, site e pagina nao se aplicam
     $comProduto = !in_array($aba, ['visitantes', 'eventos', 'financeiro'], true); // telas sem venda (e o Financeiro, que e a empresa toda)
     $marcados = $filtro['produto'] ?? [];
-    $datas = periodo_datas($filtro['periodo']);
-    // As datas do personalizado comecam no periodo que esta na tela
-    [$d1, $d2] = $datas ?? periodo_dias($filtro['periodo']);
-    $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
-    if ($filtro['periodo'] === 'tudo') {
-        [$d1, $d2] = [(new DateTime('today', fuso()))->modify('-29 days')->format('Y-m-d'), $hoje];
-    }
     ?>
 <header class="topo">
 <form class="filtros" method="get" action="./" id="filtros">
@@ -1251,20 +1274,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
   <?php if ($aba === 'campanha' && is_string($_GET['id'] ?? null) && preg_match('/^\d{3,25}$/', $_GET['id'])): ?>
   <input type="hidden" name="id" value="<?= e($_GET['id']) ?>">
   <?php endif; ?>
-  <div class="campo campo-periodo" data-periodo-campo data-rotulo="<?= e(periodo_rotulo($filtro['periodo'])) ?>" data-de="<?= e($d1) ?>" data-ate="<?= e($d2) ?>" data-hoje="<?= e($hoje) ?>">
-    <span><?= com_info('Período', 'Vale para todas as telas e fica lembrado. Escolha um dos prontos ou, no calendário, o primeiro e o último dia (os dois entram). Hoje e Tudo não comparam com o período anterior.') ?></span>
-    <select name="periodo" data-periodo data-nativo aria-label="Período">
-      <?php foreach (PERIODOS as $v => $rotulo): ?>
-        <option value="<?= e($v) ?>"<?= $filtro['periodo'] === $v ? ' selected' : '' ?>><?= e($rotulo) ?></option>
-      <?php endforeach; ?>
-      <option value="personalizado"<?= $datas ? ' selected' : '' ?>>De uma data a outra…</option>
-    </select>
-    <span class="datas" data-datas<?= $datas ? '' : ' hidden' ?>>
-      <label>De <input type="date" name="de" value="<?= e($d1) ?>" max="<?= e($hoje) ?>"<?= $datas ? '' : ' disabled' ?>></label>
-      <label>Até <input type="date" name="ate" value="<?= e($d2) ?>" min="<?= e($d1) ?>" max="<?= e($hoje) ?>"<?= $datas ? '' : ' disabled' ?>></label>
-      <noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript>
-    </span>
-  </div>
+  <?= campo_periodo($filtro['periodo']) ?>
   <?php if ($comProduto): ?>
   <div class="campo"><span><?= com_info('Produto', 'Vale para as vendas de todas as telas: faturamento, vendas, CPA, ROI e lucro. Marque o produto principal (ou mais de um, como o Drive antigo e o novo) para tirar os order bumps da conta: cada order bump é outro produto na Kiwify. O gasto da Meta continua o das campanhas.') ?></span>
     <?= filtro_multi('produto', array_combine($produtos, $produtos) ?: [], $marcados, 'Todos (com order bump)', ['produto', 'produtos'], 'Nenhuma venda ainda.') ?>
@@ -1275,6 +1285,52 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
 </header>
 <?php
     abas_painel($aba, $filtro);
+}
+
+// O campo do periodo (prontos ou de uma data a outra), o mesmo em todas as telas: o painel.js troca
+// o select por um botao com os prontos e o calendario. Fica dentro do form#filtros.
+function campo_periodo(string $periodo): string
+{
+    $datas = periodo_datas($periodo);
+    // As datas do personalizado comecam no periodo que esta na tela
+    [$d1, $d2] = $datas ?? periodo_dias($periodo);
+    $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
+    if ($periodo === 'tudo') {
+        [$d1, $d2] = [(new DateTime('today', fuso()))->modify('-29 days')->format('Y-m-d'), $hoje];
+    }
+    $h = '<div class="campo campo-periodo" data-periodo-campo data-rotulo="' . e(periodo_rotulo($periodo)) . '" data-de="' . e($d1) . '" data-ate="' . e($d2) . '" data-hoje="' . e($hoje) . '">'
+        . '<span>' . com_info('Período', 'Vale para todas as telas e fica lembrado. Escolha um dos prontos ou, no calendário, o primeiro e o último dia (os dois entram). Hoje e Tudo não comparam com o período anterior.') . '</span>'
+        . '<select name="periodo" data-periodo data-nativo aria-label="Período">';
+    foreach (PERIODOS as $v => $rotulo) {
+        $h .= '<option value="' . e($v) . '"' . ($periodo === $v ? ' selected' : '') . '>' . e($rotulo) . '</option>';
+    }
+    $h .= '<option value="personalizado"' . ($datas ? ' selected' : '') . '>De uma data a outra…</option></select>'
+        . '<span class="datas" data-datas' . ($datas ? '' : ' hidden') . '>'
+        . '<label>De <input type="date" name="de" value="' . e($d1) . '" max="' . e($hoje) . '"' . ($datas ? '' : ' disabled') . '></label>'
+        . '<label>Até <input type="date" name="ate" value="' . e($d2) . '" min="' . e($d1) . '" max="' . e($hoje) . '"' . ($datas ? '' : ' disabled') . '></label>'
+        . '<noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript></span></div>';
+    return $h;
+}
+
+// Periodo de um modulo fora das abas do UTM (Financeiro, Bio): o do endereco (prontos ou de uma
+// data a outra), senao o lembrado (o mesmo do UTM), senao o padrao do modulo. Fica lembrado.
+function periodo_da_tela(string $padrao): string
+{
+    sessao_iniciar();
+    $p = is_string($_GET['periodo'] ?? null) ? $_GET['periodo'] : (string)($_SESSION['track_filtro']['periodo'] ?? '');
+    if ($p === 'personalizado') {
+        $p = periodo_personalizado($_GET['de'] ?? null, $_GET['ate'] ?? null) ?? '';
+    }
+    $p = periodo_valido($p) ? $p : $padrao;
+    $_SESSION['track_filtro'] = ['periodo' => $p] + (is_array($_SESSION['track_filtro'] ?? null) ? $_SESSION['track_filtro'] : []);
+    return $p;
+}
+
+// Barra do topo so com o periodo, para os modulos fora das abas do UTM (o mesmo seletor do UTM)
+function barra_periodo(string $acao, string $periodo): void
+{
+    echo '<header class="topo"><form class="filtros" method="get" action="' . e($acao) . '" id="filtros">' . campo_periodo($periodo)
+        . '<noscript><button type="submit">Filtrar</button></noscript></form></header>';
 }
 
 // Filtros que o link de cada aba leva: site e pagina so onde valem (no Resumo, Gestor, Financeiro e

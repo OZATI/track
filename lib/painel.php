@@ -29,14 +29,14 @@ const RESUMO_PADRAO = [
     ['PendingCommission', 4, 2, 4, 1], ['RefundedCommission', 8, 2, 4, 1],
     ['GrossRevenue', 4, 3, 4, 1], ['Fees', 8, 3, 4, 1],
     ['RevenueByDay', 0, 4, 8, 3], ['RoiGauge', 8, 4, 4, 3],
-    ['ApprovalRate', 0, 7, 4, 3], ['SalesByProduct', 4, 7, 4, 3], ['SalesBySource', 8, 7, 4, 3],
-    ['ConversionFunnel', 0, 10, 8, 3], ['SalesByDayOfWeek', 8, 10, 4, 3],
-    ['SiteFunnel', 0, 13, 8, 3], ['TrackingQuality', 8, 13, 4, 3],
-    ['ProfitByDay', 0, 16, 8, 3], ['OutsideAds', 8, 16, 4, 3],
-    ['SalesHeatmap', 0, 19, 12, 3],
-    ['VslFunnel', 0, 22, 12, 4],
-    ['SalesByHour', 0, 26, 12, 3],
-    ['RevenueInvestmentProfitByHour', 0, 29, 12, 4],
+    ['ApprovalRate', 0, 7, 4, 2], ['SalesByProduct', 4, 7, 4, 2], ['SalesBySource', 8, 7, 4, 2],
+    ['ConversionFunnel', 0, 9, 8, 3], ['SalesByDayOfWeek', 8, 9, 4, 3],
+    ['SiteFunnel', 0, 12, 8, 3], ['TrackingQuality', 8, 12, 4, 3],
+    ['ProfitByDay', 0, 15, 8, 3], ['OutsideAds', 8, 15, 4, 3],
+    ['SalesHeatmap', 0, 18, 12, 3],
+    ['VslFunnel', 0, 21, 12, 4],
+    ['SalesByHour', 0, 25, 12, 3],
+    ['RevenueInvestmentProfitByHour', 0, 28, 12, 3],
 ];
 
 // tipo => [titulo, categoria, desenho (numero ou grafico), dica, [w, h, minW, minH, maxW, maxH], icone,
@@ -237,12 +237,17 @@ function resumo_ctx(PDO $db, string $periodo, string $de, string $ate, array $fC
             'lucro' => array_map(fn($h) => (int)($d['fatHora'][$h] ?? 0) - $inv($h), $horas), 'vendas' => array_map(fn($h) => (int)($d['porHora'][$h] ?? 0), $horas),
             'calor' => $d['serie']['calor'], 'porHora' => true];
     }
+    // Periodo anterior: so compara quando ele tem algum dado (venda, gasto ou visita); conta nova ou
+    // periodo antes do comeco nao vira "subiu de 0"
     $ant = grade_periodo_anterior($periodo);
     $d['antes'] = null;
     if ($ant !== null) {
         [$ade, $aate] = periodo_utc($ant);
-        $d['antes'] = resumo_dados($db, $ant, $ade, $aate, $fCanais);
-        $d['antesNome'] = periodo_rotulo($ant);
+        $a = resumo_dados($db, $ant, $ade, $aate, $fCanais);
+        if ($a['fatBruto'] || $a['pendN'] || $a['reembN'] || $a['gasto'] || $a['visitantes'] || $a['conversas']) {
+            $d['antes'] = $a;
+            $d['antesNome'] = periodo_rotulo($ant);
+        }
     }
     return $d;
 }
@@ -446,39 +451,23 @@ function resumo_bloco(string $tipo, array $d): string
                 'Vendas aprovadas' => [(int)$d['siteAprovadas'], 'Desses, os aprovados.'],
             ]);
         case 'SalesByDayOfWeek':
-            return resumo_svg_colunas($d['porSemana'], 'Vendas por dia da semana');
+            return grafico_colunas($d['porSemana'], 'Vendas por dia da semana');
         case 'SalesByHour':
-            return resumo_svg_barras($d['porHora'], $d['fatHora']);
+            $itens = $titulos = $extras = [];
+            for ($h = 0; $h < 24; $h++) {
+                $k = sprintf('%02dh', $h);
+                $itens[$k] = (int)($d['porHora'][$h] ?? 0);
+                $titulos[$k] = sprintf('%02dh às %02dh', $h, ($h + 1) % 24);
+                $extras[$k] = !empty($d['fatHora'][$h]) ? ['Faturamento ' . reais((int)$d['fatHora'][$h])] : [];
+            }
+            return grafico_colunas($itens, 'Vendas por horário', $titulos, $extras, 3);
         case 'ProfitByHour':
-            return painel_svg_lucro_hora($d['lucroHora']);
+            $horas = range(0, 23);
+            return grafico_barras(array_map(fn($h) => sprintf('%02dh', $h), $horas), array_map(fn($h) => (int)($d['lucroHora'][$h] ?? 0), $horas), 'Lucro');
         case 'RevenueInvestmentProfitByHour':
-            return '<p class="legenda-grafico"><i style="background:#D97706"></i>Investimento <i style="background:#1D6FF2"></i>Faturamento <i style="background:#16A34A"></i>Lucro</p>'
-                . resumo_svg_linhas([['Faturamento', '#1D6FF2', $d['acF']], ['Investimento', '#D97706', $d['acG']], ['Lucro', '#16A34A', $d['acL']]], (int)$d['ateHora']);
+            $horas = range(0, (int)$d['ateHora']);
+            $serie = fn(array $ac) => array_map(fn($h) => (int)($ac[$h] ?? 0), $horas);
+            return grafico_area(array_map(fn($h) => sprintf('%02dh', $h), $horas), [['Faturamento', '#1D6FF2', $serie($d['acF'])], ['Investimento', '#D97706', $serie($d['acG'])], ['Lucro', '#16A34A', $serie($d['acL'])]], 'Faturamento, investimento e lucro acumulados por hora');
     }
     return '';
-}
-
-// Lucro de cada hora (nao acumulado): barra verde para cima, vermelha para baixo
-function painel_svg_lucro_hora(array $porHora): string
-{
-    $L = 1400; $A = 200; $esq = 10; $baixo = 22; $cima = 16;
-    $max = max(1, ...array_map('abs', array_values($porHora) ?: [0]));
-    $meio = $cima + ($A - $cima - $baixo) / 2;
-    $metade = ($A - $cima - $baixo) / 2;
-    $larg = ($L - 2 * $esq) / 24;
-    $svg = '<svg class="grafico" viewBox="0 0 ' . $L . ' ' . $A . '" role="img" aria-label="Lucro por horário">'
-        . '<line x1="' . $esq . '" x2="' . ($L - $esq) . '" y1="' . round($meio, 1) . '" y2="' . round($meio, 1) . '" class="grade-l"></line>';
-    for ($h = 0; $h < 24; $h++) {
-        $v = (int)($porHora[$h] ?? 0);
-        $x = $esq + $h * $larg;
-        if ($v) {
-            $alt = abs($v) * $metade / $max;
-            $y = $v > 0 ? $meio - $alt : $meio;
-            $svg .= '<g class="dia-graf"' . dica_attr(sprintf('%02dh às %02dh', $h, ($h + 1) % 24), ['Lucro ' . reais($v)]) . '>'
-                . '<rect class="vela-alvo" x="' . round($x, 1) . '" y="0" width="' . round($larg, 1) . '" height="' . ($A - $baixo) . '"></rect>'
-                . '<rect x="' . round($x + 6, 1) . '" y="' . round($y, 1) . '" width="' . round($larg - 12, 1) . '" height="' . round(max(1, $alt), 1) . '" rx="3" class="' . ($v > 0 ? 'barra-ok' : 'barra-ruim') . '"></rect></g>';
-        }
-        $svg .= '<text x="' . round($x + $larg / 2, 1) . '" y="' . ($A - 6) . '" text-anchor="middle">' . sprintf('%02d', $h) . '</text>';
-    }
-    return $svg . '</svg>';
 }

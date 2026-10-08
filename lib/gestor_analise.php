@@ -72,7 +72,7 @@ function analise_svg_velas(array $velas): string
     if (!$n) {
         return '<p class="suave">Sem gasto nem venda desde o início para desenhar.</p>';
     }
-    $L = 720; $A = 230; $esq = 34; $dir = 8; $cima = 10; $baixo = 24;
+    $L = 720; $A = 236; $esq = 34; $dir = 8; $cima = 10; $baixo = 30;
     $todos = array_merge(array_column($velas, 3), array_column($velas, 4));
     $hi = min(8.0, max(2.5, max($todos) * 1.05));
     $lo = max(-1.0, min(0.0, min($todos) * 1.05));
@@ -87,7 +87,7 @@ function analise_svg_velas(array $velas): string
         $svg .= '<line x1="' . $esq . '" x2="' . ($L - $dir) . '" y1="' . $y($ref) . '" y2="' . $y($ref) . '" class="' . ($ref === 1 ? 'ref-1' : ($ref === 2 ? 'ref-2' : 'grade-l')) . '"></line>'
             . '<text x="' . ($esq - 6) . '" y="' . ($y($ref) + 4) . '" text-anchor="end">' . $ref . '</text>';
     }
-    $cada = (int)ceil($n / 8);
+    $rotulos = analise_rotulos_x($n);
     foreach ($velas as $i => [$dia, $abre, $fecha, $max, $min, $roiDia, $m, $primeira]) {
         $x = $esq + $passo * ($i + 0.5);
         $sobe = $fecha >= $abre;
@@ -99,17 +99,36 @@ function analise_svg_velas(array $velas): string
             . '<rect class="vela-alvo" x="' . round($x - $passo / 2, 1) . '" y="0" width="' . round($passo, 1) . '" height="' . ($A - $baixo) . '"></rect>'
             . '<line x1="' . round($x, 1) . '" x2="' . round($x, 1) . '" y1="' . $y($max) . '" y2="' . $y($min) . '"></line>'
             . '<rect x="' . round($x - $larg / 2, 1) . '" y="' . $topo . '" width="' . round($larg, 1) . '" height="' . round($alt, 1) . '" rx="1"></rect></g>';
-        if ($i % $cada === 0 || $i === $n - 1) {
-            $svg .= '<text x="' . round($x, 1) . '" y="' . ($A - 6) . '" text-anchor="middle">' . e((new DateTime($dia))->format('d/m')) . '</text>';
+        if (isset($rotulos[$i])) {
+            $svg .= analise_rotulo_x($rotulos[$i], $x, $A - 6, (new DateTime($dia))->format('d/m'));
         }
     }
     return $svg . '</svg>';
 }
 
+// Quais dias levam a data no eixo: ate 6, espalhados por igual, com o primeiro e o ultimo. [indice => posicao (0, 1, ...)]
+function analise_rotulos_x(int $n): array
+{
+    $m = min($n, 6);
+    $saida = [];
+    for ($k = 0; $k < $m; $k++) {
+        $i = $m === 1 ? 0 : (int)round($k * ($n - 1) / ($m - 1));
+        $saida[$i] = $saida[$i] ?? ($k === 0 ? 'ini' : ($k === $m - 1 ? 'fim' : ($k % 2 ? 'opc' : 'meio')));
+    }
+    return $saida;
+}
+
+// A data no eixo: a primeira encostada na esquerda, a ultima na direita; as "opc" somem no celular
+function analise_rotulo_x(string $tipo, float $x, float $y, string $texto): string
+{
+    $ancora = ['ini' => 'start', 'fim' => 'end'][$tipo] ?? 'middle';
+    return '<text x="' . round($x, 1) . '" y="' . $y . '" text-anchor="' . $ancora . '"' . ($tipo === 'opc' ? ' class="x-opc"' : '') . '>' . e($texto) . '</text>';
+}
+
 // Compradores (barras) e ROI do dia (linha), no periodo da tela
 function analise_svg_compradores(array $linhas, float $pct): string
 {
-    $L = 720; $A = 200; $esq = 26; $dir = 34; $cima = 12; $baixo = 24;
+    $L = 720; $A = 206; $esq = 36; $dir = 34; $cima = 12; $baixo = 30;
     $n = count($linhas);
     if (!$n) {
         return '';
@@ -132,7 +151,7 @@ function analise_svg_compradores(array $linhas, float $pct): string
         . ($hiR >= 2 ? '<line x1="' . $esq . '" x2="' . ($L - $dir) . '" y1="' . $yR(2) . '" y2="' . $yR(2) . '" class="ref-2"></line><text x="' . ($L - $dir + 6) . '" y="' . ($yR(2) + 4) . '">2</text>' : '')
         . '<text x="' . ($esq - 6) . '" y="' . ($yV($maxV) + 4) . '" text-anchor="end">' . $maxV . '</text>';
     $pontos = [];
-    $cada = (int)ceil($n / 10);
+    $rotulos = analise_rotulos_x($n);
     $i = 0;
     foreach ($dias as $dia => $m) {
         $x = $esq + $passo * ($i + 0.5);
@@ -144,8 +163,8 @@ function analise_svg_compradores(array $linhas, float $pct): string
         if ($m['roi'] !== null) {
             $pontos[] = round($x, 1) . ',' . $yR($m['roi']);
         }
-        if ($i % $cada === 0 || $i === $n - 1) {
-            $svg .= '<text x="' . round($x, 1) . '" y="' . ($A - 6) . '" text-anchor="middle">' . e((new DateTime($dia))->format('d/m')) . '</text>';
+        if (isset($rotulos[$i])) {
+            $svg .= analise_rotulo_x($rotulos[$i], $x, $A - 6, (new DateTime($dia))->format('d/m'));
         }
         $i++;
     }
