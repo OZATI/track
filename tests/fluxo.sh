@@ -1301,7 +1301,7 @@ confere "$(tem 'aba=geral&periodo=tudo&montar=1$' "$destino")" "endereço antigo
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&montar=1")
 confere "$(tem 'data-painel-editar data-painel-colunas="12"' "$r")" "montar o Resumo numa grade de 12 colunas"
 confere "$(tem 'class="conta-icone lapis-tela atual"' "$r")" "lápis aceso enquanto monta (sair da edição)"
-confere "$(tem 'Você está montando o Resumo para:' "$r")" "barra de edição diz qual tela"
+confere "$(tem 'Você está montando o Resumo<span class="painel-barra-pc">para:</span><span class="painel-barra-cel">no celular</span>' "$r")" "barra de edição diz qual tela (no celular, só o celular)"
 confere "$(tem 'Blocos disponíveis' "$r")" "biblioteca de blocos no modo de montar"
 confere "$(tem 'gridstack.js?v=' "$r")" "montar carrega o GridStack"
 confere "$(tem '<template data-painel-modelo="Visitors">' "$r")" "modelo de cada bloco para arrastar"
@@ -1335,6 +1335,11 @@ confere "$(tem 'data-tipo="NetRevenue"' "$r")" "voltar ao padrão"
 r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo")
 confere "$(tem 'class="painel-grade" data-grade="financeiro"' "$r")" "Financeiro montado na grade"
 confere "$(tem 'data-tipo="CashFlowTable"' "$r")" "fluxo de caixa num bloco"
+confere "$(tem 'DRE · Resultado da empresa' "$r")" "o módulo financeiro se chama DRE na tela"
+confere "$(tem 'class="painel-item" style="--c:1;--r:1;--w:7;--h:4;[^"]*"><div class="pw pw-grafico" data-tipo="IncomeStatement"' "$r")" "DRE do período é o primeiro bloco do padrão"
+dre=$(sem_tags "$r")
+confere "$(tem 'Receita brutaR$ 290,39.*(−) Taxas da plataforma− R\$ 21,39.*(=) Receita líquidaR$ 269,00100,0%.*(−) Anúncios− R\$ 60,00.*(−) Imposto sobre os anúncios− R\$ 7,29.*(=) Resultado do períodoR$ 201,71' "$(printf '%s' "$dre" | tr -d '\n')")" "DRE: receita bruta − taxas = líquida − anúncios − imposto − despesas = resultado"
+confere "$(tem 'Margem do resultado.*75,0%' "$(printf '%s' "$dre" | tr -d '\n')")" "DRE: margem do resultado sobre a receita líquida"
 confere "$(tem 'data-tipo="CashRoiGauge"' "$r")" "ROI do caixa no mostrador"
 confere "$(tem 'class="conta-icone lapis-tela" href="financeiro.php?periodo=tudo&amp;montar=1"' "$r")" "lápis na barra lateral monta o Financeiro"
 confere "$(tem '<form class="filtros" method="get" action="financeiro.php" id="filtros"><div class="campo campo-periodo" data-periodo-campo' "$r")" "Financeiro com o seletor de período do UTM"
@@ -1346,7 +1351,7 @@ r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo&montar=1")
 confere "$(tem 'name="tela" value="financeiro"' "$r")" "montar o Financeiro grava a tela do Financeiro"
 confere "$(grep -q 'data-tabela="despesas"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "montando, o cadastro de despesas sai da frente"
 r=$(salvar "$cp" financeiro computador 'financeiro.php?periodo=tudo' '[{"tipo":"Balance","x":0,"y":0,"w":3,"h":1}]' 'financeiro.php?periodo=tudo')
-confere "$(tem 'O Financeiro salvo (computador, 1 bloco)' "$r")" "salvar o Financeiro"
+confere "$(tem 'O DRE salvo (computador, 1 bloco)' "$r")" "salvar o DRE (o módulo financeiro)"
 confere "$(grep -q 'data-tipo="CashIn"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro salvo só com o saldo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'data-tipo="NetRevenue"' "$r")" "cada tela com o seu layout (o Resumo não mudou)"
@@ -1356,7 +1361,7 @@ confere "$(tem 'data-tipo="CashIn"' "$r")" "Financeiro de volta ao padrão"
 
 echo "Painel da Bio"
 r=$(curl -s -b "$JAR" "$URL/bio.php?periodo=tudo")
-confere "$(tem 'Bio · Página de links' "$r")" "tela da Bio abre"
+confere "$(tem 'BIO · Página de links' "$r")" "tela da Bio abre (com a sigla BIO)"
 confere "$(tem 'href="bio.php"[^>]*title="BIO: a página de links do Instagram"' "$r")" "BIO na barra lateral"
 confere "$(tem 'Visitas da Bio' "$(sem_tags "$r")")" "Bio: cartões de visitas, cliques, taxa e link campeão"
 cb=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')

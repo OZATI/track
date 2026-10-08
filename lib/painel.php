@@ -63,11 +63,11 @@ function resumo_blocos(): array
         'NetRevenue' => ['Faturamento líquido', 'geral', 'numero', 'O que a Kiwify repassa (depois das taxas) das vendas aprovadas no período, com order bump. A seta compara com o período anterior do mesmo tamanho.', $num, 'carteira'],
         'GrossRevenue' => ['Faturamento bruto', 'geral', 'numero', 'Valor cobrado do comprador nas vendas aprovadas, antes das taxas da Kiwify, com order bump. Bruto − taxas = o faturamento líquido, que é a base do lucro e do ROI.', $num, 'carteira'],
         'Spend' => ['Gasto com anúncios', 'geral', 'numero', 'Quanto a Meta cobrou pelos anúncios no período, sem o imposto.', $num, 'meta'],
-        'Roi' => ['ROI geral', 'geral', 'numero', '(Faturamento líquido − imposto da Meta) ÷ gasto, a conta da UTMify e do gestor, com todas as vendas aprovadas (anúncio, orgânico e direto). Vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima. O ROI com as outras despesas da empresa fica no Financeiro.', $pequeno, 'grafico'],
+        'Roi' => ['ROI geral', 'geral', 'numero', '(Faturamento líquido − imposto da Meta) ÷ gasto, a conta da UTMify e do gestor, com todas as vendas aprovadas (anúncio, orgânico e direto). Vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima. O ROI com as outras despesas da empresa fica no DRE.', $pequeno, 'grafico'],
         'RoiTracked' => ['ROI rastreado', 'geral', 'numero', 'Só as vendas com o ID de uma campanha da Meta: (faturamento delas − imposto) ÷ gasto. A diferença para o ROI geral é o retorno que veio de orgânico, direto ou venda sem etiqueta.', $pequeno, 'grafico'],
         'Roas' => ['ROAS', 'geral', 'numero', 'Faturamento líquido ÷ gasto, sem o imposto (o retorno sobre o gasto que a Meta mostra; a mesma conta da coluna do gestor).', $pequeno, 'grafico'],
         'Profit' => ['Lucro', 'geral', 'numero', 'Faturamento líquido − gasto − imposto da Meta (' . $p . ' sobre o gasto).', $num, 'vendas'],
-        'NetProfit' => ['Lucro depois das despesas', 'geral', 'numero', 'Lucro − as outras despesas da empresa no período (as do Financeiro). É o saldo do Financeiro.', $num, 'vendas'],
+        'NetProfit' => ['Lucro depois das despesas', 'geral', 'numero', 'Lucro − as outras despesas da empresa no período (as do DRE). É o resultado do DRE.', $num, 'vendas'],
         'ProfitMargin' => ['Margem', 'geral', 'numero', 'Lucro ÷ (faturamento líquido − imposto da Meta), como na UTMify e na planilha: quanto de cada real que voltou sobra.', $pequeno, 'atividade'],
         'Cpa' => ['CPA', 'geral', 'numero', 'Gasto ÷ vendas aprovadas. Order bump não conta como outra venda.', $pequeno, 'campanha'],
         'Arpu' => ['Ticket médio', 'geral', 'numero', 'Faturamento líquido ÷ vendas aprovadas (quanto cada comprador deixa, com order bump). Na UTMify, ARPU. O painel não guarda quem comprou (LGPD), então conta por venda.', $pequeno, 'usuario'],
@@ -77,7 +77,7 @@ function resumo_blocos(): array
         'SalesChargeback' => ['Chargebacks', 'geral', 'numero', 'Contestações no cartão no período, no valor cobrado.', $num, 'restaurar'],
         'RefundRate' => ['Taxa de reembolso', 'geral', 'numero', 'Vendas reembolsadas ÷ (aprovadas + reembolsadas e chargebacks) no período.', $pequeno, 'restaurar'],
         'ChargebackRate' => ['Taxa de chargeback', 'geral', 'numero', 'Chargebacks ÷ (aprovadas + reembolsadas e chargebacks) no período.', $pequeno, 'restaurar'],
-        'CustomSpendings' => ['Outras despesas', 'geral', 'numero', 'Despesas da empresa cadastradas no Financeiro que caem no período (as pausadas não contam).', $num, 'lista'],
+        'CustomSpendings' => ['Outras despesas', 'geral', 'numero', 'Despesas da empresa cadastradas no DRE que caem no período (as pausadas não contam).', $num, 'lista'],
         // Graficos
         'RevenueByDay' => ['Faturamento × investimento por dia', 'graficos', 'grafico', 'Faturamento líquido das vendas aprovadas e o investimento (gasto na Meta + imposto) em cada dia do período. Período de um dia: hora a hora. Mais de 3 meses: mês a mês.', $graf, 'grafico'],
         'ProfitByDay' => ['Lucro por dia', 'graficos', 'grafico', 'Faturamento líquido − gasto − imposto da Meta em cada dia do período: verde ganhou, vermelho perdeu. Período de um dia: hora a hora.', $graf, 'vendas'],
@@ -126,7 +126,7 @@ function resumo_fontes(): array
     $f = [
         'meta' => [(bool)meta_api_chave(), 'Conecte a conta de anúncios', 'meta-api.php', 'API Meta'],
         'site' => [(bool)$db->query('SELECT 1 FROM eventos LIMIT 1')->fetchColumn(), 'Ponha o t.js nas páginas', '', 't.js nas páginas'],
-        'financeiro' => [(bool)$db->query('SELECT 1 FROM gastos LIMIT 1')->fetchColumn(), 'Cadastre as despesas', usuario_pode('financeiro') ? 'financeiro.php' : '', 'despesas do Financeiro'],
+        'financeiro' => [(bool)$db->query('SELECT 1 FROM gastos LIMIT 1')->fetchColumn(), 'Cadastre as despesas', usuario_pode('financeiro') ? 'financeiro.php' : '', 'despesas do DRE'],
         'vsl' => [(bool)$db->query("SELECT 1 FROM eventos WHERE nome = 'VSL_Play' LIMIT 1")->fetchColumn(), 'Mande os eventos da VSL pelo t.js', '', 'eventos da VSL'],
     ];
     return $f;

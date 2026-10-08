@@ -313,7 +313,7 @@ function grade_render(array $tela, array $ctx): void
     echo '<form class="painel-barra" method="post" action="' . e(admin_base()) . 'painel-salvar.php" data-painel-form data-recarrega>'
         . '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="tela" value="' . e($tela['id']) . '"><input type="hidden" name="aparelho" value="' . e($aparelho) . '">'
         . '<input type="hidden" name="volta" value="' . e($aqui) . '"><input type="hidden" name="layout" value="">'
-        . '<span class="painel-barra-txt">' . icone('lapis', 15) . 'Você está montando ' . e($tela['titulo']) . ' para:</span>'
+        . '<span class="painel-barra-txt">' . icone('lapis', 15) . 'Você está montando ' . e($tela['titulo']) . '<span class="painel-barra-pc">para:</span><span class="painel-barra-cel">no celular</span></span>'
         . '<span class="segmentos">' . $trocar('computador', 'Computador', 'colunas') . $trocar('celular', 'Celular', 'anuncio') . '</span>'
         . '<span class="painel-barra-acoes"><button type="button" class="discreto neutro" data-painel-padrao>' . icone('restaurar', 14) . 'Voltar ao padrão</button>'
         . '<a class="botao discreto neutro" href="' . e($aqui) . '" data-recarrega data-painel-cancelar>Cancelar</a><button type="submit">' . icone('ok', 14) . 'Salvar</button></span></form>';

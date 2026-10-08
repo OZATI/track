@@ -17,11 +17,11 @@ header('Cache-Control: no-store');
 $periodo = periodo_da_tela('mes'); // o mesmo seletor e o mesmo periodo lembrado do UTM
 $db = track_db();
 
-pagina_inicio('Financeiro');
+pagina_inicio('DRE');
 grade_lapis('financeiro'); // o caixa e montavel: o lapis aparece na barra lateral
 casca_inicio('financeiro');
 barra_periodo('financeiro.php', $periodo);
-echo '<nav class="abas abas-nucleo" aria-label="Financeiro"><span class="abas-titulo">Financeiro · Caixa da empresa</span>'
+echo '<nav class="abas abas-nucleo" aria-label="DRE"><span class="abas-titulo">DRE · Resultado da empresa</span>'
     . '<a href="financeiro.php" class="atual" aria-current="page">' . icone('carteira') . 'Caixa e despesas</a></nav>';
 echo '<main>';
 financeiro_render($db, $periodo);

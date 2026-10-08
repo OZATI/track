@@ -94,7 +94,7 @@ button.discreto.neutro{ color:var(--texto); }
 .sel-op[aria-selected=true]{ color:var(--marca); font-weight:600; }
 .sel-op[aria-selected=true]::after{ content:""; margin-left:auto; width:6px; height:11px; border:solid var(--marca); border-width:0 2px 2px 0; transform:rotate(45deg) translate(-2px,-1px); }
 .sel-op[aria-disabled=true]{ color:var(--apagado); cursor:default; }
-.sel-fundo{ position:fixed; inset:0; z-index:44; background:rgba(15,23,42,.45); }
+.sel-fundo{ position:fixed; inset:0; z-index:44; background:rgba(0,0,0,.5); }
 .sel-painel.folha, .periodo-painel.folha{ position:fixed; left:0; right:0; bottom:0; top:auto; width:auto; max-width:none; max-height:75vh; border-radius:16px 16px 0 0; padding:10px 10px calc(12px + env(safe-area-inset-bottom)); }
 .sel-painel.folha .sel-op{ padding:13px 14px; font-size:15px; }
 /* Periodo: prontos a esquerda e o calendario a direita (no celular, um embaixo do outro) */
@@ -151,7 +151,7 @@ label.acesso{ display:inline-flex !important; flex-direction:row !important; ali
 .navegando main::after{ content:""; position:absolute; inset:0; background:linear-gradient(100deg, transparent 35%, color-mix(in srgb, var(--cartao) 75%, transparent) 50%, transparent 65%); background-size:250% 100%; animation:brilho 1.2s linear infinite; pointer-events:none; }
 @keyframes navegando{ from{ transform:translateX(-100%); } to{ transform:translateX(250%); } }
 @keyframes brilho{ from{ background-position:120% 0; } to{ background-position:-120% 0; } }
-main{ animation:entrar .32s cubic-bezier(.2,.7,.2,1) both; }
+main{ animation:entrar .32s cubic-bezier(.2,.7,.2,1) backwards; } /* backwards: some ao terminar (com "both" o main prendia as folhas fixas) */
 .fica main{ animation:none; }
 @keyframes entrar{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
 @media (prefers-reduced-motion:reduce){ .navegando body::after{ animation:none; width:100%; opacity:.6; } .navegando main::after, main{ animation:none; } }
@@ -352,6 +352,8 @@ td.quebra{ white-space:normal; min-width:220px; }
 .painel-barra-txt{ display:inline-flex; align-items:center; gap:6px; font-weight:500; }
 .painel-barra .segmentos a{ display:inline-flex; align-items:center; gap:6px; }
 .painel-barra-acoes{ display:inline-flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
+.painel-barra-cel{ display:none; }
+@media (max-width:640px){ .painel-barra .segmentos, .painel-barra-pc{ display:none; } .painel-barra-cel{ display:inline; } }
 .painel-dica{ margin:0 0 12px; font-size:12px; }
 .painel-edicao{ display:grid; grid-template-columns:260px minmax(0, 1fr); gap:16px; align-items:start; }
 .painel-biblioteca{ position:sticky; top:72px; max-height:calc(100vh - 90px); overflow:auto; padding:12px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); }
@@ -395,6 +397,18 @@ td.quebra{ white-space:normal; min-width:220px; }
   .grafico.velas text, .grafico.compradores text{ font-size:24px; }
   .grafico .x-opc{ display:none; }
 }
+/* DRE do periodo (lib/financeiro.php): subtotais em negrito, o resultado com a linha em cima e a seta
+   ao lado do valor (no celular, embaixo) */
+.dre td, .dre th{ padding:7px 12px; }
+.dre .dre-valor{ white-space:nowrap; font-variant-numeric:tabular-nums; }
+.dre .dre-valor .delta{ margin-left:8px; }
+.dre .dre-subtotal td, .dre .dre-resultado td{ font-weight:600; }
+.tabela .dre tr.dre-subtotal > td, .tabela .dre tr.dre-subtotal > td.nome{ background:var(--cartao-2); }
+.dre .dre-resultado td{ border-top:2px solid var(--linha-forte); }
+.dre .dre-deducao td.nome{ padding-left:20px; }
+.dre-margem{ display:flex; align-items:center; gap:6px; margin:10px 0 0; color:var(--suave); font-size:13px; }
+.dre-margem b{ font-size:15px; }
+@media (max-width:767px){ .dre td, .dre th{ padding:6px 8px; } .dre .dre-deducao td.nome{ padding-left:12px; } .dre .dre-valor .delta{ display:block; margin:1px 0 0; } }
 /* Lapis da barra lateral (lib/grade.php): aceso enquanto a tela esta sendo montada */
 .lateral .lapis-tela.atual{ background:var(--marca-fundo); color:#fff; }
 /* Numero do bloco: o valor, a seta contra o periodo anterior e a linhazinha do periodo */

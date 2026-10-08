@@ -675,6 +675,22 @@
   // da biblioteca entram arrastando, o X (ou arrastar de volta para a lista) tira, e o layout vai no formulario de
   // Salvar. Esc cancela, Ctrl+S salva; sair com mudanca sem salvar pergunta antes.
   var pEd = document.querySelector('[data-painel-editar]');
+  // No celular so se monta o layout do celular: o lapis ja leva aparelho=celular e, sem ele no
+  // endereco, a tela troca sozinha (nunca monta o do computador sem saber)
+  var pCel = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+  if (pCel) {
+    Array.prototype.forEach.call(document.querySelectorAll('a.lapis-tela:not(.atual)'), function (a) {
+      var u = new URL(a.href, location.href);
+      u.searchParams.set('aparelho', 'celular');
+      a.href = u.href;
+    });
+  }
+  if (pEd && pCel && new URL(location.href).searchParams.get('aparelho') !== 'celular') {
+    var pU = new URL(location.href);
+    pU.searchParams.set('aparelho', 'celular');
+    location.replace(pU.href);
+    pEd = null;
+  }
   if (pEd && window.GridStack) {
     var pForm = document.querySelector('[data-painel-form]');
     var pGradeEl = pEd.querySelector('.grid-stack');

@@ -59,10 +59,10 @@ $csrf = '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '">';
 $pct = fn(int $a, int $b) => $b ? $a * 100 / $b : null;
 $num = fn(float $v, int $c = 1) => number_format($v, $c, ',', '.');
 
-pagina_inicio('Bio');
+pagina_inicio('BIO');
 casca_inicio('bio');
 barra_periodo('bio.php', $periodo);
-echo '<nav class="abas abas-nucleo" aria-label="Bio"><span class="abas-titulo">Bio · Página de links</span>'
+echo '<nav class="abas abas-nucleo" aria-label="BIO"><span class="abas-titulo">BIO · Página de links</span>'
     . '<a href="bio.php" class="atual" aria-current="page">' . icone('link') . 'Links</a>'
     . ($cfg['endereco'] !== '' ? '<a href="' . e($cfg['endereco']) . '" target="_blank" rel="noopener">' . icone('externo') . 'Ver a página</a>' : '')
     . '</nav>';
