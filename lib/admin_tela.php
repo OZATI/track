@@ -121,11 +121,11 @@ function admin_css_base(): string
 .casca{ display:flex; min-height:100vh; }
 .conteudo{ flex:1; min-width:0; }
 /* Barra lateral do admin: os paineis em cima e a conta embaixo (no celular, uma linha no alto) */
-.lateral{ width:72px; flex:none; z-index:20; background:var(--lateral); display:flex; flex-direction:column; align-items:center; padding:12px 0; position:sticky; top:0; height:100vh; color:#9CA3AF; }
+.lateral{ width:80px; flex:none; z-index:20; background:var(--lateral); display:flex; flex-direction:column; align-items:center; padding:12px 0; position:sticky; top:0; height:100vh; color:#9CA3AF; }
 .lateral-alterna{ display:none; }
 .lateral-itens{ flex:1; min-height:0; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:space-between; }
 .lateral-paineis, .lateral-conta{ display:flex; flex-direction:column; align-items:center; gap:4px; }
-.lateral-paineis a{ width:64px; padding:8px 0 6px; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center; gap:3px; color:#AEB4BF; font-size:11.5px; font-weight:500; }
+.lateral-paineis a{ width:72px; padding:8px 0 6px; border-radius:var(--r-sm); display:flex; flex-direction:column; align-items:center; gap:3px; color:#AEB4BF; font-size:10.5px; font-weight:600; letter-spacing:.02em; text-transform:uppercase; }
 .lateral-paineis a:hover{ background:rgba(255,255,255,.06); color:#fff; text-decoration:none; }
 .lateral-paineis a.atual{ background:rgba(255,255,255,.1); color:#fff; }
 .lateral-paineis svg{ width:20px; height:20px; }
@@ -194,13 +194,13 @@ function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms =
     if (usuario_pode('utm')) {
         $paineis['utm'] = ['UTM', $utm === '' ? './' : $utm, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>'];
     }
-    // Financeiro: o caixa da empresa (financeiro.php, dentro da pasta do painel)
+    // DRE (acesso "financeiro"): o resultado da empresa no periodo (financeiro.php, dentro da pasta do painel)
     if (usuario_pode('financeiro')) {
-        $paineis['financeiro'] = ['Financeiro', $utm . 'financeiro.php', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M16 12.5h2"/><path d="M2 10h20"/></svg>'];
+        $paineis['financeiro'] = ['DRE', $utm . 'financeiro.php', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M16 12.5h2"/><path d="M2 10h20"/></svg>'];
     }
     // Bio: a pagina de links do Instagram (bio.php, dentro da pasta do painel)
     if (usuario_pode('bio')) {
-        $paineis['bio'] = ['Bio', $utm . 'bio.php', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>'];
+        $paineis['bio'] = ['BIO', $utm . 'bio.php', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>'];
     }
     // Integracoes: as contas de fora (anuncios, vendas, organico), com o clipe (integracoes.php)
     if (usuario_pode('integracoes')) {
@@ -212,8 +212,11 @@ function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms =
         . '<button type="button" class="lateral-alterna" data-lateral-alterna aria-expanded="false" aria-controls="lateral-itens" aria-label="Abrir o menu do admin">'
         . $atual[2] . '<b>' . e($atual[0]) . '</b>' . avatar_html($u, 26, $utm) . '<svg class="seta" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>'
         . '<div class="lateral-itens" id="lateral-itens"><div class="lateral-paineis">';
+    // Dica com o nome por extenso (os rotulos sao siglas em maiusculas)
+    $dicas = ['cms' => 'CMS: conteúdo do site', 'utm' => 'UTM: rastreio de vendas e anúncios', 'financeiro' => 'DRE: resultado da empresa (receita, anúncios, despesas e lucro)',
+        'bio' => 'BIO: a página de links do Instagram', 'integracoes' => 'Integrações: contas de anúncio, de vendas e do Instagram'];
     foreach ($paineis as $k => [$rot, $href, $ico]) {
-        $h .= '<a href="' . e($href) . '"' . ($k === $aqui ? ' class="atual" aria-current="page"' : '') . ' title="' . e($rot) . '">' . $ico . '<span>' . e($rot) . '</span></a>';
+        $h .= '<a href="' . e($href) . '"' . ($k === $aqui ? ' class="atual" aria-current="page"' : '') . ' title="' . e($dicas[$k] ?? $rot) . '">' . $ico . '<span>' . e($rot) . '</span></a>';
     }
     $aquiUrl = destino_seguro((string)($_SERVER['REQUEST_URI'] ?? ''));
     $h .= '</div><div class="lateral-conta">';

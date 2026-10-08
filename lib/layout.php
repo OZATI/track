@@ -659,6 +659,10 @@ th[aria-sort=descending] > button.ordena::after{ content:" ↓"; }
 .multi-painel{ position:absolute; z-index:45; left:0; top:calc(100% + 4px); min-width:100%; width:max-content; max-width:min(380px, calc(100vw - 24px)); max-height:60vh; overflow:auto; padding:5px; background:var(--cartao); border:1px solid var(--linha-forte); border-radius:10px; box-shadow:0 12px 32px var(--sombra); color:var(--texto); font-size:13px; }
 .multi-painel label{ display:flex; flex-direction:row; align-items:center; gap:8px; padding:6px 8px; border-radius:var(--r-sm); color:var(--texto); font-size:13px; cursor:pointer; }
 .multi-painel label:hover{ background:var(--hover); }
+/* A caixa ao lado do nome, alinhada a esquerda, em qualquer tela: o .resumo-filtros label (coluna)
+   vinha depois e passava por cima (pedido do Kenio, 07/10) */
+.sel-painel.multi-painel label, .resumo-filtros .multi-painel label, .multi-painel label{ flex-direction:row; align-items:center; justify-content:flex-start; text-align:left; min-width:0; flex:none; gap:10px; color:var(--texto); }
+.multi-painel label input{ flex:none; margin:0; }
 .multi-painel .multi-todos{ font-weight:600; border-bottom:1px solid var(--linha); border-radius:var(--r-sm) var(--r-sm) 0 0; margin-bottom:4px; padding-bottom:9px; }
 .sel-multi .multi-painel{ max-height:60vh; }
 .tabela.gestor a.ordena{ color:inherit; } .tabela.gestor a.ordena.atual{ color:var(--texto); font-weight:600; }

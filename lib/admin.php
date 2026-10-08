@@ -9,11 +9,11 @@
 // TRACK_BASE (o caminho ate a pasta do painel, ex.: '../utm/') e inclui a tela daqui. Sem essas
 // pastas (painel avulso), elas ficam no proprio painel: conta.php e usuarios.php.
 
-// O que cada usuario pode abrir no admin: os paineis (UTM, Financeiro, a Bio e, quando o painel mora num
+// O que cada usuario pode abrir no admin: os paineis (UTM, DRE, a BIO e, quando o painel mora num
 // admin com CMS, o CMS), "usuarios" (dar e tirar acessos) e "integracoes" (ligar as contas de fora:
 // Meta, Google, Kiwify, Instagram). Fica em $cfg['acessos'][usuario]; usuario sem a lista (os de
 // antes) pode tudo.
-const TRACK_ACESSOS = ['cms' => 'CMS', 'utm' => 'UTM', 'usuarios' => 'Usuários', 'bio' => 'Bio', 'financeiro' => 'Financeiro', 'integracoes' => 'Integrações'];
+const TRACK_ACESSOS = ['cms' => 'CMS', 'utm' => 'UTM', 'usuarios' => 'Usuários', 'bio' => 'BIO', 'financeiro' => 'DRE', 'integracoes' => 'Integrações'];
 
 // Acesso novo para quem ja tinha o que ele substitui. Ate 07/10/2026 as chaves (API Kiwify, Meta e
 // Instagram) abriam com o acesso UTM; agora ficam em Integracoes. Quem tinha UTM numa lista propria

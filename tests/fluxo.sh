@@ -176,7 +176,7 @@ confere "$(tem '<option value="tudo" selected>' "$r3")" "abrir Configurações e
 r3=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo&dominio=&pagina=")
 confere "$(grep -q '<option value="site.test" selected>' < <(printf '%s\n' "$r3"); [ $? -ne 0 ]; echo $?)" "Todos os sites limpa o site lembrado"
 confere "$(tem 'class="lateral"' "$r")" "barra lateral CMS | UTM aparece quando há link do CMS"
-confere "$(tem 'href="../" title="CMS"' "$r")" "ícone CMS aponta para o link configurado"
+confere "$(tem 'href="../" title="CMS: conteúdo do site"' "$r")" "ícone CMS aponta para o link configurado"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=resumo&periodo=tudo")
 confere "$(tem 'Vendas em que os dados batem' "$(sem_tags "$r")")" "tela de conferência abre"
 confere "$(tem '>1 (50%)<' "$r")" "uma venda bate e a outra fica sem visitante (50%)"
@@ -427,7 +427,7 @@ echo "Integrações"
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/integracoes.php")
 confere "$(tem 'entrar.php' "$destino")" "Integrações exige login"
 r=$(curl -s -b "$JAR" "$URL/integracoes.php")
-confere "$(tem 'title="Integrações"' "$r")" "Integrações aparece na barra lateral"
+confere "$(tem 'title="Integrações: contas de anúncio, de vendas e do Instagram"><svg' "$r")" "Integrações aparece na barra lateral, com a dica por extenso"
 confere "$(tem '<a href="integracoes.php?aba=anuncios" class="atual" aria-current="page">' "$r")" "Integrações abre na aba Anúncios"
 confere "$(tem 'data-integracao="meta"><a href="meta-api.php">' "$r")" "o cartão da Meta Ads leva à tela dela"
 confere "$(tem 'DRIVE DE PROJETOS · 587364236934346' "$r")" "o cartão da Meta Ads mostra a conta conectada"
@@ -824,7 +824,8 @@ confere "$(tem 'Orgânico <b>1</b>' "$r")" "Resumo: gráfico das vendas fora de 
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$JAR" "$URL/index.php?aba=financeiro&periodo=tudo")
 confere "$(tem 'financeiro.php?periodo=tudo$' "$destino")" "endereço antigo do Financeiro leva para o módulo ($destino)"
 r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo")
-confere "$(tem 'href="financeiro.php" class="atual" aria-current="page" title="Financeiro"' "$r")" "Financeiro na barra lateral, como módulo próprio"
+confere "$(tem 'href="financeiro.php" class="atual" aria-current="page" title="DRE: resultado da empresa (receita, anúncios, despesas e lucro)">' "$r")" "DRE (o antigo Financeiro) na barra lateral, como módulo próprio"
+confere "$(tem '<span>DRE</span></a>' "$r")" "barra lateral com a sigla DRE"
 confere "$(grep -q 'href="./?aba=financeiro' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro fora das abas do UTM"
 confere "$(tem 'EntradasR$ 202,00' "$(sem_tags "$r")")" "Financeiro: entradas (todas as vendas aprovadas, líquido)"
 confere "$(tem 'AnúnciosR$ 67,29' "$(sem_tags "$r")")" "Financeiro: anúncios com o imposto da Meta"
@@ -1356,7 +1357,7 @@ confere "$(tem 'data-tipo="CashIn"' "$r")" "Financeiro de volta ao padrão"
 echo "Painel da Bio"
 r=$(curl -s -b "$JAR" "$URL/bio.php?periodo=tudo")
 confere "$(tem 'Bio · Página de links' "$r")" "tela da Bio abre"
-confere "$(tem 'href="bio.php"[^>]*title="Bio"' "$r")" "Bio na barra lateral"
+confere "$(tem 'href="bio.php"[^>]*title="BIO: a página de links do Instagram"' "$r")" "BIO na barra lateral"
 confere "$(tem 'Visitas da Bio' "$(sem_tags "$r")")" "Bio: cartões de visitas, cliques, taxa e link campeão"
 cb=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
 bio() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cb" "$@" "$URL/bio.php?periodo=tudo"; curl -s -b "$JAR" "$URL/bio.php?periodo=tudo"; }
@@ -1413,6 +1414,12 @@ confere "$(tem '<details class="ajuda-tabela"><summary>' "$r")" "ajuda do gestor
 confere "$(tem '<summary title="Colunas: escolher o que aparece na tabela">' "$r")" "Colunas com nome na dica"
 r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
 confere "$(tem '\-\-marca-fundo:#1A66E0' "$r")" "botão com cor de fundo que passa no contraste (token --marca-fundo)"
+
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem '<span>BIO</span></a>' "$r")" "barra lateral: BIO em maiúsculas (como CMS e UTM)"
+confere "$(tem '.sel-painel.multi-painel label, .resumo-filtros .multi-painel label, .multi-painel label{ flex-direction:row;' "$r")" "lista de várias opções com a caixa ao lado do nome"
+r=$(curl -s -b "$JAR" "$URL/usuarios.php")
+confere "$(tem 'value="financeiro"[^>]*> DRE</label>' "$r")" "em Usuários, o acesso do antigo Financeiro aparece como DRE"
 
 echo "Avisos do PHP"
 # Aviso escondido (variavel que nao existe, indice faltando) nao quebra a tela, mas na
