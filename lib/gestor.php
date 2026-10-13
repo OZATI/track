@@ -124,6 +124,8 @@ function gestor_metricas(array $r, float $pct): array
         'roi' => roi_campanha($r['fat'], $r['gasto'], $imposto),
         'roas' => $div($r['fat'], $r['gasto']),
         'cpa' => $div($r['gasto'], $r['vendas']),
+        // Ticket: valor cobrado medio da venda, sem order bump (a regua do CPA, cor_cpa)
+        'ticket' => $div($r['fat_produto'] ?? 0, $r['vendas']),
         'cpi' => $div($r['gasto'], $r['checkouts']),
         'cpv' => $div($r['gasto'], $r['visualizacoes']),
         'cpc' => $div($r['gasto'], $r['cliques']),
@@ -168,7 +170,8 @@ function gestor_colunas(float $pct): array
         'fat_bruto' => ['Fat. bruto', 'Valor cobrado do comprador nas vendas aprovadas, antes das taxas da Kiwify, com order bump.', fn($r) => e(reais($r['fat_bruto'])), false],
         'taxas' => ['Taxas Kiwify', 'Faturamento bruto − faturamento líquido: o que a Kiwify ficou de taxa nas vendas aprovadas.', fn($r) => e(reais($r['taxas'])), false],
         'lucro' => ['Lucro', 'Faturamento − gasto − imposto da Meta (' . $p . '%).', fn($r) => '<span class="' . $cor($r['lucro']) . '">' . e(reais($r['lucro'])) . '</span>', true],
-        'cpa' => ['CPA', 'Custo por venda: gasto ÷ vendas.', fn($r) => $din($r['cpa']), true],
+        'cpa' => ['CPA', 'Custo por venda: gasto ÷ vendas. A régua de referência: até ' . CPA_PCT_TICKET . '% do ticket (o valor cobrado médio da venda, sem order bump). Verde dentro, vermelho acima.',
+            fn($r) => $r['cpa'] === null ? 'N/A' : '<span class="' . cor_cpa($r['cpa'], $r['ticket']) . '">' . $din($r['cpa']) . '</span>', true],
         'roi' => ['ROI', '(Faturamento − imposto da Meta) ÷ gasto: quanto voltou para cada real gasto. É a conta da UTMify e da planilha de campanhas. Vermelho abaixo de 1 (não se paga), laranja de 1 até 2, verde de 2 para cima.', fn($r) => $r['roi'] === null ? 'N/A' : '<span class="' . cor_roi($r['roi']) . '">' . $num($r['roi']) . '</span>', true],
         'roas' => ['ROAS', 'Faturamento ÷ gasto, sem o imposto. É o retorno sobre o gasto que a Meta mostra.', fn($r) => $r['roas'] === null ? 'N/A' : '<span class="' . $cor($r['roas'], 1) . '">' . $num($r['roas']) . '</span>', false],
         'cpi' => ['Custo por IC', 'Custo por início de checkout (finalização de compra iniciada): gasto ÷ ICs.', fn($r) => $din($r['cpi']), true],
@@ -283,13 +286,14 @@ function gestor_motivo_fora(array $v): array
 
 function gestor_linha_nova(): array
 {
-    return ['gasto' => 0, 'checkouts' => 0, 'cliques' => 0, 'impressoes' => 0, 'visualizacoes' => 0, 'vendas' => 0, 'fat' => 0, 'fat_bruto' => 0,
+    return ['gasto' => 0, 'checkouts' => 0, 'cliques' => 0, 'impressoes' => 0, 'visualizacoes' => 0, 'vendas' => 0, 'fat' => 0, 'fat_bruto' => 0, 'fat_produto' => 0,
         'pend' => 0, 'reemb' => 0, 'reemb_fat' => 0, 'recusadas' => 0, 'nome_utm' => null, 'pai_camp' => null, 'pai_conj' => null]
         + array_fill_keys(GESTOR_VIDEO, 0) + ['alcance' => 0];
 }
 
 // Soma uma venda na linha: aprovada entra no faturamento (liquido e bruto) e, se nao for order
-// bump, conta como venda; Pix pendente, reembolso e recusa vao para as colunas deles
+// bump, conta como venda e entra no ticket (fat_produto: o valor cobrado do produto principal);
+// Pix pendente, reembolso e recusa vao para as colunas deles
 function gestor_somar_venda(array &$l, array $v): void
 {
     $principal = !eh_bump($v);
@@ -297,6 +301,7 @@ function gestor_somar_venda(array &$l, array $v): void
     if ($sit === 'Aprovada') {
         $l['fat'] += (int)($v['valor_liquido'] ?? $v['valor'] ?? 0);
         $l['fat_bruto'] += (int)($v['valor'] ?? 0);
+        $l['fat_produto'] += $principal ? (int)($v['valor'] ?? 0) : 0;
         $l['vendas'] += $principal ? 1 : 0;
     } elseif ($principal && $sit === 'Aguardando pagamento') {
         $l['pend']++;

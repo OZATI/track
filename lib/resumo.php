@@ -197,7 +197,7 @@ function resumo_dados(PDO $db, string $periodo, string $de, string $ate, array $
     $imposto = (int)round($gasto * $pct / 100);
 
     // Kiwify: vendas do periodo
-    $fat = $fatBruto = $fatMeta = $aprovadas = $pendValor = $pendN = $reembValor = $reembN = $cbValor = $cbN = 0;
+    $fat = $fatBruto = $valorPrincipal = $fatMeta = $aprovadas = $pendValor = $pendN = $reembValor = $reembN = $cbValor = $cbN = 0;
     $foraTipo = ['Orgânico' => 0, 'Anúncio compartilhado' => 0, 'Direto / sem origem' => 0, 'Outras origens' => 0];
     $metaIniciadas = $metaAprovadas = $siteIniciadas = $siteAprovadas = $comOrigem = $semOrigem = 0;
     $porPagamento = ['Pix' => 0, 'Cartão' => 0, 'Boleto' => 0, 'Outros' => 0];
@@ -233,6 +233,7 @@ function resumo_dados(PDO $db, string $periodo, string $de, string $ate, array $
             $fatHora[$h] = ($fatHora[$h] ?? 0) + $liquido;
             if ($principal) {
                 $aprovadas++;
+                $valorPrincipal += (int)($v['valor'] ?? 0);
                 $porPagamento[$meio]++;
                 $aprovPorMeio[$meio] = ($aprovPorMeio[$meio] ?? 0) + 1;
                 $porCanal[$cn[0]] = ['canal' => $cn, 'n' => ($porCanal[$cn[0]]['n'] ?? 0) + 1];
@@ -268,6 +269,8 @@ function resumo_dados(PDO $db, string $periodo, string $de, string $ate, array $
     $investido = $gasto + $imposto;
     $roi = roi_campanha($fat, $gasto, $imposto);
     $roiMeta = roi_campanha($fatMeta, $gasto, $imposto);
+    // Ticket do produto: valor cobrado medio da venda aprovada, sem order bump (a regua do CPA)
+    $ticket = $aprovadas ? $valorPrincipal / $aprovadas : null;
 
     // Site: visitantes e cliques no checkout (t.js)
     $visitantes = (int)valor($db, 'SELECT COUNT(DISTINCT visitante) FROM eventos WHERE em >= ? AND em < ?', [$de, $ate]);
@@ -290,7 +293,7 @@ function resumo_dados(PDO $db, string $periodo, string $de, string $ate, array $
         $acL[$h] = $f - $gg - (int)round($gg * $pct / 100);
         $lucroHora[$h] = ($fatHora[$h] ?? 0) - ($gastoHora[$h] ?? 0) - (int)round(($gastoHora[$h] ?? 0) * $pct / 100);
     }
-    return compact('pct', 'dia1', 'dia2', 'g', 'gasto', 'imposto', 'fat', 'fatBruto', 'fatMeta', 'aprovadas', 'pendValor', 'pendN', 'reembValor', 'reembN', 'cbValor', 'cbN', 'foraTipo', 'metaIniciadas', 'metaAprovadas', 'siteIniciadas', 'siteAprovadas', 'comOrigem', 'semOrigem', 'porPagamento', 'porProduto', 'fatProduto', 'porTermo', 'porCanal', 'porHora', 'fatHora', 'porSemana', 'tentativas', 'aprovPorMeio', 'lucro', 'investido', 'roi', 'roiMeta', 'visitantes', 'clicaram', 'leads', 'conversas', 'gastoHora', 'acF', 'acG', 'acL', 'lucroHora');
+    return compact('pct', 'dia1', 'dia2', 'g', 'gasto', 'imposto', 'fat', 'fatBruto', 'fatMeta', 'aprovadas', 'pendValor', 'pendN', 'reembValor', 'reembN', 'cbValor', 'cbN', 'foraTipo', 'metaIniciadas', 'metaAprovadas', 'siteIniciadas', 'siteAprovadas', 'comOrigem', 'semOrigem', 'porPagamento', 'porProduto', 'fatProduto', 'porTermo', 'porCanal', 'porHora', 'fatHora', 'porSemana', 'tentativas', 'aprovPorMeio', 'lucro', 'investido', 'roi', 'roiMeta', 'ticket', 'visitantes', 'clicaram', 'leads', 'conversas', 'gastoHora', 'acF', 'acG', 'acL', 'lucroHora');
 }
 
 function resumo_render(PDO $db, string $periodo, string $de, string $ate): void

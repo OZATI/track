@@ -69,7 +69,7 @@ function resumo_blocos(): array
         'Profit' => ['Lucro', 'geral', 'numero', 'Faturamento líquido − gasto − imposto da Meta (' . $p . ' sobre o gasto).', $num, 'vendas'],
         'NetProfit' => ['Lucro depois das despesas', 'geral', 'numero', 'Lucro − as outras despesas da empresa no período (as do DRE). É o resultado do DRE.', $num, 'vendas'],
         'ProfitMargin' => ['Margem', 'geral', 'numero', 'Lucro ÷ (faturamento líquido − imposto da Meta), como na UTMify e na planilha: quanto de cada real que voltou sobra.', $pequeno, 'atividade'],
-        'Cpa' => ['CPA', 'geral', 'numero', 'Gasto ÷ vendas aprovadas. Order bump não conta como outra venda.', $pequeno, 'campanha'],
+        'Cpa' => ['CPA', 'geral', 'numero', 'Gasto ÷ vendas aprovadas. Order bump não conta como outra venda. A régua de referência: até ' . CPA_PCT_TICKET . '% do ticket (o valor cobrado médio da venda, sem order bump). Verde dentro, vermelho acima.', $pequeno, 'campanha'],
         'Arpu' => ['Ticket médio', 'geral', 'numero', 'Faturamento líquido ÷ vendas aprovadas (quanto cada comprador deixa, com order bump). Na UTMify, ARPU. O painel não guarda quem comprou (LGPD), então conta por venda.', $pequeno, 'usuario'],
         'ApprovedSales' => ['Vendas aprovadas', 'geral', 'numero', 'Vendas aprovadas no período, sem contar o order bump.', $num, 'ok'],
         'PendingCommission' => ['Vendas pendentes', 'geral', 'numero', 'Pix ou boleto gerado e ainda não pago, no valor cobrado.', $num, 'calendario'],
@@ -362,7 +362,10 @@ function resumo_bloco(string $tipo, array $d): string
             $m = margem_pct($d['fat'], $d['lucro'], $d['imposto']);
             return $num($m === null ? '—' : $n($m, 1) . '%', '', $d['fat'] ? $cor((float)$d['lucro']) : '', $delta(fn($x) => margem_pct($x['fat'], $x['lucro'], $x['imposto']), false, false, fn($v) => $n($v, 1) . '%'));
         case 'Cpa':
-            return $num($aprov ? reais((int)round($d['gasto'] / $aprov)) : 'N/A', '', '', $delta(fn($x) => $x['aprovadas'] ? $x['gasto'] / $x['aprovadas'] : null, true, false, $din));
+            $cpa = $aprov ? $d['gasto'] / $aprov : null;
+            $ticket = $d['ticket'] ?? null;
+            return $num($cpa === null ? 'N/A' : $din($cpa), $ticket ? CPA_PCT_TICKET . '% do ticket: ' . $din(cpa_limite($ticket)) : '', cor_cpa($cpa, $ticket),
+                $delta(fn($x) => $x['aprovadas'] ? $x['gasto'] / $x['aprovadas'] : null, true, false, $din));
         case 'Arpu':
             return $num($aprov ? reais((int)round($d['fat'] / $aprov)) : 'N/A', '', '', $delta(fn($x) => $x['aprovadas'] ? $x['fat'] / $x['aprovadas'] : null, false, false, $din));
         case 'ApprovedSales':

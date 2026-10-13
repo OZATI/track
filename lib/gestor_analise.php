@@ -195,6 +195,7 @@ function analise_ticket(PDO $db, string $id, string $dia1, string $dia2, string 
 // Leitura da campanha: [[classe (ok, alerta, erro, neutro), texto]], com as regras do Allan
 // (reuniao de 30/09): custo por IC ate 10% do ticket e aceitavel; CTR bom e de 2% para cima;
 // campanha barata que nao vende pode ser "ponto de contato"; subir orcamento aos poucos.
+// Desde 13/10: CPA ate 60% do ticket (CPA_PCT_TICKET, a mesma regua do gestor e do Resumo).
 function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float $pct, string $dia1, string $dia2, string $nivel = 'campanha', ?array $alcance = null): array
 {
     $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
@@ -232,15 +233,21 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
             $dicas[] = [$ult > $ant ? 'ok' : 'alerta', 'Nos últimos 3 dias o ROI ' . ($ult > $ant ? 'subiu' : 'caiu') . ' de ' . analise_num($ant) . ' para ' . analise_num($ult) . '.'];
         }
     }
-    // 3. Custo por IC contra 10% do ticket
+    // 3. CPA contra 60% do ticket: o resto do ticket paga imposto, taxas e o lucro
     $ticket = analise_ticket($db, $id, $dia1, $dia2, $nivel);
+    if ($t['cpa'] !== null && ($limiteCpa = cpa_limite($ticket))) {
+        $dentro = cor_cpa($t['cpa'], $ticket) === 'positivo';
+        $dicas[] = [$dentro ? 'ok' : 'erro', 'CPA ' . reais((int)round($t['cpa'])) . ($dentro ? ': dentro dos ' : ': acima dos ') . CPA_PCT_TICKET . '% do ticket (' . reais((int)round($limiteCpa)) . ')'
+            . ($dentro ? ', cada venda deixa margem.' : '. A venda está saindo cara: sobra pouco do ticket para imposto, taxas e lucro.')];
+    }
+    // 4. Custo por IC contra 10% do ticket
     $limite = $ticket ? $ticket / 10 : null;
     if ($t['cpi'] !== null && $limite) {
         $barato = $t['cpi'] <= $limite;
         $dicas[] = [$barato ? 'ok' : 'alerta', 'Custo por IC ' . reais((int)round($t['cpi'])) . ($barato ? ': dentro dos 10% do ticket (' : ': acima dos 10% do ticket (') . reais((int)round($limite)) . ')'
             . ($barato ? ', aceitável.' : '. O início de checkout está saindo caro: confira a página e a oferta.')];
     }
-    // 4. CTR contra os 2% de referencia
+    // 5. CTR contra os 2% de referencia
     if ($t['ctr'] !== null) {
         $dicas[] = [$t['ctr'] >= 2 ? 'ok' : 'alerta', 'CTR ' . analise_num($t['ctr']) . '%' . ($t['ctr'] >= 2 ? ': gancho bom (2% ou mais).' : ': abaixo dos 2% de referência. Gancho fraco: vale testar outro criativo.')];
     }
@@ -271,7 +278,7 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
             $dicas[] = ['erro', $t['cliques'] . ' cliques e ' . $t['checkouts'] . ' IC: o anúncio traz gente, mas a página não leva ao checkout. Confira a página (velocidade, oferta e o botão).'];
         }
     }
-    // 5. Dias seguidos sem se pagar (dos mais recentes para tras)
+    // 6. Dias seguidos sem se pagar (dos mais recentes para tras)
     $seguidos = 0;
     foreach (array_reverse($comGasto, true) as $l) {
         $r = $soma([$l])['roi'];
@@ -286,13 +293,13 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
             ? ['alerta', 'ROI abaixo de 1 há ' . $seguidos . ' dias, mas o custo por IC está barato: pode ser um ponto de contato (o clique que vende depois, em outra campanha). Olhe antes de pausar.']
             : ['erro', 'ROI abaixo de 1 há ' . $seguidos . ' dias e o custo por IC não está barato: ' . $candidata . ' a pausar.'];
     }
-    // 6. Escalar: ROI de 2 para cima nos 3 ultimos dias com gasto
+    // 7. Escalar: ROI de 2 para cima nos 3 ultimos dias com gasto
     $orc = $obj['orcamento_diario'] ?? null;
     if ($nivel !== 'anuncio' && count($comGasto) >= 3 && ($r3 = $soma(array_slice($comGasto, -3, 3, true))['roi']) !== null && $r3 >= 2) {
         $dicas[] = ['ok', 'ROI de ' . analise_num($r3) . ' nos últimos 3 dias: ' . $candidata . ' a escalar.'
             . ($orc ? ' Suba no máximo 20% por vez (de ' . reais((int)$orc) . ' para ' . reais((int)round($orc * 1.2)) . ') para não reiniciar o aprendizado da Meta.' : ' Suba o orçamento aos poucos (até 20% por vez) para não reiniciar o aprendizado da Meta.')];
     }
-    // 7. Melhores horarios: as vendas aprovadas da campanha nos ultimos 30 dias, por hora
+    // 8. Melhores horarios: as vendas aprovadas da campanha nos ultimos 30 dias, por hora
     $horas = array_fill(0, 24, 0);
     $tz = fuso();
     foreach (consulta($db, "SELECT * FROM vendas WHERE recebida_em >= ? AND $utm LIKE ?", [gmdate('Y-m-d H:i:s', time() - 30 * 86400), '%|' . $id]) as $v) {
@@ -386,7 +393,8 @@ function gestor_analise_render(PDO $db, string $id, ?array $obj, array $linhas, 
         'roi' => resumo_cartao(analise_num($t['roi']), 'ROI', '(Faturamento − imposto da Meta) ÷ gasto, como na UTMify. Vermelho abaixo de 1, laranja de 1 até 2, verde de 2 para cima.', cor_roi($t['roi']), '', 'c2'),
         'lucro' => resumo_cartao(reais($t['lucro']), 'Lucro', 'Faturamento líquido − gasto − imposto da Meta.', $t['lucro'] < 0 ? 'negativo' : ($t['lucro'] > 0 ? 'positivo' : ''), '', 'c2'),
         'gasto' => resumo_cartao(reais($t['gasto']), 'Gasto', 'Quanto a Meta cobrou no período, sem o imposto.', '', 'faturou ' . reais($t['fat']), 'c2'),
-        'cpa' => resumo_cartao($t['cpa'] === null ? 'N/A' : reais((int)round($t['cpa'])), 'CPA', 'Gasto ÷ compradores.', '', '', 'c2'),
+        'cpa' => resumo_cartao($t['cpa'] === null ? 'N/A' : reais((int)round($t['cpa'])), 'CPA', 'Gasto ÷ compradores. A régua de referência: até ' . CPA_PCT_TICKET . '% do ticket (o valor cobrado médio da venda, sem order bump). Verde dentro, vermelho acima.',
+            cor_cpa($t['cpa'], $ticket), $ticket ? CPA_PCT_TICKET . '% do ticket: ' . reais((int)round(cpa_limite($ticket))) : '', 'c2'),
         'cpi' => resumo_cartao($t['cpi'] === null ? 'N/A' : reais((int)round($t['cpi'])), 'Custo por IC', 'Gasto ÷ inícios de checkout. A régua de referência: até 10% do ticket é aceitável.', $t['cpi'] !== null && $ticket ? ($t['cpi'] <= $ticket / 10 ? 'positivo' : 'medio') : '', $ticket ? '10% do ticket: ' . reais((int)round($ticket / 10)) : '', 'c2'),
         'alcance' => resumo_cartao($alcance ? number_format($alcance['alcance'], 0, ',', '.') : 'N/A', 'Alcance', 'Pessoas diferentes que viram os anúncios do conjunto no período, da Meta (atualiza a cada 3 horas).', '', $alcance ? number_format($alcance['impressoes'], 0, ',', '.') . ' impressões' : 'a Meta não mandou', 'c2'),
         'frequencia' => resumo_cartao($alcance ? analise_num($alcance['frequencia']) : 'N/A', 'Frequência', 'Impressões ÷ alcance: quantas vezes cada pessoa viu, em média. Acima de 3, o público está cansando.', $alcance && $alcance['frequencia'] > 3 ? 'medio' : '', '', 'c2'),
@@ -410,7 +418,7 @@ function gestor_analise_render(PDO $db, string $id, ?array $obj, array $linhas, 
         . info('Barras: quantas pessoas compraram em cada dia do período. Pontos e linha: o ROI do dia (vermelho abaixo de 1, laranja até 2, verde de 2 para cima). As linhas tracejadas marcam o ROI 1 e o 2. Passe o mouse no dia para ver os números.') . '</div>'
         . analise_svg_compradores($linhas, $pct) . '</section>'
         . '<section class="rc c4"><div class="rc-cab"><span>Leitura ' . e($doNivel) . '</span>'
-        . info('Dicas a partir dos números do período, com as regras de otimização de referência: custo por IC até 10% do ticket, CTR de 2% para cima, ponto de contato antes de pausar e subir o orçamento até 20% por vez. São sugestões: a decisão continua sua.') . '</div>' . $leitura . '</section></div>';
+        . info('Dicas a partir dos números do período, com as regras de otimização de referência: CPA até ' . CPA_PCT_TICKET . '% do ticket, custo por IC até 10% do ticket, CTR de 2% para cima, ponto de contato antes de pausar e subir o orçamento até 20% por vez. São sugestões: a decisão continua sua.') . '</div>' . $leitura . '</section></div>';
 
     // Grafico de bolsa desde o inicio + quem compra (no anuncio, a retencao do video)
     $inicio = analise_inicio($db, $id, $nivel);

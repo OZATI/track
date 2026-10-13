@@ -20,7 +20,7 @@ const GESTOR_RANK = [
     'roi' => ['ROI', '(Faturamento − imposto) ÷ gasto, como na UTMify. Acima de 1, a campanha paga o que gasta; de 2 para cima, verde.', false],
     'vendas' => ['Vendas', 'Vendas aprovadas (sem order bump).', false],
     'fat' => ['Faturamento', 'Faturamento líquido da Kiwify, com order bump.', false],
-    'cpa' => ['CPA', 'Custo por venda: gasto ÷ vendas. Aqui, menor é melhor.', true],
+    'cpa' => ['CPA', 'Custo por venda: gasto ÷ vendas. Aqui, menor é melhor. Verde até 60% do ticket, vermelho acima.', true],
 ];
 
 // Modos de comparacao que fazem sentido para o periodo. "Hoje" nao compara (o dia ainda esta
@@ -236,7 +236,12 @@ function gestor_ranking_html(array $tabela, ?array $antesPorId, string $criterio
         $classe = str_contains($var, 'delta bom') ? 'bom' : (str_contains($var, 'delta ruim') ? 'ruim' : '');
         $curva = isset($series[$id]) ? gestor_sparkline(gestor_curva($series[$id], $dias, $criterio, $pct), $classe, $tituloCrit . ' acumulado no período') : '';
         $v = $r[$criterio];
-        $cor = in_array($criterio, ['lucro'], true) ? ($v < 0 ? 'negativo' : 'positivo') : ($criterio === 'roi' ? cor_roi($v === null ? null : (float)$v) : '');
+        $cor = match ($criterio) {
+            'lucro' => $v < 0 ? 'negativo' : 'positivo',
+            'roi' => cor_roi($v === null ? null : (float)$v),
+            'cpa' => cor_cpa($v === null ? null : (float)$v, $r['ticket'] ?? null),
+            default => '',
+        };
         $ativo = $r['obj'] && ($r['obj']['status_efetivo'] ?? '') === 'ACTIVE';
         $html .= '<li><span class="rk-pos">' . $pos . 'º</span><span class="rk-mov">' . $mov . '</span>'
             . '<span class="rk-nome"><i class="rk-st' . ($ativo ? ' on' : '') . '" title="' . ($ativo ? 'Ativa na Meta' : 'Pausada ou sem status') . '"></i>' . $linkNome($r)

@@ -1272,6 +1272,26 @@ function cor_roi(?float $roi): string
     return $r < 1 ? 'negativo' : ($r < 2 ? 'medio' : 'positivo');
 }
 
+// Regua do CPA: ate 60% do ticket (o valor cobrado medio da venda, sem order bump) e saudavel.
+// O resto do ticket paga imposto, taxas e o lucro. Mesma regra no gestor, na analise e no Resumo.
+const CPA_PCT_TICKET = 60;
+
+function cpa_limite(?float $ticket): ?float
+{
+    return $ticket ? $ticket * CPA_PCT_TICKET / 100 : null;
+}
+
+// Cor do CPA contra a regua: verde dentro dos 60% do ticket, vermelho acima. Compara em
+// centavos, como aparece na tela. Sem venda (CPA N/A) ou sem ticket, sem cor.
+function cor_cpa(?float $cpa, ?float $ticket): string
+{
+    $limite = cpa_limite($ticket);
+    if ($cpa === null || $limite === null) {
+        return '';
+    }
+    return round($cpa) <= round($limite) ? 'positivo' : 'negativo';
+}
+
 // Barra do topo, que vale para todas as telas e fica lembrada: site e pagina (onde fazem
 // sentido), periodo (prontos ou de uma data a outra) e produto. A conta fica a direita.
 function barra_topo(array $filtro, array $dominios, array $paginas, string $aba, array $produtos = []): void
