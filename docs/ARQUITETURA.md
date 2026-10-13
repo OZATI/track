@@ -68,8 +68,8 @@ Regras de sempre:
 - **Etiquetas:** links do próprio site ganham `organico / instagram-bio / bio / <nome do link>`.
 - **WhatsApp:** o número vem do painel.
 
-### Pagamentos (planejado)
-- Desenho em `engdesk/docs/CHECKOUT_TRANSPARENTE.md`.
+### Pagamentos e CSH (planejado)
+- Desenho em `engdesk/docs/CHECKOUT_TRANSPARENTE.md`; a tela **CSH** (caixa), a conexão do Mercado Pago pelo conector, a análise de escala e as fases em [CSH.md](CSH.md). Quem executa: o agente `caixa`.
 - `lib/pagamentos/`, com as mesmas cinco funções por provedor: criar cobrança, consultar, validar o webhook, normalizar a situação e estornar.
 - **Provedores:** Mercado Pago (API Orders) como principal e Wiven sempre configurada como reserva.
 - **Purchase:** pela API de Conversões a partir do servidor.
