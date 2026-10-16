@@ -932,11 +932,39 @@ confere "$(tem 'recursos' "$r")" "Funil de rolagem mostra a seção recebida"
 confere "$(tem 'Defina a data da mudança em Configurações' "$r")" "Antes × depois sem data configurada avisa para definir"
 rcfg=$(curl -s -b "$JAR" "$URL/configuracoes.php")
 csrf_cfg=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$rcfg") | head -1 | grep -o '[a-f0-9]\{32\}')
-curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf_cfg" --data-urlencode "acao=marco" --data-urlencode "data_mudanca=2026-10-15" --data-urlencode "o_que_mudou=VSL removida da /drivedeprojetos/" "$URL/configuracoes.php"
+
+D_MUDANCA=$( (cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '$tz = new DateTimeZone("America/Sao_Paulo"); echo (new DateTime("-30 days", $tz))->format("Y-m-d");') )
+D_AMANHA=$( (cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '$tz = new DateTimeZone("America/Sao_Paulo"); echo (new DateTime("+1 day", $tz))->format("Y-m-d");') )
+
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '
+require "lib/config.php";
+require "lib/db.php";
+$db = track_db();
+$tz = new DateTimeZone("America/Sao_Paulo");
+$utc = new DateTimeZone("UTC");
+$d35 = (new DateTime("-35 days", $tz))->setTime(12, 0, 0)->setTimezone($utc)->format("Y-m-d H:i:s");
+$d25 = (new DateTime("-25 days", $tz))->setTime(12, 0, 0)->setTimezone($utc)->format("Y-m-d H:i:s");
+$d0 = (new DateTime("now", $tz))->setTimezone($utc)->format("Y-m-d H:i:s");
+$ins = $db->prepare("INSERT INTO eventos (visitante, nome, dominio, pagina, em) VALUES (?, ?, ?, ?, ?)");
+$ins->execute(["v-ad-35", "PageView", "site.test", "/teste-marco", $d35]);
+$ins->execute(["v-ad-25", "PageView", "site.test", "/teste-marco", $d25]);
+$ins->execute(["v-ad-hoje", "PageView", "site.test", "/teste-marco", $d0]);
+')
+
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf_cfg" --data-urlencode "acao=marco" --data-urlencode "data_mudanca=$D_MUDANCA" --data-urlencode "o_que_mudou=VSL removida da /drivedeprojetos/" "$URL/configuracoes.php"
 r_marco=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'Antes × depois' "$r_marco")" "com a data configurada, Antes × depois aparece"
 confere "$(tem 'VSL removida' "$r_marco")" "Antes × depois mostra o que mudou"
 confere "$(tem 'Variação' "$r_marco")" "Antes × depois mostra a coluna Variação"
+confere "$(tem '<th>Antes (14 dias)</th><th>Depois (14 dias)</th>' "$r_marco")" "o cabeçalho mostra 14 dias nas duas colunas"
+confere "$(tem '/teste-marco.*<tr><td class="nome">Visitantes</td><td>1</td>' "$r_marco")" "PageView 35 dias atrás (5 antes da mudança) conta na coluna Antes"
+confere "$(tem '/teste-marco.*<tr><td class="nome">Visitantes</td><td>1</td><td>1</td>' "$r_marco")" "PageView 25 dias atrás conta na coluna Depois e o de hoje não conta"
+
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf_cfg" --data-urlencode "acao=marco" --data-urlencode "data_mudanca=$D_AMANHA" --data-urlencode "o_que_mudou=" "$URL/configuracoes.php"
+r_futuro=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem 'A data da mudança ainda não chegou' "$r_futuro")" "data da mudança no futuro avisa que ainda não chegou"
+
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/config.php"; require "lib/db.php"; track_db()->exec("DELETE FROM eventos WHERE pagina = \"/teste-marco\"");')
 curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf_cfg" --data-urlencode "acao=marco" --data-urlencode "data_mudanca=" --data-urlencode "o_que_mudou=" "$URL/configuracoes.php"
 
 echo "Orgânico"

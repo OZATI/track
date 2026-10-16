@@ -370,19 +370,23 @@ function resumo_antes_depois(PDO $db): string
     $tz = fuso();
     $hojeObj = new DateTime('today', $tz);
     $dataObj = new DateTime($dataMudanca, $tz);
-    $diff = (int)$dataObj->diff($hojeObj)->format('%r%a');
-    $N = min(14, max(1, $diff + 1));
+    if ($dataObj > $hojeObj) {
+        return '<p class="suave">A data da mudança ainda não chegou.</p>';
+    }
+    // Dias da mudança até hoje, contando os dois (máx. 14)
+    $N = min(14, (int)$dataObj->diff($hojeObj)->format('%a') + 1);
 
-    $fimHoje = (clone $hojeObj)->modify('+1 day');
-    $depoisIni = (clone $fimHoje)->modify('-' . $N . ' days');
-    $antesFim = clone $depoisIni;
-    $antesIni = (clone $antesFim)->modify('-' . $N . ' days');
+    // Antes: os N dias imediatamente antes da data. Depois: os N dias a partir dela.
+    $antesIni = (clone $dataObj)->modify('-' . $N . ' days');
+    $antesFim = clone $dataObj;
+    $depoisIni = clone $dataObj;
+    $depoisFim = (clone $dataObj)->modify('+' . $N . ' days');
 
     $utc = new DateTimeZone('UTC');
     $antesDe = (clone $antesIni)->setTimezone($utc)->format('Y-m-d H:i:s');
     $antesAte = (clone $antesFim)->setTimezone($utc)->format('Y-m-d H:i:s');
     $depoisDe = (clone $depoisIni)->setTimezone($utc)->format('Y-m-d H:i:s');
-    $depoisAte = (clone $fimHoje)->setTimezone($utc)->format('Y-m-d H:i:s');
+    $depoisAte = (clone $depoisFim)->setTimezone($utc)->format('Y-m-d H:i:s');
 
     $paginas = consulta($db, "SELECT DISTINCT pagina FROM eventos WHERE nome IN ('PageView', 'CliqueCheckout', 'Secao') AND ((em >= ? AND em < ?) OR (em >= ? AND em < ?)) AND pagina != '' ORDER BY pagina",
         [$antesDe, $antesAte, $depoisDe, $depoisAte]);
@@ -392,7 +396,7 @@ function resumo_antes_depois(PDO $db): string
             [$antesDe, $antesAte, $depoisDe, $depoisAte]);
     }
     if (!$paginas) {
-        $paginas = consulta($db, "SELECT DISTINCT pagina FROM eventos WHERE pagina != '' ORDER BY pagina");
+        $paginas = consulta($db, "SELECT DISTINCT pagina FROM eventos WHERE pagina != '' ORDER BY pagina", []);
     }
 
     $txtDias = $N . ' ' . ($N === 1 ? 'dia' : 'dias');

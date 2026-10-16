@@ -324,14 +324,14 @@ function track_migrar_para(PDO $pdo, int $alvo, string $sql): void
 
 // Valores pequenos do painel que mudam sozinhos (ex.: ultima busca na API)
 // Consultas com parametros (todas as linhas, ou o primeiro valor)
-function consulta(PDO $db, string $sql, array $par): array
+function consulta(PDO $db, string $sql, array $par = []): array
 {
     $st = $db->prepare($sql);
     $st->execute($par);
     return $st->fetchAll();
 }
 
-function valor(PDO $db, string $sql, array $par)
+function valor(PDO $db, string $sql, array $par = [])
 {
     $st = $db->prepare($sql);
     $st->execute($par);
