@@ -515,7 +515,8 @@ function resumo_bloco(string $tipo, array $d): string
         case 'Cpa':
             $cpa = $aprov ? $d['gasto'] / $aprov : null;
             $ticket = $d['ticket'] ?? null;
-            return $num($cpa === null ? 'N/A' : $din($cpa), $ticket ? CPA_PCT_TICKET . '% do ticket: ' . $din(cpa_limite($ticket)) : '', cor_cpa($cpa, $ticket),
+            $mix = $d['ticketInfo']['rotulo'] ?? '';
+            return $num($cpa === null ? 'N/A' : $din($cpa), $ticket ? CPA_PCT_TICKET . '% do ticket: ' . $din(cpa_limite($ticket)) . (count($d['ticketInfo']['mix'] ?? []) > 1 ? ' · ' . $mix : '') : '', cor_cpa($cpa, $ticket),
                 $delta(fn($x) => $x['aprovadas'] ? $x['gasto'] / $x['aprovadas'] : null, true, false, $din));
         case 'Arpu':
             return $num($aprov ? reais((int)round($d['fat'] / $aprov)) : 'N/A', '', '', $delta(fn($x) => $x['aprovadas'] ? $x['fat'] / $x['aprovadas'] : null, false, false, $din));

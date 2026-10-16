@@ -246,7 +246,8 @@ function gestor_dias_render(PDO $db, string $periodo): void
     }
     // Alcance do periodo: o da Meta (somar os dias contaria a mesma pessoa varias vezes)
     $total['alcance'] = $alcance['alcance'] ?? 0;
-    $t = gestor_metricas(['id' => $id, 'obj' => null] + $total, $pct);
+    $infoTicketPeriodo = ticket_objeto($db, $nivel, $id, $dia1, $dia2);
+    $t = gestor_metricas(['id' => $id, 'obj' => null, 'ticket_info' => $infoTicketPeriodo, 'ticket' => $infoTicketPeriodo['ticket']] + $total, $pct);
     echo '<tr class="total"><td class="nome dia">Período <span class="suave">(' . count($linhas) . ' dia' . (count($linhas) === 1 ? '' : 's') . ')</span></td>';
     foreach ($colunas as $k) {
         echo '<td>' . ($k === 'orcamento' ? '' : $todas[$k][2]($t)) . '</td>';
@@ -256,7 +257,8 @@ function gestor_dias_render(PDO $db, string $periodo): void
         $d = new DateTime($dia);
         $aoVivo = $dia === $hoje;
         $orc = $orcamentos[$dia] ?? ($aoVivo && $nivel !== 'anuncio' ? $obj : null);
-        $r = gestor_metricas(['id' => $id, 'obj' => $orc] + $l, $pct);
+        $infoTicketDia = ticket_objeto($db, $nivel, $id, $dia, $dia);
+        $r = gestor_metricas(['id' => $id, 'obj' => $orc, 'ticket_info' => $infoTicketDia, 'ticket' => $infoTicketDia['ticket']] + $l, $pct);
         echo '<tr' . ($aoVivo ? ' class="ao-vivo-linha"' : '') . '><td class="nome dia" data-v="' . e($dia) . '"><span class="suave">' . ANALISE_SEMANA[(int)$d->format('N')] . '</span> ' . e($d->format('d/m'))
             . ($aoVivo ? '<span class="ao-vivo" title="O dia ainda não acabou: os números mudam a cada busca na Meta e na Kiwify">ao vivo</span>' : '') . '</td>';
         foreach ($colunas as $k) {

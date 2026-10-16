@@ -106,8 +106,8 @@ confere "$([ "$code" = "401" ]; echo $?)" "sem a chave é recusado ($code)"
 code=$(curl -s -o /dev/null -w '%{http_code}' --data '{"order_id":"x"}' "$URL/kiwify.php?chave=errada")
 confere "$([ "$code" = "401" ]; echo $?)" "chave errada é recusada ($code)"
 VENDA="{\"order_id\":\"pedido-1\",\"order_status\":\"paid\",\"webhook_event_type\":\"order_approved\",\"payment_method\":\"pix\",
-  \"Product\":{\"product_name\":\"Drive de Projetos 2.0\"},\"Customer\":{\"full_name\":\"Nome Real\",\"email\":\"real@exemplo.com\"},
-  \"Commissions\":{\"charge_amount\":5949},
+  \"Product\":{\"product_id\":\"prod-drive\",\"product_offer_id\":\"offer-drive\",\"product_offer_name\":\"Oferta principal\",\"product_name\":\"Drive de Projetos 2.0\"},\"Customer\":{\"full_name\":\"Nome Real\",\"email\":\"real@exemplo.com\"},
+  \"Commissions\":{\"charge_amount\":5949,\"product_base_price\":6700},
   \"TrackingParameters\":{\"sck\":\"trk_$VID\",\"utm_source\":\"MetaAds\",\"utm_medium\":\"conjunto 5|111111\",\"utm_campaign\":\"TL 1|120120\"}}"
 code=$(curl -s -o /dev/null -w '%{http_code}' --data "$VENDA" "$URL/kiwify.php?chave=$CHAVE")
 confere "$([ "$code" = "200" ]; echo $?)" "venda com o identificador gravada ($code)"
@@ -131,6 +131,9 @@ destino=$(curl -s -o /dev/null -w '%{redirect_url}' -c "$JAR" -b "$JAR" --data-u
 confere "$([ "${destino%/}" = "$URL" ]; echo $?)" "login certo; volta para outro site é ignorada (vai para $destino)"
 r=$(curl -s -b "$JAR" "$URL/index.php?periodo=tudo")
 confere "$(tem 'Funil do site' "$(sem_tags "$r")")" "tela inicial é o Resumo"
+r=$(curl -s -b "$JAR" "$URL/ofertas.php")
+confere "$(tem 'Catálogo de ofertas' "$r")" "catálogo de ofertas abre para usuário autenticado"
+confere "$(tem 'Associar oferta à campanha' "$r")" "catálogo permite associar campanha e oferta principal"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
 confere "$(tem 'Tráfego por origem' "$r")" "aba Tráfego abre"
 confere "$(tem 'title="MetaAds / conjunto 5|111111 / TL 1|120120">.\{0,400\}<span>MetaAds / conjunto 5 / TL 1</span></span></td><td>1</td>' "$r")" "tabela de tráfego mostra a origem do anúncio com 1 visitante (o nome na tela, os IDs na dica)"
@@ -311,9 +314,9 @@ COMPRADOR='"customer":{"name":"Nome Da API","email":"cliente-api@exemplo.com","c
 cat >"$DADOS/kiwify-falsa-vendas.json" <<EOF
 [
  {"id":"pedido-1","reference":"RefUm01","type":"product","parent_order_id":null,"status":"paid","payment_method":"pix","created_at":"$AGORA","updated_at":"$AGORA","approved_date":"$AGORA",
-  "product":{"name":"Drive de Projetos 2.0"},"payment":{"charge_amount":5949,"net_amount":5000},"tracking":{$RASTREIO},$COMPRADOR},
+  "product":{"name":"Drive de Projetos 2.0","product_id":"prod-drive","product_offer_id":"offer-drive","product_offer_name":"Oferta principal","product_base_price":6700},"payment":{"charge_amount":5949,"net_amount":5000},"tracking":{$RASTREIO},$COMPRADOR},
  {"id":"api-2","reference":"RefDois2","type":"product","parent_order_id":null,"status":"paid","payment_method":"credit_card","created_at":"$AGORA","updated_at":"$AGORA","approved_date":"$AGORA",
-  "product":{"name":"Drive de Projetos 2.0"},"payment":{"charge_amount":6700,"net_amount":6000},"tracking":{$RASTREIO},$COMPRADOR},
+  "product":{"name":"Drive de Projetos 2.0","product_id":"prod-drive","product_offer_id":"offer-drive","product_offer_name":"Oferta principal","product_base_price":6700},"payment":{"charge_amount":6700,"net_amount":6000},"tracking":{$RASTREIO},$COMPRADOR},
  {"id":"api-3","reference":"RefBump3","type":"bump","parent_order_id":"api-2","status":"paid","payment_method":"credit_card","created_at":"$AGORA","updated_at":"$AGORA","approved_date":"$AGORA",
   "product":{"name":"Memorial Descritivo"},"payment":{"charge_amount":2990,"net_amount":2500},"tracking":{$RASTREIO},$COMPRADOR},
  {"id":"api-4","reference":"RefPix04","type":"product","parent_order_id":null,"status":"waiting_payment","payment_method":"pix","created_at":"$AGORA","updated_at":"$AGORA","approved_date":null,
@@ -366,6 +369,16 @@ confere "$(tem 'RefDois2' "$r")" "pedido aparece pela referência curta da Kiwif
 confere "$(tem 'Só pela API' "$r")" "venda que só a API trouxe fica marcada"
 confere "$(tem 'Webhook + API' "$r")" "venda que chegou pelos dois caminhos fica marcada"
 confere "$(tem 'order bump</span>' "$r")" "order bump aparece marcado"
+echo "Tickets por oferta"
+ticket_mix=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '
+require "lib/util.php"; require "lib/layout.php"; require "lib/vendas.php"; require "lib/ofertas.php"; require "lib/gestor.php";
+$db=track_db(); $a=oferta_registrar($db,"test-drive","principal","Drive teste",6700); $b=oferta_registrar($db,"test-vsl","principal","VSL teste",9700);
+$st=$db->prepare("INSERT INTO vendas (pedido,status,produto,valor,recebida_em,atualizada_em,utm_campaign,produto_id,oferta_id,preco_base) VALUES (?,?,?,?,?,?,?,?,?,?)");
+for($i=0;$i<10;$i++){ $of=$i<7?$a:$b; $base=$i<7?6700:9700; $st->execute(["ticket-mix-".$i,"paid",$i<7?"Drive teste":"VSL teste",$i===1?8316:$base,agora_utc(),agora_utc(),"Teste|777777",$i<7?"test-drive":"test-vsl",$of,$base]); }
+$db->prepare("INSERT INTO campanha_ofertas (campanha_id,oferta_id,atualizado_em) VALUES (?,?,?)")->execute(["777778",$b,agora_utc()]);
+$dia=(new DateTime("today",fuso()))->format("Y-m-d"); $r=ticket_objeto($db,"campanha","777777",$dia,$dia); $fallback=ticket_objeto($db,"campanha","777778",$dia,$dia); echo (int)round($r["ticket"]),"|",$r["rotulo"],"|",(int)round($fallback["ticket"]); $db->prepare("DELETE FROM vendas WHERE pedido LIKE ?")->execute(["ticket-mix-%"]); $db->prepare("DELETE FROM campanha_ofertas WHERE campanha_id = ?")->execute(["777778"]); $db->prepare("DELETE FROM ofertas WHERE id LIKE ? OR id LIKE ?")->execute(["test-drive:%","test-vsl:%"]);
+')
+confere "$(tem '7600|mix: 70% R\$ 67,00 · 30% R\$ 97,00|9700' "$ticket_mix")" "ticket por campanha usa preço-base, pondera o mix e usa a oferta associada sem vendas ($ticket_mix)"
 confere "$(tem 'Vendas da Kiwify atualizadas em' "$r")" "barra mostra a última busca"
 confere "$(grep -q 'data-sync="1"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem busca pendente, a tela não pede outra"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
@@ -763,6 +776,7 @@ confere "$(grep -q '<th data-col="lucro"' < <(printf '%s\n' "$r"); [ $? -ne 0 ];
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=120120&periodo=tudo")
 confere "$(grep -q '<th data-col="lucro"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "análise diária: a escolha fica guardada"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
+confere "$(tem 'Catálogo de ofertas e associação de campanhas' "$r")" "Gestor oferece acesso ao catálogo de tickets e associações"
 confere "$(tem '>Lucro</a>' "$r")" "a escolha da análise diária não mexe nas colunas do gestor"
 confere "$(tem 'class="analise" href="[^"]*" aria-label="Análise diária" data-dica-titulo="Análise diária" data-dica="[^"]*" data-dica-botao><svg' "$r")" "botão da análise diária só com o ícone, e o nome na dica"
 confere "$(tem 'data-modelo=' "$r")" "gestor também tem os modelos de colunas"
@@ -777,9 +791,9 @@ confere "$(tem 'ROI</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div
 confere "$(tem 'aria-label="Compradores e ROI por dia"' "$r")" "análise: gráfico de compradores e ROI por dia"
 confere "$(tem 'class="vela sobe" data-dica-titulo="[a-záé]* [0-9/]*" data-dica="ROI do dia 2,58&#10;Acumulado 2,58 (primeiro dia)&#10;Gasto R\$ 50,00 · 2 vendas&#10;Lucro R\$ 78,92"' "$r")" "análise: gráfico de bolsa com uma vela por dia e o ROI no mouse (dica com título)"
 confere "$(tem 'CTR 1,50%: abaixo dos 2% de referência' "$r")" "leitura: CTR abaixo dos 2% (regra do Allan)"
-confere "$(tem 'Custo por IC R\$ 16,67: acima dos 10% do ticket (R\$ 6,32)' "$r")" "leitura: custo por IC contra 10% do ticket do produto principal"
-confere "$(tem 'CPA R\$ 25,00: dentro dos 60% do ticket (R\$ 37,95), cada venda deixa margem.' "$r")" "leitura: CPA contra 60% do ticket do produto principal"
-confere "$(tem 'CPA</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="positivo">R\$ 25,00</b><small>60% do ticket: R\$ 37,95</small>' "$r")" "análise: cartão do CPA verde, com 60% do ticket embaixo"
+confere "$(tem 'Custo por IC R\$ 16,67: acima dos 10% do ticket (R\$ 6,70)' "$r")" "leitura: custo por IC contra 10% do ticket-base do produto principal"
+confere "$(tem 'CPA R\$ 25,00: dentro dos 60% do ticket (R\$ 40,20), cada venda deixa margem.' "$r")" "leitura: CPA contra 60% do ticket-base do produto principal"
+confere "$(tem 'CPA</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="positivo">R\$ 25,00</b><small>60% do ticket: R\$ 40,20</small>' "$r")" "análise: cartão do CPA verde, com 60% do ticket-base embaixo"
 confere "$(tem 'Mulheres <b>2</b>' "$r")" "quem compra: pizza por sexo com as compras da Meta"
 confere "$(tem 'Homens <b>1</b>' "$r")" "quem compra: homens"
 confere "$(tem '25-34 anos' "$r")" "quem compra: por idade"
@@ -817,7 +831,7 @@ confere "$(tem 'Anúncio não encontrado' "$r")" "anúncio que não é da conta 
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=555555&periodo=tudo")
 confere "$(tem 'A Meta não registrou compras desta campanha' "$r")" "quem compra: campanha sem compra na Meta avisa em vez de pizza vazia"
 confere "$(tem 'class="vela desce"' "$r")" "vela vermelha quando o ROI cai (FREE, sem venda)"
-confere "$(tem 'o CPA precisa ser menor que 60% do ticket (R\$ 38,70)' "$r")" "leitura: CPA contra 60% do ticket na primeira venda de campanha sem vendas"
+confere "$(tem 'Defina a oferta principal; sem vendas aprovadas ou uma associação, o painel não inventa o ticket.' "$r")" "campanha sem vendas pede para definir oferta, sem estimar um ticket global"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=987654321&periodo=tudo")
 confere "$(tem 'Campanha não encontrada' "$r")" "campanha que não é da conta não abre"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")

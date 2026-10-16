@@ -178,18 +178,7 @@ function analise_svg_compradores(array $linhas, float $pct): string
 // campanha no periodo (ou de todas as vendas dos ultimos 30 dias, se a campanha nao vendeu)
 function analise_ticket(PDO $db, string $id, string $dia1, string $dia2, string $nivel = 'campanha'): ?float
 {
-    $utm = GESTOR_DIAS_NIVEIS[$nivel][2];
-    $tz = fuso();
-    $utc = new DateTimeZone('UTC');
-    $de = (new DateTime($dia1, $tz))->setTimezone($utc)->format('Y-m-d H:i:s');
-    $ate = (new DateTime($dia2, $tz))->modify('+1 day')->setTimezone($utc)->format('Y-m-d H:i:s');
-    $medio = function (array $vendas): ?float {
-        $v = array_values(array_filter($vendas, fn($x) => aprovada($x) && !eh_bump($x) && venda_no_filtro($x)));
-        return $v ? array_sum(array_map(fn($x) => (int)$x['valor'], $v)) / count($v) : null;
-    };
-    $daCampanha = array_filter(consulta($db, "SELECT * FROM vendas WHERE recebida_em >= ? AND recebida_em < ? AND $utm LIKE ?", [$de, $ate, '%|' . $id]),
-        fn($v) => gestor_id_utm($v[$utm]) === $id);
-    return $medio($daCampanha) ?? $medio(consulta($db, 'SELECT * FROM vendas WHERE recebida_em >= ?', [gmdate('Y-m-d H:i:s', time() - 30 * 86400)]));
+    return ticket_objeto($db, $nivel, $id, $dia1, $dia2)['ticket'];
 }
 
 // Leitura da campanha: [[classe (ok, alerta, erro, neutro), texto]], com as regras do Allan
@@ -234,7 +223,8 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
         }
     }
     // 3. CPA contra 60% do ticket: o resto do ticket paga imposto, taxas e o lucro
-    $ticket = analise_ticket($db, $id, $dia1, $dia2, $nivel);
+    $ticketInfo = ticket_objeto($db, $nivel, $id, $dia1, $dia2);
+    $ticket = $ticketInfo['ticket'];
     if ($limiteCpa = cpa_limite($ticket)) {
         if ($t['cpa'] !== null) {
             $dentro = cor_cpa($t['cpa'], $ticket) === 'positivo';
@@ -246,6 +236,8 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
                 . ($passou ? 'o gasto já superou o teto de ' . CPA_PCT_TICKET . '% do ticket (' . reais((int)round($limiteCpa)) . '). O CPA precisa ser menor que ' . CPA_PCT_TICKET . '% para a campanha se pagar.'
                            : 'o CPA precisa ser menor que ' . CPA_PCT_TICKET . '% do ticket (' . reais((int)round($limiteCpa)) . ') na primeira venda.')];
         }
+    } elseif ($ticket === null) {
+        $dicas[] = ['neutro', 'Defina a oferta principal; sem vendas aprovadas ou uma associação, o painel não inventa o ticket.'];
     }
     // 4. Custo por IC contra 10% do ticket
     $limite = $ticket ? $ticket / 10 : null;
@@ -391,7 +383,8 @@ function gestor_analise_render(PDO $db, string $id, ?array $obj, array $linhas, 
     }
     $total['alcance'] = $alcance['alcance'] ?? 0;
     $t = gestor_metricas(['id' => '', 'obj' => null] + $total, $pct);
-    $ticket = analise_ticket($db, $id, $dia1, $dia2, $nivel);
+    $ticketInfo = ticket_objeto($db, $nivel, $id, $dia1, $dia2);
+    $ticket = $ticketInfo['ticket'];
     $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
 
     // Numeros do periodo: os 6 que importam em cada nivel
@@ -401,7 +394,7 @@ function gestor_analise_render(PDO $db, string $id, ?array $obj, array $linhas, 
         'lucro' => resumo_cartao(reais($t['lucro']), 'Lucro', 'Faturamento líquido − gasto − imposto da Meta.', $t['lucro'] < 0 ? 'negativo' : ($t['lucro'] > 0 ? 'positivo' : ''), '', 'c2'),
         'gasto' => resumo_cartao(reais($t['gasto']), 'Gasto', 'Quanto a Meta cobrou no período, sem o imposto.', '', 'faturou ' . reais($t['fat']), 'c2'),
         'cpa' => resumo_cartao($t['cpa'] === null ? 'N/A' : reais((int)round($t['cpa'])), 'CPA', 'Gasto ÷ compradores. A régua de referência: até ' . CPA_PCT_TICKET . '% do ticket (o valor cobrado médio da venda, sem order bump). Verde dentro, vermelho acima.',
-            cor_cpa($t['cpa'], $ticket), $ticket ? CPA_PCT_TICKET . '% do ticket: ' . reais((int)round(cpa_limite($ticket))) : '', 'c2'),
+            cor_cpa($t['cpa'], $ticket), $ticket ? CPA_PCT_TICKET . '% do ticket: ' . reais((int)round(cpa_limite($ticket))) . (count($ticketInfo['mix']) > 1 ? ' · ' . $ticketInfo['rotulo'] : '') : $ticketInfo['rotulo'], 'c2'),
         'cpi' => resumo_cartao($t['cpi'] === null ? 'N/A' : reais((int)round($t['cpi'])), 'Custo por IC', 'Gasto ÷ inícios de checkout. A régua de referência: até 10% do ticket é aceitável.', $t['cpi'] !== null && $ticket ? ($t['cpi'] <= $ticket / 10 ? 'positivo' : 'medio') : '', $ticket ? '10% do ticket: ' . reais((int)round($ticket / 10)) : '', 'c2'),
         'alcance' => resumo_cartao($alcance ? number_format($alcance['alcance'], 0, ',', '.') : 'N/A', 'Alcance', 'Pessoas diferentes que viram os anúncios do conjunto no período, da Meta (atualiza a cada 3 horas).', '', $alcance ? number_format($alcance['impressoes'], 0, ',', '.') . ' impressões' : 'a Meta não mandou', 'c2'),
         'frequencia' => resumo_cartao($alcance ? analise_num($alcance['frequencia']) : 'N/A', 'Frequência', 'Impressões ÷ alcance: quantas vezes cada pessoa viu, em média. Acima de 3, o público está cansando.', $alcance && $alcance['frequencia'] > 3 ? 'medio' : '', '', 'c2'),

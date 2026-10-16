@@ -307,6 +307,32 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 15;
             SQL);
     }
+    if ($versao < 16) {
+        // Catalogo Kiwify: guarda o preco base sem juros na venda e no objeto produto/oferta.
+        track_migrar_para($pdo, 16, <<<'SQL'
+            ALTER TABLE vendas ADD COLUMN produto_id TEXT;
+            ALTER TABLE vendas ADD COLUMN oferta_id TEXT;
+            ALTER TABLE vendas ADD COLUMN oferta_nome TEXT;
+            ALTER TABLE vendas ADD COLUMN preco_base INTEGER;
+            CREATE TABLE IF NOT EXISTS ofertas (
+                id TEXT PRIMARY KEY,
+                produto_id TEXT,
+                oferta_kiwify_id TEXT,
+                nome TEXT NOT NULL,
+                preco_base INTEGER,
+                tipo TEXT NOT NULL DEFAULT 'principal',
+                ativo INTEGER NOT NULL DEFAULT 1,
+                atualizado_em TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS campanha_ofertas (
+                campanha_id TEXT PRIMARY KEY,
+                oferta_id TEXT NOT NULL,
+                atualizado_em TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_vendas_oferta_periodo ON vendas (oferta_id, recebida_em);
+            PRAGMA user_version = 16;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

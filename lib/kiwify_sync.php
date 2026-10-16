@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/ofertas.php';
 // Busca as vendas pela API da Kiwify e grava na mesma tabela do webhook.
 //
 // Primeira busca: os ultimos 89 dias (limite da API: 90), ou menos se a retencao for
@@ -193,12 +194,20 @@ function kiwify_sync_gravar(array $v): string
     // Liquido: o que a Kiwify repassa depois das taxas (base do lucro e do ROI)
     $liquido = $v['payment']['net_amount'] ?? $v['net_amount'] ?? null;
     $liquido = is_int($liquido) || (is_string($liquido) && ctype_digit($liquido)) ? (int)$liquido : null;
+    $produtoApi = is_array($v['product'] ?? null) ? $v['product'] : [];
+    $produtoNome = texto($produtoApi['name'] ?? $produtoApi['product_name'] ?? '', 200);
+    $produtoId = texto($produtoApi['product_id'] ?? $produtoApi['id'] ?? '', 120) ?: null;
+    $ofertaId = texto($produtoApi['product_offer_id'] ?? $produtoApi['offer_id'] ?? '', 120) ?: null;
+    $ofertaNome = texto($produtoApi['product_offer_name'] ?? $produtoApi['offer_name'] ?? '', 200) ?: null;
+    $precoBase = oferta_centavos($produtoApi['product_base_price'] ?? $produtoApi['base_price'] ?? $v['product_base_price'] ?? null);
+    $tipoCatalogo = strtolower((string)($v['type'] ?? ''));
+    $tipoCatalogo = in_array($tipoCatalogo, ['bump', 'upsell'], true) ? $tipoCatalogo : (!empty($v['parent_order_id']) ? 'bump' : 'principal');
     $criada = kiwify_sync_data($v['created_at'] ?? null) ?? agora_utc();
 
     $linha = [
         'referencia' => texto($v['reference'] ?? '', 40) ?: null,
         'status' => texto($v['status'] ?? '', 40),
-        'produto' => texto($v['product']['name'] ?? '', 200),
+        'produto' => $produtoNome,
         'valor' => $valor,
         'pagamento' => texto($v['payment_method'] ?? '', 40),
         'tipo' => texto($v['type'] ?? '', 20) ?: null,
@@ -207,19 +216,25 @@ function kiwify_sync_gravar(array $v): string
     ];
 
     $db = track_db();
+    $ofertaIdInterno = oferta_registrar($db, $produtoId, $ofertaId, $produtoNome, $precoBase, $tipoCatalogo);
     $st = $db->prepare('SELECT status, fonte, valor, referencia, tipo, aprovada_em FROM vendas WHERE pedido = ?');
     $st->execute([$pedido]);
     $antes = $st->fetch();
 
     $db->prepare('INSERT INTO vendas (pedido, evento, status, produto, valor, pagamento, recebida_em, atualizada_em, visitante, sck, src,
                                       utm_source, utm_medium, utm_campaign, utm_content, utm_term,
-                                      referencia, tipo, pedido_pai, fonte, aprovada_em, valor_liquido)
-                  VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'api\', ?, ?)
+                                      referencia, tipo, pedido_pai, fonte, aprovada_em, valor_liquido,
+                                      produto_id, oferta_id, oferta_nome, preco_base)
+                  VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'api\', ?, ?, ?, ?, ?, ?)
                   ON CONFLICT (pedido) DO UPDATE SET
                       status = excluded.status,
                       valor_liquido = COALESCE(excluded.valor_liquido, vendas.valor_liquido),
                       atualizada_em = CASE WHEN vendas.status IS excluded.status THEN vendas.atualizada_em ELSE excluded.atualizada_em END,
                       produto = COALESCE(NULLIF(excluded.produto, \'\'), vendas.produto),
+                      produto_id = COALESCE(excluded.produto_id, vendas.produto_id),
+                      oferta_id = COALESCE(excluded.oferta_id, vendas.oferta_id),
+                      oferta_nome = COALESCE(excluded.oferta_nome, vendas.oferta_nome),
+                      preco_base = COALESCE(excluded.preco_base, vendas.preco_base),
                       valor = COALESCE(excluded.valor, vendas.valor),
                       pagamento = COALESCE(NULLIF(excluded.pagamento, \'\'), vendas.pagamento),
                       visitante = COALESCE(vendas.visitante, excluded.visitante),
@@ -237,7 +252,8 @@ function kiwify_sync_gravar(array $v): string
                       fonte = CASE WHEN vendas.fonte IN (\'webhook\', \'ambos\') THEN \'ambos\' ELSE \'api\' END')
         ->execute([$pedido, $linha['status'], $linha['produto'], $linha['valor'], $linha['pagamento'], $criada, agora_utc(),
             $visitante, $sck, $campo('src'), $campo('utm_source'), $campo('utm_medium'), $campo('utm_campaign'), $campo('utm_content'), $campo('utm_term'),
-            $linha['referencia'], $linha['tipo'], $linha['pedido_pai'], $linha['aprovada_em'], $liquido]);
+            $linha['referencia'], $linha['tipo'], $linha['pedido_pai'], $linha['aprovada_em'], $liquido,
+            $produtoId, $ofertaIdInterno, $ofertaNome, $precoBase]);
 
     if (!$antes) {
         return 'nova';

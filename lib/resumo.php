@@ -269,8 +269,9 @@ function resumo_dados(PDO $db, string $periodo, string $de, string $ate, array $
     $investido = $gasto + $imposto;
     $roi = roi_campanha($fat, $gasto, $imposto);
     $roiMeta = roi_campanha($fatMeta, $gasto, $imposto);
-    // Ticket do produto: valor cobrado medio da venda aprovada, sem order bump (a regua do CPA)
-    $ticket = $aprovadas ? $valorPrincipal / $aprovadas : null;
+    // Ticket ponderado pelos precos-base das ofertas principais vendidas no periodo.
+    $ticketInfo = ticket_objeto($db, 'conta', '', $dia1, $dia2);
+    $ticket = $ticketInfo['ticket'];
 
     // Site: visitantes e cliques no checkout (t.js)
     $visitantes = (int)valor($db, 'SELECT COUNT(DISTINCT visitante) FROM eventos WHERE em >= ? AND em < ?', [$de, $ate]);
@@ -293,7 +294,7 @@ function resumo_dados(PDO $db, string $periodo, string $de, string $ate, array $
         $acL[$h] = $f - $gg - (int)round($gg * $pct / 100);
         $lucroHora[$h] = ($fatHora[$h] ?? 0) - ($gastoHora[$h] ?? 0) - (int)round(($gastoHora[$h] ?? 0) * $pct / 100);
     }
-    return compact('pct', 'dia1', 'dia2', 'g', 'gasto', 'imposto', 'fat', 'fatBruto', 'fatMeta', 'aprovadas', 'pendValor', 'pendN', 'reembValor', 'reembN', 'cbValor', 'cbN', 'foraTipo', 'metaIniciadas', 'metaAprovadas', 'siteIniciadas', 'siteAprovadas', 'comOrigem', 'semOrigem', 'porPagamento', 'porProduto', 'fatProduto', 'porTermo', 'porCanal', 'porHora', 'fatHora', 'porSemana', 'tentativas', 'aprovPorMeio', 'lucro', 'investido', 'roi', 'roiMeta', 'ticket', 'visitantes', 'clicaram', 'leads', 'conversas', 'gastoHora', 'acF', 'acG', 'acL', 'lucroHora');
+    return compact('pct', 'dia1', 'dia2', 'g', 'gasto', 'imposto', 'fat', 'fatBruto', 'fatMeta', 'aprovadas', 'pendValor', 'pendN', 'reembValor', 'reembN', 'cbValor', 'cbN', 'foraTipo', 'metaIniciadas', 'metaAprovadas', 'siteIniciadas', 'siteAprovadas', 'comOrigem', 'semOrigem', 'porPagamento', 'porProduto', 'fatProduto', 'porTermo', 'porCanal', 'porHora', 'fatHora', 'porSemana', 'tentativas', 'aprovPorMeio', 'lucro', 'investido', 'roi', 'roiMeta', 'ticket', 'ticketInfo', 'visitantes', 'clicaram', 'leads', 'conversas', 'gastoHora', 'acF', 'acG', 'acL', 'lucroHora');
 }
 
 function resumo_render(PDO $db, string $periodo, string $de, string $ate): void

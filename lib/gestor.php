@@ -124,8 +124,10 @@ function gestor_metricas(array $r, float $pct): array
         'roi' => roi_campanha($r['fat'], $r['gasto'], $imposto),
         'roas' => $div($r['fat'], $r['gasto']),
         'cpa' => $div($r['gasto'], $r['vendas']),
-        // Ticket: valor cobrado medio da venda, sem order bump (a regua do CPA, cor_cpa)
-        'ticket' => $div($r['fat_produto'] ?? 0, $r['vendas']),
+        // Preco-base ponderado das ofertas principais (ou ticket resolvido para o objeto).
+        'ticket' => array_key_exists('ticket_info', $r) ? ($r['ticket_info']['ticket'] ?? null)
+            : (array_key_exists('ticket', $r) ? $r['ticket'] : $div($r['ticket_soma'] ?? ($r['fat_produto'] ?? 0), $r['ticket_qtd'] ?? $r['vendas'])),
+        'ticket_info' => $r['ticket_info'] ?? null,
         'cpi' => $div($r['gasto'], $r['checkouts']),
         'cpv' => $div($r['gasto'], $r['visualizacoes']),
         'cpc' => $div($r['gasto'], $r['cliques']),
@@ -171,7 +173,8 @@ function gestor_colunas(float $pct): array
         'taxas' => ['Taxas Kiwify', 'Faturamento bruto − faturamento líquido: o que a Kiwify ficou de taxa nas vendas aprovadas.', fn($r) => e(reais($r['taxas'])), false],
         'lucro' => ['Lucro', 'Faturamento − gasto − imposto da Meta (' . $p . '%).', fn($r) => '<span class="' . $cor($r['lucro']) . '">' . e(reais($r['lucro'])) . '</span>', true],
         'cpa' => ['CPA', 'Custo por venda: gasto ÷ vendas. A régua de referência: até ' . CPA_PCT_TICKET . '% do ticket (o valor cobrado médio da venda, sem order bump). Verde dentro, vermelho acima.',
-            fn($r) => $r['cpa'] === null ? 'N/A' : '<span class="' . cor_cpa($r['cpa'], $r['ticket']) . '">' . $din($r['cpa']) . '</span>', true],
+            fn($r) => $r['cpa'] === null ? ($r['ticket'] === null ? '<span title="Defina a oferta principal desta campanha">N/A<br><small>defina a oferta</small></span>' : 'N/A')
+                : '<span class="' . cor_cpa($r['cpa'], $r['ticket']) . '">' . $din($r['cpa']) . '</span>', true],
         'roi' => ['ROI', '(Faturamento − imposto da Meta) ÷ gasto: quanto voltou para cada real gasto. É a conta da UTMify e da planilha de campanhas. Vermelho abaixo de 1 (não se paga), laranja de 1 até 2, verde de 2 para cima.', fn($r) => $r['roi'] === null ? 'N/A' : '<span class="' . cor_roi($r['roi']) . '">' . $num($r['roi']) . '</span>', true],
         'roas' => ['ROAS', 'Faturamento ÷ gasto, sem o imposto. É o retorno sobre o gasto que a Meta mostra.', fn($r) => $r['roas'] === null ? 'N/A' : '<span class="' . $cor($r['roas'], 1) . '">' . $num($r['roas']) . '</span>', false],
         'cpi' => ['Custo por IC', 'Custo por início de checkout (finalização de compra iniciada): gasto ÷ ICs.', fn($r) => $din($r['cpi']), true],
@@ -286,7 +289,7 @@ function gestor_motivo_fora(array $v): array
 
 function gestor_linha_nova(): array
 {
-    return ['gasto' => 0, 'checkouts' => 0, 'cliques' => 0, 'impressoes' => 0, 'visualizacoes' => 0, 'vendas' => 0, 'fat' => 0, 'fat_bruto' => 0, 'fat_produto' => 0,
+    return ['gasto' => 0, 'checkouts' => 0, 'cliques' => 0, 'impressoes' => 0, 'visualizacoes' => 0, 'vendas' => 0, 'fat' => 0, 'fat_bruto' => 0, 'fat_produto' => 0, 'ticket_soma' => 0, 'ticket_qtd' => 0,
         'pend' => 0, 'reemb' => 0, 'reemb_fat' => 0, 'recusadas' => 0, 'nome_utm' => null, 'pai_camp' => null, 'pai_conj' => null]
         + array_fill_keys(GESTOR_VIDEO, 0) + ['alcance' => 0];
 }
@@ -301,7 +304,9 @@ function gestor_somar_venda(array &$l, array $v): void
     if ($sit === 'Aprovada') {
         $l['fat'] += (int)($v['valor_liquido'] ?? $v['valor'] ?? 0);
         $l['fat_bruto'] += (int)($v['valor'] ?? 0);
-        $l['fat_produto'] += $principal ? (int)($v['valor'] ?? 0) : 0;
+        $l['fat_produto'] += $principal ? (int)($v['preco_base'] ?? $v['valor'] ?? 0) : 0;
+        $l['ticket_soma'] += $principal ? (int)($v['preco_base'] ?? $v['valor'] ?? 0) : 0;
+        $l['ticket_qtd'] += $principal ? 1 : 0;
         $l['vendas'] += $principal ? 1 : 0;
     } elseif ($principal && $sit === 'Aguardando pagamento') {
         $l['pend']++;
@@ -421,6 +426,7 @@ function gestor_valor_ordem(array $r, string $col)
 
 function gestor_render(PDO $db, string $periodo, string $de, string $ate, array $parLink): void
 {
+    echo '<p class="linha-botoes"><a href="ofertas.php">Catálogo de ofertas e associação de campanhas</a></p>';
     $nivel = isset(GESTOR_NIVEIS[$_GET['nivel'] ?? '']) ? $_GET['nivel'] : 'campanhas';
     [$rotuloNivel, , , $nivelMeta] = GESTOR_NIVEIS[$nivel];
     $busca = mb_strtolower(texto($_GET['q'] ?? '', 80));
@@ -494,7 +500,10 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         } elseif ($nivel === 'anuncios') {
             $pai = $objetos[$conj]['nome'] ?? null;
         }
-        $r = gestor_metricas(['id' => (string)$id, 'nome' => $nome, 'pai' => $pai, 'camp' => $camp, 'conj' => $conj, 'obj' => $nivel === 'contas' ? null : $obj] + $l, $pct);
+        $nivelTicket = ['contas' => 'conta', 'campanhas' => 'campanha', 'conjuntos' => 'conjunto', 'anuncios' => 'anuncio'][$nivel];
+        $infoTicket = ticket_objeto($db, $nivelTicket, (string)$id, $dia1, $dia2);
+        $r = gestor_metricas(['id' => (string)$id, 'nome' => $nome, 'pai' => $pai, 'camp' => $camp, 'conj' => $conj, 'obj' => $nivel === 'contas' ? null : $obj,
+            'ticket_info' => $infoTicket, 'ticket' => $infoTicket['ticket']] + $l, $pct);
         $r['antes'] = isset($antes[$id]) ? gestor_metricas($antes[$id], $pct) : null;
         $tabela[] = $r;
     }
@@ -833,8 +842,9 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     }
     echo '</tbody>';
     if ($tabela) {
-        $t = gestor_metricas(['id' => '', 'obj' => null] + $total, $pct);
-        $tAntes = gestor_metricas(['id' => '', 'obj' => null] + $totalAntes, $pct);
+        $infoTotalTicket = ticket_objeto($db, 'conta', '', $dia1, $dia2);
+        $t = gestor_metricas(['id' => '', 'obj' => null, 'ticket_info' => $infoTotalTicket, 'ticket' => $infoTotalTicket['ticket']] + $total, $pct);
+        $tAntes = gestor_metricas(['id' => '', 'obj' => null, 'ticket_info' => $infoTotalTicket, 'ticket' => $infoTotalTicket['ticket']] + $totalAntes, $pct);
         echo '<tfoot><tr class="total">' . ($campoSel ? '<td class="marca"></td>' : '') . '<td class="st"></td><td class="nome">' . count($tabela) . ' ' . e(mb_strtolower(count($tabela) === 1 ? $singular : $rotuloNivel)) . '</td>';
         foreach ($colunas as $k) {
             echo '<td>' . ($k === 'orcamento' || $k === 'id' ? '' : $todas[$k][2]($t) . $celDelta($k, $t, $tAntes)) . '</td>';

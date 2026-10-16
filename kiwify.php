@@ -10,6 +10,7 @@
 // produto, o valor, o status e as etiquetas de rastreio.
 
 require __DIR__ . '/lib/util.php';
+require_once __DIR__ . '/lib/ofertas.php';
 
 header('Cache-Control: no-store');
 $cfg = track_config();
@@ -41,6 +42,9 @@ if ($pedido === '') {
 $evento = texto($dados['webhook_event_type'] ?? $p['webhook_event_type'] ?? '', 60);
 $status = texto($p['order_status'] ?? $p['status'] ?? '', 40);
 $produto = texto($p['Product']['product_name'] ?? $p['product']['name'] ?? $p['product_name'] ?? '', 200);
+$produtoId = texto($p['Product']['product_id'] ?? $p['product']['product_id'] ?? $p['product']['id'] ?? '', 120) ?: null;
+$ofertaId = texto($p['Product']['product_offer_id'] ?? $p['product']['product_offer_id'] ?? $p['product']['offer_id'] ?? '', 120) ?: null;
+$ofertaNome = texto($p['Product']['product_offer_name'] ?? $p['product']['product_offer_name'] ?? $p['product']['offer_name'] ?? '', 200) ?: null;
 $pagamento = texto($p['payment_method'] ?? '', 40);
 
 // Valor em centavos. A Kiwify manda inteiro em centavos (5949); com ponto decimal, e em reais.
@@ -56,6 +60,9 @@ $centavos = function ($v): ?int {
 $valor = $centavos($p['Commissions']['charge_amount'] ?? $p['payment']['charge_amount'] ?? $p['charge_amount'] ?? null);
 // Liquido: a comissao do produtor, depois das taxas da Kiwify (base do lucro e do ROI)
 $liquido = $centavos($p['Commissions']['my_commission'] ?? $p['payment']['net_amount'] ?? null);
+$precoBase = $centavos($p['Commissions']['product_base_price'] ?? $p['product_base_price'] ?? null);
+$tipoCatalogo = strtolower(texto($p['type'] ?? '', 20));
+$tipoCatalogo = in_array($tipoCatalogo, ['bump', 'upsell'], true) ? $tipoCatalogo : (!empty($p['parent_order_id']) ? 'bump' : 'principal');
 
 $t = $p['TrackingParameters'] ?? $p['tracking'] ?? [];
 $t = is_array($t) ? $t : [];
@@ -69,10 +76,12 @@ $visitante = ($sck && preg_match('/^trk_([a-f0-9]{32})$/', $sck, $m)) ? $m[1] : 
 
 $agora = agora_utc();
 $db = track_db();
+$ofertaIdInterno = oferta_registrar($db, $produtoId, $ofertaId, $produto, $precoBase, $tipoCatalogo);
 // fonte: 'webhook'; se a busca pela API ja tinha trazido a venda, vira 'ambos'
 $db->prepare('INSERT INTO vendas (pedido, evento, status, produto, valor, pagamento, recebida_em, atualizada_em, visitante, sck, src,
-                                  utm_source, utm_medium, utm_campaign, utm_content, utm_term, referencia, valor_liquido, fonte)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'webhook\')
+                                  utm_source, utm_medium, utm_campaign, utm_content, utm_term, referencia, valor_liquido, fonte,
+                                  produto_id, oferta_id, oferta_nome, preco_base)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'webhook\', ?, ?, ?, ?)
               ON CONFLICT (pedido) DO UPDATE SET
                   valor_liquido = COALESCE(excluded.valor_liquido, vendas.valor_liquido),
                   fonte = CASE WHEN vendas.fonte IN (\'api\', \'ambos\') THEN \'ambos\' ELSE \'webhook\' END,
@@ -81,11 +90,16 @@ $db->prepare('INSERT INTO vendas (pedido, evento, status, produto, valor, pagame
                   status = excluded.status,
                   atualizada_em = excluded.atualizada_em,
                   produto = COALESCE(NULLIF(excluded.produto, \'\'), vendas.produto),
+                  produto_id = COALESCE(excluded.produto_id, vendas.produto_id),
+                  oferta_id = COALESCE(excluded.oferta_id, vendas.oferta_id),
+                  oferta_nome = COALESCE(excluded.oferta_nome, vendas.oferta_nome),
+                  preco_base = COALESCE(excluded.preco_base, vendas.preco_base),
                   valor = COALESCE(excluded.valor, vendas.valor),
                   pagamento = COALESCE(NULLIF(excluded.pagamento, \'\'), vendas.pagamento),
                   visitante = COALESCE(vendas.visitante, excluded.visitante)')
     ->execute([$pedido, $evento, $status, $produto, $valor, $pagamento, $agora, $agora, $visitante, $sck, $campo('src'),
-        $campo('utm_source'), $campo('utm_medium'), $campo('utm_campaign'), $campo('utm_content'), $campo('utm_term'), $referencia, $liquido]);
+        $campo('utm_source'), $campo('utm_medium'), $campo('utm_campaign'), $campo('utm_content'), $campo('utm_term'), $referencia, $liquido,
+        $produtoId, $ofertaIdInterno, $ofertaNome, $precoBase]);
 
 // Aviso no celular dos usuarios inscritos (lib/push.php): uma vez por situacao, so venda recente
 require_once __DIR__ . '/lib/push.php';

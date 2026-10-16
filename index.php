@@ -4,6 +4,7 @@
 
 require __DIR__ . '/lib/util.php';
 require __DIR__ . '/lib/layout.php';
+require_once __DIR__ . '/lib/ofertas.php';
 require_once __DIR__ . '/lib/kiwify_sync.php';
 require_once __DIR__ . '/lib/vendas.php';
 require_once __DIR__ . '/lib/gestor.php';
