@@ -41,6 +41,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             definir_ajuste('orcamento_teto', (string)$teto);
             $aviso = 'Teto do orçamento salvo: ' . reais($teto) . ' por dia.';
         }
+    } elseif (($_POST['acao'] ?? '') === 'marco') {
+        $data = trim((string)($_POST['data_mudanca'] ?? ''));
+        $mudou = texto($_POST['o_que_mudou'] ?? '', 100);
+        if ($data !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data)) {
+            $erros[] = 'Data da mudança inválida. Use o formato AAAA-MM-DD.';
+        } else {
+            definir_ajuste('data_mudanca', $data !== '' ? $data : null);
+            definir_ajuste('o_que_mudou', $mudou !== '' ? $mudou : null);
+            $aviso = 'Marco da mudança salvo.';
+        }
     }
 }
 
@@ -53,6 +63,8 @@ $exemplo = ['pedido' => 'exemplo', 'produto' => 'Drive de Projetos 2.0', 'valor'
 $previaVenda = push_msg_venda($exemplo, 'aprovada', ['aprovadas' => true] + $p);
 $previaRelatorio = push_com_nome(relatorio_msg(['fat' => 71062, 'vendas' => 9, 'gasto' => 29815, 'imposto' => 3623, 'lucro' => 37624, 'roi' => 2.13], $p['relatorio_padrao'], 23), $p);
 $nomeApp = track_config()['app_nome'] ?? 'Painel de vendas';
+$dataMudanca = ajuste('data_mudanca') ?? '';
+$oQueMudou = ajuste('o_que_mudou') ?? '';
 
 // Uma opcao Mostrar/Esconder ou Habilitado/Desabilitado, com o (i)
 $opcao = function (string $campo, string $rotulo, string $dica, bool $ligado, string $sim, string $nao): string {
@@ -104,6 +116,13 @@ abas_painel('configuracoes');
       <button type="submit">Salvar teto</button>
     </form>
 
+    <form method="post" action="configuracoes.php" class="cartao">
+      <h2><?= com_info('Antes × depois (Marco de mudança)', 'Data de uma mudança importante no site ou na oferta para comparar os resultados antes e depois no Resumo.') ?></h2>
+      <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="marco">
+      <label class="cfg-campo"><span>Data da mudança</span><input type="date" name="data_mudanca" value="<?= e($dataMudanca) ?>" placeholder="AAAA-MM-DD"></label>
+      <label class="cfg-campo"><span>O que mudou</span><input type="text" name="o_que_mudou" maxlength="100" value="<?= e($oQueMudou) ?>" placeholder="Ex.: VSL removida da /drivedeprojetos/"></label>
+      <button type="submit">Salvar marco</button>
+    </form>
   </div>
 
   <form method="post" action="configuracoes.php" class="cfg-grade">

@@ -165,6 +165,7 @@ function nome_evento(string $n): string
         'VSL_75' => 'VSL: 75% assistido',
         'VSL_Pitch' => 'VSL: Chegou na Oferta (Pitch)',
         'VSL_100' => 'VSL: 100% concluído',
+        'Secao' => 'Chegou na seção',
     ][$n] ?? $n;
 }
 
@@ -177,6 +178,7 @@ function dica_evento(string $n): string
         'WhatsApp' => 'Clique no botão ou link do WhatsApp.',
         'Botao' => 'Clique em botão marcado com data-botao que não leva ao checkout (ex.: ver planos, perguntas, rolar até a oferta).',
         'BioClique' => 'Clique num link da página de links da bio (data-bio no link). O detalhe é o nome do link no painel da Bio.',
+        'Secao' => 'Visitante rolou a página até a seção indicada no detalhe (dores, recursos, preço...). Uma vez por carregamento.',
         'VSL_Play' => 'Visitante clicou no vídeo para ativar o som ou iniciou a reprodução ativa da VSL.',
         'VSL_25' => 'Visitante assistiu pelo menos 25% do vídeo da VSL.',
         'VSL_50' => 'Visitante assistiu pelo menos 50% do vídeo da VSL.',

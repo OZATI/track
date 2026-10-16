@@ -89,6 +89,8 @@ confere "$(grep -q 'trk_vid' "$JAR"; echo $?)" "cookie trk_vid gravado pelo serv
 r=$(curl -s -c "$JAR" -b "$JAR" -H "Origin: http://site.test" --data "{\"evento\":\"CliqueCheckout\",\"detalhe\":\"<script>alert(1)</script>\",\"url\":\"http://site.test/drivedeprojetos/\",$ANUNCIO}" "$URL/coletar.php")
 VID2=$(grep -o '"vid":"[a-f0-9]*"' < <(printf '%s\n' "$r") | cut -d'"' -f4)
 confere "$([ "$VID" = "$VID2" ]; echo $?)" "mesmo visitante no clique (cookie)"
+r=$(curl -s -H "Origin: http://site.test" --data '{"evento":"Secao","detalhe":"recursos","url":"http://site.test/drivedeprojetos/"}' "$URL/coletar.php")
+confere "$(tem '"ok":true' "$r")" "coletar.php aceita evento 'Secao' com detalhe"
 curl -s -H "Origin: http://site.test" --data '{"evento":"WhatsApp","url":"http://site.test/bio/"}' "$URL/coletar.php" >/dev/null
 curl -s -H "Origin: http://site.test" --data '{"evento":"PageView","url":"http://site.test/drivedeprojetos/","referrer":"https://www.google.com/search?q=drive"}' "$URL/coletar.php" >/dev/null
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Origin: https://invasor.test" --data '{"evento":"PageView","url":"https://invasor.test/"}' "$URL/coletar.php")
@@ -925,6 +927,17 @@ confere "$(tem 'data-dica="(Faturamento líquido − imposto da Meta) ÷ gasto, 
 confere "$(tem 'class="info" tabindex="0" role="button" aria-label="(Faturamento líquido − imposto da Meta)' "$r")" "(i) é um botão acessível com a explicação"
 confere "$(grep -q '<title>' < <(printf '%s\n' "${r#*</head>}"); [ $? -ne 0 ]; echo $?)" "gráficos sem dica nativa (title) por cima da nossa"
 confere "$(tem 'data-dica-titulo="[0-9][0-9]h às [0-9][0-9]h" data-dica="[0-9]* venda' "$r")" "vendas por horário: dica com o horário, as vendas e a parte do período"
+confere "$(tem 'Funil de rolagem' "$r")" "o painel renderiza Funil de rolagem"
+confere "$(tem 'recursos' "$r")" "Funil de rolagem mostra a seção recebida"
+confere "$(tem 'Defina a data da mudança em Configurações' "$r")" "Antes × depois sem data configurada avisa para definir"
+rcfg=$(curl -s -b "$JAR" "$URL/configuracoes.php")
+csrf_cfg=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$rcfg") | head -1 | grep -o '[a-f0-9]\{32\}')
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf_cfg" --data-urlencode "acao=marco" --data-urlencode "data_mudanca=2026-10-15" --data-urlencode "o_que_mudou=VSL removida da /drivedeprojetos/" "$URL/configuracoes.php"
+r_marco=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem 'Antes × depois' "$r_marco")" "com a data configurada, Antes × depois aparece"
+confere "$(tem 'VSL removida' "$r_marco")" "Antes × depois mostra o que mudou"
+confere "$(tem 'Variação' "$r_marco")" "Antes × depois mostra a coluna Variação"
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf_cfg" --data-urlencode "acao=marco" --data-urlencode "data_mudanca=" --data-urlencode "o_que_mudou=" "$URL/configuracoes.php"
 
 echo "Orgânico"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=tudo")

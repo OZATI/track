@@ -35,8 +35,10 @@ const RESUMO_PADRAO = [
     ['ProfitByDay', 0, 15, 8, 3], ['OutsideAds', 8, 15, 4, 3],
     ['SalesHeatmap', 0, 18, 12, 3],
     ['VslFunnel', 0, 21, 12, 4],
-    ['SalesByHour', 0, 25, 12, 3],
-    ['RevenueInvestmentProfitByHour', 0, 28, 12, 3],
+    ['ScrollFunnel', 0, 25, 12, 4],
+    ['BeforeAfter', 0, 29, 12, 4],
+    ['SalesByHour', 0, 33, 12, 3],
+    ['RevenueInvestmentProfitByHour', 0, 36, 12, 3],
 ];
 
 // tipo => [titulo, categoria, desenho (numero ou grafico), dica, [w, h, minW, minH, maxW, maxH], icone,
@@ -52,6 +54,7 @@ function resumo_blocos(): array
         'site' => ['SiteFunnel', 'Visitors', 'CheckoutClicks', 'LeadCount', 'Conversations', 'CostPerLead'],
         'financeiro' => ['CustomSpendings', 'NetProfit'],
         'vsl' => ['VslFunnel'],
+        'secao' => ['ScrollFunnel'],
     ];
     $p = number_format(gestor_imposto_pct(), 2, ',', '.') . '%';
     $num = [3, 1, 2, 1, 6, 1];
@@ -94,6 +97,8 @@ function resumo_blocos(): array
         'ConversionFunnel' => ['Funil da Meta', 'graficos', 'grafico', 'Do clique no anúncio até a venda aprovada. Cliques, visualizações e inícios de checkout vêm da Meta; vendas, da Kiwify (só as com o ID de uma campanha).', [8, 3, 4, 3, 12, 6], 'meta'],
         'SiteFunnel' => ['Funil do site', 'graficos', 'grafico', 'Medido pelo próprio painel (t.js nas páginas), sem depender da Meta: visitantes, cliques no checkout, vendas iniciadas e aprovadas.', [8, 3, 4, 3, 12, 6], 'visitantes'],
         'VslFunnel' => ['Funil da VSL', 'graficos', 'grafico', 'Retenção do vídeo e conversão em vendas nas páginas com VSL (eventos VSL_Play, VSL_50 e VSL_Pitch do t.js): deu play, metade, oferta, clique no checkout e compra.', [12, 4, 6, 3, 12, 8], 'atividade'],
+        'ScrollFunnel' => ['Funil de rolagem', 'graficos', 'grafico', 'Até onde os visitantes rolam cada página (evento Secao do t.js) e quantos clicam no checkout e compram.', [12, 4, 6, 3, 12, 8], 'atividade'],
+        'BeforeAfter' => ['Antes × depois', 'graficos', 'grafico', 'Compara os resultados da mesma quantidade de dias antes e depois da data da mudança configurada.', [12, 4, 6, 3, 12, 8], 'calendario'],
         'SalesByDayOfWeek' => ['Vendas por dia da semana', 'graficos', 'grafico', 'Vendas aprovadas em cada dia da semana (dia da aprovação, horário de Brasília), em % do período.', [4, 3, 3, 3, 12, 6], 'calendario'],
         'SalesByHour' => ['Vendas por horário', 'graficos', 'grafico', 'Percentual das vendas aprovadas em cada hora do dia (hora da aprovação, no horário de Brasília).', [12, 3, 4, 3, 12, 6], 'grafico'],
         'ProfitByHour' => ['Lucro por horário', 'graficos', 'grafico', 'Faturamento − gasto − imposto da Meta em cada hora do dia (os dias do período somados pela hora): verde ganhou, vermelho perdeu. Mostra os horários em que o anúncio só gasta.', [12, 3, 4, 3, 12, 6], 'vendas'],
@@ -128,6 +133,7 @@ function resumo_fontes(): array
         'site' => [(bool)$db->query('SELECT 1 FROM eventos LIMIT 1')->fetchColumn(), 'Ponha o t.js nas páginas', '', 't.js nas páginas'],
         'financeiro' => [(bool)$db->query('SELECT 1 FROM gastos LIMIT 1')->fetchColumn(), 'Cadastre as despesas', usuario_pode('financeiro') ? 'financeiro.php' : '', 'despesas do DRE'],
         'vsl' => [(bool)$db->query("SELECT 1 FROM eventos WHERE nome = 'VSL_Play' LIMIT 1")->fetchColumn(), 'Mande os eventos da VSL pelo t.js', '', 'eventos da VSL'],
+        'secao' => [(bool)$db->query("SELECT 1 FROM eventos WHERE nome = 'Secao' LIMIT 1")->fetchColumn(), 'Mande o evento Secao pelo t.js', '', 'evento Secao'],
     ];
     return $f;
 }
@@ -309,6 +315,147 @@ function resumo_vsl(PDO $db, string $de, string $ate, string $dia1, string $dia2
     return $h;
 }
 
+// Funil de rolagem do periodo: ate onde os visitantes rolam cada pagina (evento Secao)
+function resumo_scroll(PDO $db, string $de, string $ate, string $dia1, string $dia2): string
+{
+    $paginasSecao = consulta($db, "SELECT DISTINCT pagina FROM eventos WHERE nome = 'Secao' AND em >= ? AND em < ? ORDER BY pagina", [$de, $ate]);
+    if (!$paginasSecao) {
+        return '<p class="suave">Nenhuma página mandou o evento Secao no período.</p>';
+    }
+    $h = '';
+    foreach ($paginasSecao as $row) {
+        $pPath = $row['pagina'];
+        $pNome = $pPath;
+        if (in_array($pPath, ['/drivedeprojetos', '/drivedeprojetos/', '/drivedeprojetos/index.html'], true)) {
+            $pNome = 'Drive de Projetos (Principal · R$ 67)';
+        } elseif (str_contains($pPath, '/vsl')) {
+            $pNome = 'Drive de Projetos (VSL Teste · R$ 97)';
+        }
+
+        $pVis = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'PageView' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $de, $ate]);
+
+        $etapas = [
+            'Visitantes' => [$pVis, 'Aparelhos diferentes que abriram a página.'],
+        ];
+
+        $secoes = consulta($db, "SELECT detalhe, COUNT(DISTINCT visitante) AS n FROM eventos WHERE nome = 'Secao' AND pagina = ? AND em >= ? AND em < ? AND detalhe != '' GROUP BY detalhe ORDER BY n DESC, detalhe ASC", [$pPath, $de, $ate]);
+        foreach ($secoes as $s) {
+            $secNome = $s['detalhe'];
+            $etapas[$secNome] = [(int)$s['n'], 'Visitantes que rolaram até a seção ' . $secNome . '.'];
+        }
+
+        $pCk = (int)valor($db, "SELECT COUNT(DISTINCT e.visitante) FROM eventos e
+                                WHERE e.nome = 'CliqueCheckout' AND e.pagina = ? AND e.em >= ? AND e.em < ?", [$pPath, $de, $ate]);
+        $pAprov = (int)valor($db, "SELECT COUNT(DISTINCT vd.visitante) FROM vendas vd
+                                   JOIN eventos e ON e.visitante = vd.visitante AND e.pagina = ? AND e.em >= ? AND e.em < ?
+                                   WHERE vd.aprovada_em IS NOT NULL AND vd.aprovada_em >= ? AND vd.aprovada_em < ?", [$pPath, $de, $ate, $dia1 . ' 00:00:00', $dia2 . ' 23:59:59']);
+
+        $etapas['Clicou no checkout'] = [$pCk, 'Visitantes que clicaram no botão de compra nesta página.'];
+        $etapas['Comprou (aprovada)'] = [$pAprov, 'Vendas aprovadas de visitantes desta página.'];
+
+        $h .= '<h3 class="pw-sub">' . e($pNome) . ' ' . info('Até onde os visitantes rolam na página ' . $pPath . '.') . '</h3>' . resumo_funil($etapas);
+    }
+    return $h;
+}
+
+// Compara os resultados antes e depois da data da mudanca
+function resumo_antes_depois(PDO $db): string
+{
+    $dataMudanca = ajuste('data_mudanca');
+    if (!$dataMudanca || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dataMudanca)) {
+        return '<p class="suave">Defina a data da mudança em Configurações.</p>';
+    }
+    $oQueMudou = ajuste('o_que_mudou') ?: '';
+
+    $tz = fuso();
+    $hojeObj = new DateTime('today', $tz);
+    $dataObj = new DateTime($dataMudanca, $tz);
+    $diff = (int)$dataObj->diff($hojeObj)->format('%r%a');
+    $N = min(14, max(1, $diff + 1));
+
+    $fimHoje = (clone $hojeObj)->modify('+1 day');
+    $depoisIni = (clone $fimHoje)->modify('-' . $N . ' days');
+    $antesFim = clone $depoisIni;
+    $antesIni = (clone $antesFim)->modify('-' . $N . ' days');
+
+    $utc = new DateTimeZone('UTC');
+    $antesDe = (clone $antesIni)->setTimezone($utc)->format('Y-m-d H:i:s');
+    $antesAte = (clone $antesFim)->setTimezone($utc)->format('Y-m-d H:i:s');
+    $depoisDe = (clone $depoisIni)->setTimezone($utc)->format('Y-m-d H:i:s');
+    $depoisAte = (clone $fimHoje)->setTimezone($utc)->format('Y-m-d H:i:s');
+
+    $paginas = consulta($db, "SELECT DISTINCT pagina FROM eventos WHERE nome IN ('PageView', 'CliqueCheckout', 'Secao') AND ((em >= ? AND em < ?) OR (em >= ? AND em < ?)) AND pagina != '' ORDER BY pagina",
+        [$antesDe, $antesAte, $depoisDe, $depoisAte]);
+
+    if (!$paginas) {
+        $paginas = consulta($db, "SELECT DISTINCT pagina FROM eventos WHERE ((em >= ? AND em < ?) OR (em >= ? AND em < ?)) AND pagina != '' ORDER BY pagina",
+            [$antesDe, $antesAte, $depoisDe, $depoisAte]);
+    }
+    if (!$paginas) {
+        $paginas = consulta($db, "SELECT DISTINCT pagina FROM eventos WHERE pagina != '' ORDER BY pagina");
+    }
+
+    $txtDias = $N . ' ' . ($N === 1 ? 'dia' : 'dias');
+    $subMudou = $oQueMudou !== ''
+        ? '<p class="suave" style="margin-bottom:8px"><strong>Mudança em ' . data_local($dataMudanca, 'd/m/Y') . ':</strong> ' . e($oQueMudou) . '</p>'
+        : '<p class="suave" style="margin-bottom:8px"><strong>Data da mudança:</strong> ' . data_local($dataMudanca, 'd/m/Y') . '</p>';
+
+    if (!$paginas) {
+        return $subMudou . '<p class="suave">Nenhuma página com tráfego no período comparado.</p>';
+    }
+
+    $h = $subMudou;
+    foreach ($paginas as $row) {
+        $pPath = $row['pagina'];
+        $pNome = $pPath;
+        if (in_array($pPath, ['/drivedeprojetos', '/drivedeprojetos/', '/drivedeprojetos/index.html'], true)) {
+            $pNome = 'Drive de Projetos (Principal · R$ 67)';
+        } elseif (str_contains($pPath, '/vsl')) {
+            $pNome = 'Drive de Projetos (VSL Teste · R$ 97)';
+        }
+
+        $visAntes = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'PageView' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $antesDe, $antesAte]);
+        $visDepois = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'PageView' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $depoisDe, $depoisAte]);
+
+        $ckAntes = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'CliqueCheckout' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $antesDe, $antesAte]);
+        $ckDepois = (int)valor($db, "SELECT COUNT(DISTINCT visitante) FROM eventos WHERE nome = 'CliqueCheckout' AND pagina = ? AND em >= ? AND em < ?", [$pPath, $depoisDe, $depoisAte]);
+
+        $aprovAntes = (int)valor($db, "SELECT COUNT(DISTINCT vd.visitante) FROM vendas vd
+            JOIN eventos e ON e.visitante = vd.visitante AND e.pagina = ? AND e.em >= ? AND e.em < ?
+            WHERE (vd.aprovada_em IS NOT NULL OR vd.status IN ('paid', 'approved', 'completed', 'complete') OR vd.evento IN ('order_approved', 'compra_aprovada'))
+              AND (vd.tipo IS NULL OR vd.tipo != 'bump') AND (vd.pedido_pai IS NULL OR vd.pedido_pai = '')
+              AND COALESCE(vd.aprovada_em, vd.recebida_em) >= ? AND COALESCE(vd.aprovada_em, vd.recebida_em) < ?",
+            [$pPath, $antesDe, $antesAte, $antesDe, $antesAte]);
+        $aprovDepois = (int)valor($db, "SELECT COUNT(DISTINCT vd.visitante) FROM vendas vd
+            JOIN eventos e ON e.visitante = vd.visitante AND e.pagina = ? AND e.em >= ? AND e.em < ?
+            WHERE (vd.aprovada_em IS NOT NULL OR vd.status IN ('paid', 'approved', 'completed', 'complete') OR vd.evento IN ('order_approved', 'compra_aprovada'))
+              AND (vd.tipo IS NULL OR vd.tipo != 'bump') AND (vd.pedido_pai IS NULL OR vd.pedido_pai = '')
+              AND COALESCE(vd.aprovada_em, vd.recebida_em) >= ? AND COALESCE(vd.aprovada_em, vd.recebida_em) < ?",
+            [$pPath, $depoisDe, $depoisAte, $depoisDe, $depoisAte]);
+
+        $fmtPct = fn(int $num, int $den) => $den ? number_format($num * 100 / $den, 1, ',', '.') . '%' : '—';
+        $pctCkAntes = $fmtPct($ckAntes, $visAntes);
+        $pctCkDepois = $fmtPct($ckDepois, $visDepois);
+        $pctAprovAntes = $fmtPct($aprovAntes, $visAntes);
+        $pctAprovDepois = $fmtPct($aprovDepois, $visDepois);
+
+        $deltaVis = gestor_delta($visDepois, $visAntes) ?: '—';
+        $deltaCk = gestor_delta($ckDepois, $ckAntes) ?: '—';
+        $deltaAprov = gestor_delta($aprovDepois, $aprovAntes) ?: '—';
+
+        $h .= '<h3 class="pw-sub">' . e($pNome) . '</h3>';
+
+        $h .= '<div class="tabela pw-tabela"><table>'
+            . '<thead><tr><th class="nome">Métrica</th><th>Antes (' . e($txtDias) . ')</th><th>Depois (' . e($txtDias) . ')</th><th>Variação</th></tr></thead>'
+            . '<tbody>'
+            . '<tr><td class="nome">Visitantes</td><td>' . number_format($visAntes, 0, ',', '.') . '</td><td>' . number_format($visDepois, 0, ',', '.') . '</td><td>' . $deltaVis . '</td></tr>'
+            . '<tr><td class="nome">Clicou no checkout</td><td>' . number_format($ckAntes, 0, ',', '.') . ($pctCkAntes !== '—' ? ' <small class="suave">(' . $pctCkAntes . ')</small>' : '') . '</td><td>' . number_format($ckDepois, 0, ',', '.') . ($pctCkDepois !== '—' ? ' <small class="suave">(' . $pctCkDepois . ')</small>' : '') . '</td><td>' . $deltaCk . '</td></tr>'
+            . '<tr><td class="nome">Vendas aprovadas</td><td>' . number_format($aprovAntes, 0, ',', '.') . ($pctAprovAntes !== '—' ? ' <small class="suave">(' . $pctAprovAntes . ')</small>' : '') . '</td><td>' . number_format($aprovDepois, 0, ',', '.') . ($pctAprovDepois !== '—' ? ' <small class="suave">(' . $pctAprovDepois . ')</small>' : '') . '</td><td>' . $deltaAprov . '</td></tr>'
+            . '</tbody></table></div>';
+    }
+    return $h;
+}
+
 // O miolo de cada bloco com os numeros do periodo ($d: resumo_ctx)
 function resumo_bloco(string $tipo, array $d): string
 {
@@ -408,6 +555,10 @@ function resumo_bloco(string $tipo, array $d): string
             return grafico_mapa_calor($s['calor']);
         case 'VslFunnel':
             return resumo_vsl($d['db'], $d['de'], $d['ate'], $d['dia1'], $d['dia2']);
+        case 'ScrollFunnel':
+            return resumo_scroll($d['db'], $d['de'], $d['ate'], $d['dia1'], $d['dia2']);
+        case 'BeforeAfter':
+            return resumo_antes_depois($d['db']);
         case 'SalesByPayment':
             return resumo_rosca($d['porPagamento'], ['Pix' => '#1D6FF2', 'Cartão' => '#60A5FA', 'Boleto' => '#F59E0B', 'Outros' => '#9CA3AF'], 'Total');
         case 'SalesByProduct':

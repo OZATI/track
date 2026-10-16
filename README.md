@@ -27,7 +27,7 @@ Um painel atende vários sites: no topo, escolha o **site** e depois a **página
 
 ```
 Página de venda (engdesk.pro/drivedeprojetos/)
-  └─ t.js ──► track.engdesk.pro/coletar.php    PageView, CliqueCheckout, WhatsApp, Botao
+  └─ t.js ──► track.engdesk.pro/coletar.php    PageView, CliqueCheckout, WhatsApp, Botao, Secao
        │        (cookie trk_vid = o visitante)
        └─ põe sck=trk_<visitante> no link da Kiwify
                          │
@@ -39,7 +39,7 @@ Kiwify API (public-api.kiwify.com) ◄── painel busca a cada 10 min (com a c
 track.engdesk.pro  (login)  →  Conferência · Vendas · Visitantes · Eventos
 ```
 
-**Resumo** (primeira tela): faturamento líquido, gasto, lucro, ROI, margem, CPA, imposto da Meta, ticket médio, pendentes e reembolsos; funil da Meta (cliques → visualizações → inícios de checkout → vendas) e funil do site (visitantes → cliques no checkout → vendas); faturamento, investimento e lucro por hora (acumulado); vendas por horário, pagamento (com taxa de aprovação), produto e fonte. Todo número tem o (i) com a conta.
+**Resumo** (primeira tela): faturamento líquido, gasto, lucro, ROI, margem, CPA, imposto da Meta, ticket médio, pendentes e reembolsos; funil da Meta (cliques → visualizações → inícios de checkout → vendas) e funil do site (visitantes → cliques no checkout → vendas); funil de rolagem (até onde os visitantes rolam cada página pelo evento `Secao`); antes × depois (comparação antes e depois de uma mudança de oferta/site); faturamento, investimento e lucro por hora (acumulado); vendas por horário, pagamento (com taxa de aprovação), produto e fonte. Todo número tem o (i) com a conta.
 
 **Painel** (aba ao lado do Resumo): os mesmos números, em cartões que cada pessoa arruma como quiser, no estilo do Power BI e do modo de edição da UTMify.
 - **Editar painel:**
@@ -150,6 +150,7 @@ Exemplo real: `admin.engdesk.pro/utm/`, dentro do admin do site, com a barra lat
    <script src="https://<site>/<pasta>/t.js" defer></script>
    ```
    A página precisa ter o script da UTMify com `data-utmify-prevent-xcod-sck`, para a UTMify não sobrescrever o `sck`.
+   Para funil de rolagem, dispare `window.trk('Secao', '<nome da secao>')` quando a seção entrar na tela (via `IntersectionObserver`). O painel agrupa por página e mostra a % de visitantes que alcançou cada seção.
 6. **Conferir:** abrir a página de venda, clicar no botão de compra e ver o visitante e o clique em **Eventos**. Fazer uma compra de teste e ver a venda em **Vendas** com a conferência.
 7. **API da Kiwify (recomendado):** na Kiwify, Apps → API → Criar API Key com **só "Vendas"** marcado. No painel, aba **API Kiwify**, colar `client_secret`, `client_id` e `account_id` direto (sem WhatsApp ou e-mail). O painel confere a chave na Kiwify antes de salvar. Com a chave, o painel busca as vendas pela API: na primeira vez, os últimos 89 dias; depois, a cada 10 minutos com o painel aberto, só o que mudou; uma vez por dia, os 89 dias de novo. A venda que o webhook não entregou aparece como **Só pela API** na Conferência. Botão **Atualizar vendas** nas abas Tráfego, Conferência e Vendas.
 
