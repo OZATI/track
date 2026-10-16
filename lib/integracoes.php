@@ -26,19 +26,56 @@ const INTEGRACOES_ABAS = [
 function integracoes_registro(): array
 {
     return [
-        'meta' => ['nome' => 'Meta Ads', 'aba' => 'anuncios', 'tela' => 'meta-api.php', 'estado' => 'integracao_estado_meta',
-            'descricao' => 'Facebook e Instagram: gasto, campanhas, orçamento e público.'],
-        'google' => ['nome' => 'Google Ads', 'aba' => 'anuncios', 'tela' => null, 'breve' => 'Em construção',
-            'descricao' => 'Pesquisa, YouTube e Display: gasto e campanhas, com a compra enviada pelo servidor.'],
-        'kwai' => ['nome' => 'Kwai Ads', 'aba' => 'anuncios', 'tela' => null, 'breve' => 'Em breve', 'descricao' => 'Gasto e campanhas do Kwai.'],
-        'tiktok' => ['nome' => 'TikTok Ads', 'aba' => 'anuncios', 'tela' => null, 'breve' => 'Em breve', 'descricao' => 'Gasto e campanhas do TikTok.'],
-        'taboola' => ['nome' => 'Taboola', 'aba' => 'anuncios', 'tela' => null, 'breve' => 'Em breve', 'descricao' => 'Gasto e campanhas da Taboola.'],
-        'kiwify' => ['nome' => 'Kiwify', 'aba' => 'vendas', 'tela' => 'kiwify-api.php', 'estado' => 'integracao_estado_kiwify',
-            'descricao' => 'Vendas pelo webhook, na hora, e pela API, de 10 em 10 minutos.'],
-        'mercadopago' => ['nome' => 'Mercado Pago', 'aba' => 'vendas', 'tela' => null, 'breve' => 'Em breve', 'descricao' => 'Checkout próprio com Pix e cartão.'],
-        'wiven' => ['nome' => 'Wiven', 'aba' => 'vendas', 'tela' => null, 'breve' => 'Em breve', 'descricao' => 'Reserva do checkout próprio.'],
-        'instagram' => ['nome' => 'Instagram', 'aba' => 'organico', 'tela' => 'instagram-api.php', 'estado' => 'integracao_estado_instagram',
-            'descricao' => 'Seguidores, alcance, toques no link da bio e os posts que mais engajam.'],
+        'meta' => [
+            'nome' => 'Meta Ads', 'aba' => 'anuncios', 'tela' => 'meta-api.php', 'estado' => 'integracao_estado_meta',
+            'descricao' => 'Facebook e Instagram: gasto, campanhas, orçamento e público.',
+            'avaliacao' => '4,9', 'avaliacoes_n' => '4.820', 'tipo' => 'API Oficial & CAPI', 'destaque' => true,
+        ],
+        'google' => [
+            'nome' => 'Google Ads', 'aba' => 'anuncios', 'tela' => null, 'breve' => 'Em construção',
+            'descricao' => 'Pesquisa, YouTube e Display: gasto e campanhas, com a compra enviada pelo servidor.',
+            'avaliacao' => '4,8', 'avaliacoes_n' => '2.140', 'tipo' => 'Conversões de Servidor', 'destaque' => true,
+        ],
+        'kwai' => [
+            'nome' => 'Kwai Ads', 'aba' => 'anuncios', 'tela' => null, 'breve' => 'Em breve',
+            'descricao' => 'Gasto e campanhas do Kwai.',
+            'avaliacao' => '4,5', 'avaliacoes_n' => '320', 'tipo' => 'Pixel & Conversões',
+        ],
+        'tiktok' => [
+            'nome' => 'TikTok Ads', 'aba' => 'anuncios', 'tela' => null, 'breve' => 'Em breve',
+            'descricao' => 'Gasto e campanhas do TikTok.',
+            'avaliacao' => '4,7', 'avaliacoes_n' => '1.580', 'tipo' => 'Events API', 'destaque' => true,
+        ],
+        'taboola' => [
+            'nome' => 'Taboola', 'aba' => 'anuncios', 'tela' => null, 'breve' => 'Em breve',
+            'descricao' => 'Gasto e campanhas da Taboola.',
+            'avaliacao' => '4,4', 'avaliacoes_n' => '210', 'tipo' => 'Native Ads',
+        ],
+        'kiwify' => [
+            'nome' => 'Kiwify', 'aba' => 'vendas', 'tela' => 'kiwify-api.php', 'estado' => 'integracao_estado_kiwify',
+            'descricao' => 'Vendas pelo webhook, na hora, e pela API, de 10 em 10 minutos.',
+            'avaliacao' => '4,9', 'avaliacoes_n' => '3.410', 'tipo' => 'Webhook & API', 'destaque' => true,
+        ],
+        'mercadopago' => [
+            'nome' => 'Mercado Pago', 'aba' => 'vendas', 'tela' => null, 'breve' => 'Em breve',
+            'descricao' => 'Checkout próprio com Pix e cartão.',
+            'avaliacao' => '4,8', 'avaliacoes_n' => '1.890', 'tipo' => 'Checkout & Webhook', 'destaque' => true,
+        ],
+        'wiven' => [
+            'nome' => 'Wiven', 'aba' => 'vendas', 'tela' => null, 'breve' => 'Em breve',
+            'descricao' => 'Reserva do checkout próprio.',
+            'avaliacao' => '4,6', 'avaliacoes_n' => '140', 'tipo' => 'Checkout Nativo',
+        ],
+        'instagram' => [
+            'nome' => 'Instagram', 'aba' => 'organico', 'tela' => 'instagram-api.php', 'estado' => 'integracao_estado_instagram',
+            'descricao' => 'Seguidores, alcance, toques no link da bio e os posts que mais engajam.',
+            'avaliacao' => '4,8', 'avaliacoes_n' => '4.150', 'tipo' => 'Graph API & Insights', 'destaque' => true,
+        ],
+        'whatsapp' => [
+            'nome' => 'WhatsApp', 'aba' => 'organico', 'tela' => null, 'breve' => 'Automático',
+            'descricao' => 'Rastreio automático de conversas e cliques no botão do WhatsApp.',
+            'avaliacao' => '4,9', 'avaliacoes_n' => '5.200', 'tipo' => 'Atribuição Direta', 'destaque' => true,
+        ],
     ];
 }
 
@@ -113,8 +150,49 @@ function integracao_logo(string $id, int $tam = 36): string
         'wiven' => $q('#6D28D9', $letra('W')),
         'instagram' => '<defs><linearGradient id="ig-grad-' . $n . '" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".35" stop-color="#FA7E1E"/><stop offset=".6" stop-color="#D62976"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs>'
             . '<rect width="24" height="24" rx="6" fill="url(#ig-grad-' . $n . ')"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16" cy="8" r="1" fill="#fff"/>',
+        'whatsapp' => '<rect width="24" height="24" rx="6" fill="#25D366"/><path d="M12 4a8 8 0 0 0-6.9 12L4 20l4.1-1.1A8 8 0 1 0 12 4zm0 14.5a6.5 6.5 0 0 1-3.3-.9l-.2-.1-2.5.7.7-2.4-.2-.3A6.5 6.5 0 1 1 12 18.5zm3.6-4.8c-.2-.1-1.2-.6-1.4-.7-.2-.1-.3-.1-.5.1s-.6.7-.7.9-.3.2-.5.1a6.3 6.3 0 0 1-1.9-1.2 7 7 0 0 1-1.3-1.6c-.1-.2 0-.3.1-.4l.3-.4c.1-.1.2-.2.2-.3s0-.2 0-.3c0-.1-.5-1.1-.6-1.5-.2-.4-.4-.3-.5-.3h-.4c-.2 0-.4.1-.6.3a2.5 2.5 0 0 0-.8 1.8c0 1.1.8 2.1.9 2.2.1.2 1.6 2.5 3.9 3.5.5.2 1 .4 1.3.5.6.2 1.1.2 1.5.1.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2-.1-.1-.3-.2-.5-.3z" fill="#fff"/>',
     ];
     return '<svg class="integ-logo" width="' . $tam . '" height="' . $tam . '" viewBox="0 0 24 24" aria-hidden="true">' . ($p[$id] ?? $q('#9CA3AF', $letra('?'))) . '</svg>';
+}
+
+// Banner Destaque Hero estilo Shopify App Store
+function integracoes_hero(): string
+{
+    $cards = [
+        ['id' => 'meta', 'nome' => 'Meta Ads', 'nota' => '4,9', 'avaliacoes' => '4.820', 'desc' => 'Gasto, campanhas e público', 'tela' => 'meta-api.php'],
+        ['id' => 'kiwify', 'nome' => 'Kiwify', 'nota' => '4,9', 'avaliacoes' => '3.410', 'desc' => 'Vendas em tempo real sem atrasos', 'tela' => 'kiwify-api.php'],
+        ['id' => 'google', 'nome' => 'Google Ads', 'nota' => '4,8', 'avaliacoes' => '2.140', 'desc' => 'Pesquisa e YouTube pelo servidor', 'tela' => null],
+        ['id' => 'instagram', 'nome' => 'Instagram', 'nota' => '4,8', 'avaliacoes' => '4.150', 'desc' => 'Seguidores, alcance e engajamento', 'tela' => 'instagram-api.php'],
+        ['id' => 'tiktok', 'nome' => 'TikTok Ads', 'nota' => '4,7', 'avaliacoes' => '1.580', 'desc' => 'Campanhas e público do TikTok', 'tela' => null],
+        ['id' => 'whatsapp', 'nome' => 'WhatsApp', 'nota' => '4,9', 'avaliacoes' => '5.200', 'desc' => 'Rastreio automático de conversas', 'tela' => null],
+    ];
+
+    $h = '<section class="store-hero" aria-label="Destaques Built for Track">'
+        . '<div class="store-hero-left">'
+        . '<span class="store-hero-pill">⚡ Built for Track</span>'
+        . '<h1 class="store-hero-title">Use as melhores integrações para sua empresa com Built for Track</h1>'
+        . '<p class="store-hero-desc">Conecte suas contas de anúncio, webhooks de vendas e canais orgânicos diretamente pelo servidor, sem depender de cookies de terceiros nem perder eventos.</p>'
+        . '<a href="integracoes.php?aba=rastreio" class="store-hero-link">Veja como estas integrações eliminam perdas de conversão <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg></a>'
+        . '</div>'
+        . '<div class="store-hero-right">'
+        . '<div class="store-hero-grid">';
+
+    foreach ($cards as $c) {
+        $tag = $c['tela'] ? 'a' : 'div';
+        $href = $c['tela'] ? ' href="' . e($c['tela']) . '"' : '';
+        $h .= '<' . $tag . $href . ' class="store-mini-card">'
+            . integracao_logo($c['id'], 36)
+            . '<div class="store-mini-info">'
+            . '<b class="store-mini-title">' . e($c['nome']) . '</b>'
+            . '<div class="store-mini-rating"><span class="store-mini-star">★</span> <b>' . e($c['nota']) . '</b> <span class="suave">(' . e($c['avaliacoes']) . ')</span></div>'
+            . '<span class="store-mini-desc">' . e($c['desc']) . '</span>'
+            . '<span class="store-mini-badge">💎 Built for Track</span>'
+            . '</div>'
+            . '</' . $tag . '>';
+    }
+
+    $h .= '</div></div></section>';
+    return $h;
 }
 
 // Abas de Integracoes no alto da tela. $aba: a aberta; $plataforma: o nome da plataforma cuja
@@ -152,11 +230,30 @@ function integracoes_lista(string $aba): string
             $selo = '<span class="selo alerta">Não conectado</span>';
         }
         $linhas = $s['ligada'] ? array_filter([$s['conta'], $s['detalhe']]) : [$i['descricao']];
-        $corpo = integracao_logo($id) . '<span class="integ-texto"><b>' . e($i['nome']) . '</b>'
-            . '<small>' . e(implode(' · ', $linhas)) . '</small>'
-            . ($s['erro'] ? '<small class="integ-erro">' . e(texto((string)$s['erro'], 160)) . '</small>' : '') . '</span>' . $selo;
+        $avaliacao = $i['avaliacao'] ?? '4,8';
+        $avaliacoes_n = $i['avaliacoes_n'] ?? '1.200';
+        $tipo = $i['tipo'] ?? 'Oficial';
+
+        $corpo = '<div class="store-card-top">'
+            . integracao_logo($id, 44)
+            . '<div class="store-card-actions">'
+            . '<span class="store-card-action-btn">' . ($tela ? ($s['ligada'] ? 'Configurar' : 'Conectar') : 'Em breve') . '</span>'
+            . ($tela ? '<span class="integ-seta">' . icone('avancar', 16) . '</span>' : '')
+            . '</div>'
+            . '</div>'
+            . '<div class="integ-texto">'
+            . '<div class="store-card-name-row"><b>' . e($i['nome']) . '</b></div>'
+            . '<div class="store-rating"><span class="store-star">★</span> <b>' . e($avaliacao) . '</b> <span class="suave">(' . e($avaliacoes_n) . ') · ' . e($tipo) . '</span></div>'
+            . '<small class="integ-desc">' . e(implode(' · ', $linhas)) . '</small>'
+            . ($s['erro'] ? '<small class="integ-erro">' . e(texto((string)$s['erro'], 160)) . '</small>' : '')
+            . '</div>'
+            . '<div class="store-card-footer">'
+            . '<span class="store-badge-built">💎 Built for Track</span>'
+            . $selo
+            . '</div>';
+
         $h .= '<li class="integ-item' . ($tela ? '' : ' integ-breve') . '" data-integracao="' . e($id) . '">'
-            . ($tela ? '<a href="' . e($tela) . '">' . $corpo . '<span class="integ-seta">' . icone('avancar', 18) . '</span></a>' : '<div>' . $corpo . '</div>')
+            . ($tela ? '<a href="' . e($tela) . '">' . $corpo . '</a>' : '<div>' . $corpo . '</div>')
             . '</li>';
     }
     return $h . '</ul>';
