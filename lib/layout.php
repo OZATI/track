@@ -156,7 +156,7 @@ main{ animation:entrar .32s cubic-bezier(.2,.7,.2,1) backwards; } /* backwards: 
 @keyframes entrar{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
 @media (prefers-reduced-motion:reduce){ .navegando body::after{ animation:none; width:100%; opacity:.6; } .navegando main::after, main{ animation:none; } }
 /* Topo: filtros a esquerda, conta a direita */
-.topo{ position:sticky; top:0; z-index:5; background:var(--cartao); border-bottom:1px solid var(--linha); padding:10px 24px; display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
+.topo{ position:sticky; top:0; z-index:20; background:var(--cartao); border-bottom:1px solid var(--linha); padding:10px 24px; display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
 .topo label, .gestor-filtros label, .topo .campo{ display:flex; flex-direction:column; font-size:12px; color:var(--suave); gap:3px; }
 .filtros{ display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
 .conta{ margin-left:auto; align-self:center; display:flex; align-items:center; gap:10px; color:var(--suave); }
@@ -348,7 +348,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 .pw-corpo .grafico{ width:100%; height:auto; }
 .pw-corpo .rosca-caixa{ margin:0; }
 .barra-ok{ fill:var(--ok); } .barra-ruim{ fill:var(--erro); }
-.painel-barra{ position:sticky; top:0; z-index:40; display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 10px; padding:10px 14px; background:var(--realce); border:1px solid var(--marca); border-radius:var(--r-md); }
+.painel-barra{ position:sticky; top:var(--topo-alt, 73px); z-index:15; display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 10px; padding:10px 14px; background:var(--cartao); border:1px solid var(--marca); border-radius:var(--r-md); box-shadow:0 4px 14px var(--sombra); }
 .painel-barra-txt{ display:inline-flex; align-items:center; gap:6px; font-weight:500; }
 .painel-barra .segmentos a{ display:inline-flex; align-items:center; gap:6px; }
 .painel-barra-acoes{ display:inline-flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
@@ -356,7 +356,7 @@ td.quebra{ white-space:normal; min-width:220px; }
 @media (max-width:640px){ .painel-barra .segmentos, .painel-barra-pc{ display:none; } .painel-barra-cel{ display:inline; } }
 .painel-dica{ margin:0 0 12px; font-size:12px; }
 .painel-edicao{ display:grid; grid-template-columns:260px minmax(0, 1fr); gap:16px; align-items:start; }
-.painel-biblioteca{ position:sticky; top:72px; max-height:calc(100vh - 90px); overflow:auto; padding:12px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); }
+.painel-biblioteca{ position:sticky; top:calc(var(--topo-alt, 73px) + 60px); max-height:calc(100vh - var(--topo-alt, 73px) - 76px); overflow:auto; padding:12px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); }
 .painel-biblioteca h2{ margin:0 0 10px; font-size:14px; }
 .painel-biblioteca .tcard-busca{ margin:0 0 10px; }
 .painel-biblioteca .tcard-busca input{ width:100%; }

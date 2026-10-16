@@ -85,7 +85,7 @@ function admin_css_base(): string
   --lateral:#0B1B2E; --realce:#EEF4FF; --fundo-ok:#ECFDF3; --fundo-alerta:#FFF7ED; --fundo-erro:#FEF2F2; --sombra:rgba(17,24,39,.12);
   --grad-a:#1D6FF2; --grad-b:#60A5FA; --rolagem:#C9CED6; --rolagem-hover:#9CA3AF;
   --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --f-titulo:var(--f-texto); --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
-  --r-sm:6px; --r-md:8px; --r-lg:8px;
+  --r-sm:6px; --r-md:8px; --r-lg:8px; --topo-alt:73px;
 }
 /* Aparencia (lib/tema.php): a cor base escolhida vira o fundo e o resto sai dela. Base escura:
    texto claro, cartoes e linhas um pouco mais claros que o fundo, cores de estado mais vivas

@@ -25,6 +25,19 @@
   var sw = 'serviceWorker' in navigator ? navigator.serviceWorker.register(PAINEL + 'sw.php', { scope: PAINEL }).catch(function () { return null; }) : null;
 
   function iniciar() {
+  var topoEl = document.querySelector('.topo');
+  if (topoEl) {
+    var attTopo = function () {
+      var h = topoEl.offsetHeight;
+      if (h > 0) { document.documentElement.style.setProperty('--topo-alt', h + 'px'); }
+    };
+    attTopo();
+    if (window.ResizeObserver) {
+      new ResizeObserver(attTopo).observe(topoEl);
+    } else {
+      ouvir(window, 'resize', attTopo);
+    }
+  }
   // Tabelas inteligentes (tabela.js): antes dos seletores, que desenham o "Por pagina"
   if (window.Tabela) { window.Tabela.ligar(document); }
   var form = document.getElementById('filtros');
