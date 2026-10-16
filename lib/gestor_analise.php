@@ -235,10 +235,17 @@ function analise_leitura(PDO $db, string $id, array $linhas, ?array $obj, float 
     }
     // 3. CPA contra 60% do ticket: o resto do ticket paga imposto, taxas e o lucro
     $ticket = analise_ticket($db, $id, $dia1, $dia2, $nivel);
-    if ($t['cpa'] !== null && ($limiteCpa = cpa_limite($ticket))) {
-        $dentro = cor_cpa($t['cpa'], $ticket) === 'positivo';
-        $dicas[] = [$dentro ? 'ok' : 'erro', 'CPA ' . reais((int)round($t['cpa'])) . ($dentro ? ': dentro dos ' : ': acima dos ') . CPA_PCT_TICKET . '% do ticket (' . reais((int)round($limiteCpa)) . ')'
-            . ($dentro ? ', cada venda deixa margem.' : '. A venda está saindo cara: sobra pouco do ticket para imposto, taxas e lucro.')];
+    if ($limiteCpa = cpa_limite($ticket)) {
+        if ($t['cpa'] !== null) {
+            $dentro = cor_cpa($t['cpa'], $ticket) === 'positivo';
+            $dicas[] = [$dentro ? 'ok' : 'erro', 'CPA ' . reais((int)round($t['cpa'])) . ($dentro ? ': dentro dos ' : ': acima dos ') . CPA_PCT_TICKET . '% do ticket (' . reais((int)round($limiteCpa)) . ')'
+                . ($dentro ? ', cada venda deixa margem.' : '. A venda está saindo cara: o CPA precisa ser menor que ' . CPA_PCT_TICKET . '% do ticket para sobrar lucro.')];
+        } elseif ($t['gasto'] > 0) {
+            $passou = $t['gasto'] > $limiteCpa;
+            $dicas[] = [$passou ? 'erro' : 'alerta', 'Sem vendas aprovadas no período (gasto ' . reais($t['gasto']) . '): '
+                . ($passou ? 'o gasto já superou o teto de ' . CPA_PCT_TICKET . '% do ticket (' . reais((int)round($limiteCpa)) . '). O CPA precisa ser menor que ' . CPA_PCT_TICKET . '% para a campanha se pagar.'
+                           : 'o CPA precisa ser menor que ' . CPA_PCT_TICKET . '% do ticket (' . reais((int)round($limiteCpa)) . ') na primeira venda.')];
+        }
     }
     // 4. Custo por IC contra 10% do ticket
     $limite = $ticket ? $ticket / 10 : null;

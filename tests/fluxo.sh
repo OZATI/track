@@ -817,6 +817,7 @@ confere "$(tem 'Anúncio não encontrado' "$r")" "anúncio que não é da conta 
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=555555&periodo=tudo")
 confere "$(tem 'A Meta não registrou compras desta campanha' "$r")" "quem compra: campanha sem compra na Meta avisa em vez de pizza vazia"
 confere "$(tem 'class="vela desce"' "$r")" "vela vermelha quando o ROI cai (FREE, sem venda)"
+confere "$(tem 'CPA R\$ 10,00: acima dos 60% do ticket (R\$ 9,00)' "$r")" "leitura: CPA acima de 60% do ticket quando a venda sai cara"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=campanha&id=987654321&periodo=tudo")
 confere "$(tem 'Campanha não encontrada' "$r")" "campanha que não é da conta não abre"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
