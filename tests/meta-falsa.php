@@ -7,6 +7,15 @@
 //   token TokenInstagram... -> ads_read + permissoes do Instagram; a pagina tem o @engdesk,
 //                              e as consultas do Instagram vao para tests/instagram-falsa.php
 //   conta 587364236934346   -> DRIVE DE PROJETOS; outra conta -> erro 100
+//
+// Conectar com Facebook (meta-conectar.php), com o app ficticio 1234567890 e a chave secreta
+// abaixo: o codigo "codigo-bom" vira um token curto (TokenGerenciaCurto...), que troca pelo
+// longo (TokenGerenciaLongo...); com ele, /me traz a Pessoa Teste com e-mail ficticio e
+// /me/adaccounts duas contas. Nome e foto de quem mandou mensagem (webhook): o token da pagina
+// (TokenPagina..., em /me/accounts) le a pessoa 7000000000000001; a 7000000000000002 da erro.
+
+const FALSA_APP_ID = '1234567890';
+const FALSA_APP_SEGREDO = '0123456789abcdef0123456789abcdef';
 
 header('Content-Type: application/json');
 $rota = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -17,10 +26,52 @@ $erro = function (int $http, int $codigo, string $msg) {
     exit;
 };
 
+// Troca do codigo do login e troca pelo token longo: sem token no cabecalho, chave no corpo
+if ($rota === '/graph/oauth/access_token') {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || isset($_GET['client_secret'])) {
+        $erro(400, 100, 'A chave secreta veio na URL');
+    }
+    if (($_POST['client_id'] ?? '') !== FALSA_APP_ID || ($_POST['client_secret'] ?? '') !== FALSA_APP_SEGREDO) {
+        $erro(400, 1, 'Error validating client secret.');
+    }
+    if (($_POST['grant_type'] ?? '') === 'fb_exchange_token') {
+        if (strpos((string)($_POST['fb_exchange_token'] ?? ''), 'TokenGerenciaCurto') !== 0) {
+            $erro(400, 190, 'Invalid OAuth access token');
+        }
+        echo json_encode(['access_token' => 'TokenGerenciaLongo' . str_repeat('L', 40), 'token_type' => 'bearer', 'expires_in' => 5184000]);
+        exit;
+    }
+    if (($_POST['code'] ?? '') !== 'codigo-bom' || empty($_POST['redirect_uri'])) {
+        $erro(400, 100, 'Invalid verification code format.');
+    }
+    echo json_encode(['access_token' => 'TokenGerenciaCurto' . str_repeat('C', 40), 'token_type' => 'bearer', 'expires_in' => 3600]);
+    exit;
+}
+// Perfil de quem mandou mensagem, pelo token da pagina
+if (strpos($token, 'TokenPagina') === 0) {
+    if ($rota === '/graph/7000000000000001') {
+        $porta = (int)($_SERVER['SERVER_PORT'] ?? 0) + 1; // a API do Instagram falsa serve as imagens
+        echo json_encode(['id' => '7000000000000001', 'name' => 'Cliente Teste', 'profile_pic' => 'http://127.0.0.1:' . $porta . '/midia/555.jpg']);
+        exit;
+    }
+    $erro(400, 100, 'Unsupported get request. Object does not exist or cannot be loaded due to missing permissions');
+}
+
 if (strpos($token, 'TokenLeitura') !== 0 && strpos($token, 'TokenGerencia') !== 0 && strpos($token, 'TokenInstagram') !== 0) {
     $erro(400, 190, 'Invalid OAuth access token - Cannot parse access token');
 }
 $comInstagram = strpos($token, 'TokenInstagram') === 0;
+if ($rota === '/graph/me' && strpos($token, 'TokenGerenciaLongo') === 0) {
+    echo json_encode(['id' => '100', 'name' => 'Pessoa Teste'] + (strpos($_GET['fields'] ?? '', 'email') !== false ? ['email' => 'pessoa.teste@example.com'] : []));
+    exit;
+}
+if ($rota === '/graph/me/adaccounts') {
+    echo json_encode(['data' => [
+        ['account_id' => '587364236934346', 'id' => 'act_587364236934346', 'name' => 'DRIVE DE PROJETOS'],
+        ['account_id' => '999888777666', 'id' => 'act_999888777666', 'name' => 'OUTRA CONTA'],
+    ]]);
+    exit;
+}
 // Ligar e pausar pelo gestor: so o token que pode editar (TokenGerencia)
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && preg_match('~^/graph/(\d+)$~', $rota)) {
     if (strpos($token, 'TokenGerencia') !== 0) {
@@ -40,7 +91,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && preg_match('~^/graph/(\d+)$
     exit;
 }
 if ($rota === '/graph/me/accounts') {
-    $pagina = ['id' => '300300', 'name' => 'EngDesk'];
+    $pagina = ['id' => '300300', 'name' => 'EngDesk', 'access_token' => 'TokenPagina' . str_repeat('P', 40)];
     if ($comInstagram) {
         $pagina['instagram_business_account'] = ['id' => '17841400000000000', 'username' => 'engdesk'];
     }

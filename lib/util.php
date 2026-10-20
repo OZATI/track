@@ -312,6 +312,7 @@ function limpar_antigos(): void
     $db->prepare('DELETE FROM eventos WHERE em < ?')->execute([$corte]);
     $db->prepare('DELETE FROM vendas WHERE recebida_em < ?')->execute([$corte]);
     $db->prepare('DELETE FROM visitantes WHERE visto_em < ?')->execute([$corte]);
+    $db->prepare('DELETE FROM meta_interacoes WHERE recebida_em < ?')->execute([$corte]);
     $db->prepare('DELETE FROM limites WHERE em < ?')->execute([time() - 86400]);
 }
 

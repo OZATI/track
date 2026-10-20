@@ -333,6 +333,33 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 16;
             SQL);
     }
+    if ($versao < 17) {
+        // Webhook da Meta (lib/meta_interacoes.php): quem comentou ou mandou mensagem na pagina e
+        // no Instagram, com o anuncio de origem. So o minimo: id, @, nome e o endereco da foto na
+        // Meta (que vence em dias; a foto nao e baixada). Texto so de comentario (publico); o da
+        // mensagem privada nao e gravado. Apagado depois de dias_retencao, como os eventos.
+        track_migrar_para($pdo, 17, <<<'SQL'
+            CREATE TABLE IF NOT EXISTS meta_interacoes (
+                id             TEXT PRIMARY KEY,
+                canal          TEXT NOT NULL,
+                tipo           TEXT NOT NULL,
+                em             TEXT NOT NULL,
+                recebida_em    TEXT NOT NULL,
+                conta_id       TEXT,
+                pessoa_id      TEXT,
+                pessoa_usuario TEXT,
+                pessoa_nome    TEXT,
+                pessoa_foto    TEXT,
+                perfil_em      TEXT,
+                midia_id       TEXT,
+                texto          TEXT,
+                anuncio_id     TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_meta_interacoes_em ON meta_interacoes (em);
+            CREATE INDEX IF NOT EXISTS idx_meta_interacoes_pessoa ON meta_interacoes (pessoa_id);
+            PRAGMA user_version = 17;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

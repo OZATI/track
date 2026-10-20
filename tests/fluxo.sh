@@ -1505,6 +1505,131 @@ confere "$(tem '.sel-painel.multi-painel label, .resumo-filtros .multi-painel la
 r=$(curl -s -b "$JAR" "$URL/usuarios.php")
 confere "$(tem 'value="financeiro"[^>]*> DRE</label>' "$r")" "em Usuários, o acesso do antigo Financeiro aparece como DRE"
 
+echo "App da Meta e Conectar com Facebook"
+# App ficticio da tests/meta-falsa.php: nada vai para a Meta de verdade
+APP_ID=1234567890
+APP_SEGREDO=0123456789abcdef0123456789abcdef
+r=$(curl -s -b "$JAR" "$URL/meta-api.php")
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+confere "$(tem 'Para usar o botão <strong>Conectar com Facebook</strong>, cadastre antes o app da Meta' "$r")" "sem o app da Meta, a tela diz o que falta para o Conectar com Facebook"
+confere "$(tem "<code>$URL/meta-conectar.php</code>" "$r")" "tela mostra o endereço de volta do login para cadastrar no app"
+app() { curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=app_salvar" --data-urlencode "app_id=$1" --data-urlencode "app_segredo=$2" "$URL/meta-api.php"; }
+r=$(app "$APP_ID" "segredo-curto")
+confere "$(tem 'A chave secreta do app tem 32 letras e números' "$r")" "chave secreta com formato errado é recusada"
+r=$(app "$APP_ID" "$APP_SEGREDO")
+confere "$(tem 'App da Meta salvo' "$r")" "salvar o app da Meta"
+confere "$(grep -q "$APP_SEGREDO" < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "a chave secreta do app não volta para a tela"
+confere "$(tem '<button type="submit">Conectar com Facebook</button>' "$r")" "com o app, aparece o botão Conectar com Facebook"
+r=$(app "$APP_ID" "")
+confere "$(tem 'App da Meta salvo' "$r")" "salvar o app de novo com a chave em branco mantém a chave"
+confere "$(grep -q "$APP_SEGREDO" "$DADOS/config.php"; echo $?)" "a chave secreta continua na configuração (fora da pasta pública)"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/meta-api.php")
+
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$JAR" --data-urlencode "csrf=errado" "$URL/meta-conectar.php")
+confere "$(tem 'meta-api.php$' "$destino")" "Conectar com Facebook sem o token do formulário volta para a tela"
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/meta-conectar.php?concluir=1&code=codigo-bom&state=x")
+confere "$(tem 'entrar.php' "$destino")" "concluir o login do Facebook exige login no painel"
+conectar() { curl -s -o /dev/null -w '%{redirect_url}' -b "$JAR" --data-urlencode "csrf=$csrf" "$URL/meta-conectar.php"; }
+destino=$(conectar)
+confere "$(tem "^https://www.facebook.com/v23.0/dialog/oauth?client_id=$APP_ID&redirect_uri=" "$destino")" "Conectar com Facebook manda para o login da Meta com o ID do app"
+confere "$(tem 'scope=email%2Cads_read%2Cads_management' "$destino")" "o login pede o e-mail e as permissões de anúncios"
+estado=$(printf '%s' "$destino" | grep -o 'state=[a-f0-9]*' | cut -d= -f2)
+confere "$([ ${#estado} -eq 32 ]; echo $?)" "o login leva um estado aleatório"
+volta=$(curl -s -D "$DADOS/volta.txt" "$URL/meta-conectar.php?code=codigo-bom&state=$estado")
+confere "$(tem "http-equiv=\"refresh\" content=\"0;url=meta-conectar.php?concluir=1&amp;code=codigo-bom&amp;state=$estado\"" "$volta")" "a volta da Meta (sem o cookie Strict) repassa para o painel"
+confere "$(grep -qi '^set-cookie' "$DADOS/volta.txt"; [ $? -ne 0 ]; echo $?)" "a volta da Meta não abre sessão (não derruba o login)"
+volta=$(curl -s "$URL/meta-conectar.php?code=%3Cscript%3E&state=$estado")
+confere "$(grep -q 'script' < <(printf '%s\n' "$volta"); [ $? -ne 0 ]; echo $?)" "a volta só repassa código com cara de código"
+concluir() { curl -s -o /dev/null -b "$JAR" "$URL/meta-conectar.php?concluir=1&$1"; curl -s -b "$JAR" "$URL/meta-api.php"; }
+r=$(concluir "code=codigo-bom&state=outro")
+confere "$(tem 'O login do Facebook expirou ou não começou neste painel' "$r")" "estado diferente do guardado é recusado"
+confere "$(grep -q 'TokenGerenciaLongo' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "nada é salvo com o estado errado"
+estado=$(conectar | grep -o 'state=[a-f0-9]*' | cut -d= -f2)
+r=$(concluir "error=access_denied&state=$estado")
+confere "$(tem 'A conexão com o Facebook foi cancelada' "$r")" "login cancelado na Meta não muda nada"
+estado=$(conectar | grep -o 'state=[a-f0-9]*' | cut -d= -f2)
+r=$(concluir "code=codigo-ruim&state=$estado")
+confere "$(tem 'A Meta não trocou o código do login pelo token' "$r")" "código que a Meta recusa não salva nada"
+estado=$(conectar | grep -o 'state=[a-f0-9]*' | cut -d= -f2)
+r=$(concluir "code=codigo-bom&state=$estado")
+confere "$(tem 'Login feito como pessoa.teste@example.com' "$r")" "login com o Facebook traz o e-mail de quem conectou"
+confere "$(tem '<option value="999888777666">OUTRA CONTA · 999888777666</option>' "$r")" "com mais de uma conta de anúncios, a tela pede para escolher"
+confere "$(grep -q 'TokenGerenciaLongo' "$DADOS/config.php"; [ $? -ne 0 ]; echo $?)" "antes da escolha, o token fica só na sessão"
+confere "$(grep -q 'TokenGerencia' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "o token do login não aparece na tela"
+r=$(concluir "code=codigo-bom&state=$estado")
+confere "$(tem 'O login do Facebook expirou ou não começou neste painel' "$r")" "o mesmo estado não serve duas vezes"
+estado=$(conectar | grep -o 'state=[a-f0-9]*' | cut -d= -f2)
+r=$(concluir "code=codigo-bom&state=$estado")
+escolher() { curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=escolher_conta" --data-urlencode "conta=$1" "$URL/meta-api.php"; }
+r=$(escolher 111222333444)
+confere "$(tem 'Escolha uma das contas de anúncios da lista' "$r")" "conta fora da lista do login é recusada"
+r=$(escolher 587364236934346)
+confere "$(tem 'Conectado com o Facebook. Conta DRIVE DE PROJETOS conferida e salva. Este token também pode gerenciar anúncios' "$r")" "escolher a conta confere e salva o token do login"
+confere "$(tem 'Pessoa Teste · pessoa.teste@example.com' "$r")" "a tela mostra quem conectou (nome e e-mail)"
+confere "$(tem 'Vence em [0-9/]*: conecte de novo antes disso' "$r")" "token de usuário mostra quando vence"
+confere "$(grep -q 'TokenGerenciaLongo' "$DADOS/config.php"; echo $?)" "o token longo (não o curto) fica na configuração"
+estado=$(conectar | grep -o 'state=[a-f0-9]*' | cut -d= -f2)
+r=$(concluir "code=codigo-bom&state=$estado")
+confere "$(tem 'Conectado com o Facebook. Conta DRIVE DE PROJETOS conferida e salva' "$r")" "conectar de novo usa a conta já salva, sem perguntar"
+
+echo "Webhook da Meta (comentários e mensagens)"
+r=$(curl -s -b "$JAR" "$URL/meta-api.php")
+confere "$(tem "<code>$URL/meta-webhook.php</code>" "$r")" "tela mostra a URL de callback do webhook"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/meta-webhook.php?hub.mode=subscribe&hub.verify_token=&hub.challenge=123")
+confere "$([ "$code" = "403" ]; echo $?)" "sem token de verificação gerado, a Meta não confirma a URL ($code)"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=webhook_token" "$URL/meta-api.php")
+confere "$(tem 'Token de verificação gerado' "$r")" "gerar o token de verificação"
+VERIFICAR=$(grep -o '<code>[a-f0-9]\{40\}</code>' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{40\}')
+code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/meta-webhook.php?hub.mode=subscribe&hub.verify_token=errado&hub.challenge=123")
+confere "$([ "$code" = "403" ]; echo $?)" "token de verificação errado é recusado ($code)"
+r=$(curl -s "$URL/meta-webhook.php?hub.mode=subscribe&hub.verify_token=$VERIFICAR&hub.challenge=1158201444")
+confere "$([ "$r" = "1158201444" ]; echo $?)" "token certo: o painel devolve o hub.challenge"
+r=$(curl -s "$URL/meta-webhook.php?hub.mode=subscribe&hub.verify_token=$VERIFICAR&hub.challenge=%3Cb%3E")
+confere "$(grep -q '<b>' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "o hub.challenge só volta se for número ou texto simples"
+assina() { printf '%s' "$1" | "$PHP" $PHP_FLAGS -r 'echo hash_hmac("sha256", stream_get_contents(STDIN), $argv[1]);' "$APP_SEGREDO"; }
+aviso() { curl -s -w ' %{http_code}' -H 'Content-Type: application/json' -H "X-Hub-Signature-256: sha256=$2" --data-binary "$1" "$URL/meta-webhook.php"; }
+AGORA=$(date +%s)
+IG='{"object":"instagram","entry":[{"id":"17841400000000000","time":'$AGORA',"changes":[{"field":"comments","value":{"id":"18000000000000001","text":"Quanto custa? <script>alert(1)</script>","from":{"id":"6000000000000001","username":"cliente.teste"},"media":{"id":"17900000000000001","media_product_type":"FEED"}}}],"messaging":[{"sender":{"id":"6000000000000002"},"recipient":{"id":"17841400000000000"},"timestamp":'$AGORA'000,"message":{"mid":"aWdfZAG1faWRfdGVzdGU","text":"texto-privado-xyz"},"referral":{"source":"ADS","type":"OPEN_THREAD","ad_id":"222222"}},{"sender":{"id":"17841400000000000"},"recipient":{"id":"6000000000000002"},"timestamp":'$AGORA'000,"message":{"mid":"eco1","text":"resposta da marca","is_echo":true}}]}]}'
+FB='{"object":"page","entry":[{"id":"300300","time":'$AGORA',"changes":[{"field":"feed","value":{"item":"comment","verb":"add","comment_id":"300300_400400","post_id":"300300_500500","message":"Tem em PDF?","created_time":'$AGORA',"from":{"id":"7000000000000003","name":"Pessoa Comentario"}}}],"messaging":[{"sender":{"id":"7000000000000001"},"recipient":{"id":"300300"},"timestamp":'$AGORA'000,"message":{"mid":"m_teste1","text":"texto-privado-xyz"}},{"sender":{"id":"7000000000000002"},"recipient":{"id":"300300"},"timestamp":'$AGORA'000,"message":{"mid":"m_teste2","text":"oi"}},{"sender":{"id":"7000000000000001"},"recipient":{"id":"300300"},"timestamp":'$AGORA'000,"read":{"watermark":1}}]}]}'
+r=$(aviso "$IG" "")
+confere "$(tem ' 403$' "$r")" "aviso sem assinatura é recusado"
+r=$(aviso "$IG" "$(printf '0%.0s' $(seq 64))")
+confere "$(tem ' 403$' "$r")" "aviso com assinatura errada é recusado"
+r=$(aviso "$IG" "$(assina "$IG")")
+confere "$(tem '"gravadas":2} 200$' "$r")" "aviso assinado do Instagram grava o comentário e a mensagem (o eco da marca não)"
+r=$(aviso "$IG" "$(assina "$IG")")
+confere "$(tem '"gravadas":0} 200$' "$r")" "o mesmo aviso de novo não duplica"
+r=$(aviso "$FB" "$(assina "$FB")")
+confere "$(tem '"gravadas":3} 200$' "$r")" "aviso da página grava o comentário e as mensagens (a leitura não)"
+confere "$(cat "$DADOS"/track.sqlite* | grep -c 'texto-privado-xyz' | grep -qx 0; echo $?)" "o texto das mensagens privadas não é gravado"
+r=$(curl -s -b "$JAR" "$URL/meta-interacoes.php")
+confere "$(tem '<h1>Comentários e mensagens</h1>' "$r")" "tela Comentários e mensagens abre"
+confere "$(tem '<b>@cliente.teste</b>' "$r")" "comentário do Instagram com o @ de quem comentou"
+confere "$(tem 'Quanto custa? &lt;script&gt;alert(1)&lt;/script&gt;' "$r")" "texto do comentário escapado (sem XSS)"
+confere "$(tem '<b>Pessoa Comentario</b>' "$r")" "comentário da página com o nome que veio no aviso"
+confere "$(tem 'campanha=120120">TL 1</a><small class="suave">cv 05</small>' "$r")" "mensagem vinda de anúncio mostra a campanha e o anúncio de origem"
+confere "$(tem 'mensagem (o texto não é guardado)' "$r")" "a tela diz que o texto da mensagem não é guardado"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=perfis" "$URL/meta-interacoes.php")
+confere "$(tem 'Nome e foto de 1 de [0-9] pessoa(s) atualizados' "$r")" "buscar nome e foto de quem mandou mensagem (pelo token da página)"
+confere "$(tem '<b>Cliente Teste</b>' "$r")" "a pessoa aparece com o nome da Meta"
+confere "$(tem 'src="meta-foto.php?p=7000000000000001"' "$r")" "e com a foto, pelo próprio painel"
+code=$(curl -s -o "$DADOS/foto.bin" -w '%{http_code} %{content_type}' -b "$JAR" "$URL/meta-foto.php?p=7000000000000001")
+confere "$([ "$code" = "200 image/jpeg" ]; echo $?)" "a foto passa pelo painel sem ser gravada ($code)"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/meta-foto.php?p=7000000000000001")
+confere "$([ "$code" = "403" ]; echo $?)" "a foto exige login ($code)"
+code=$(curl -s -o /dev/null -w '%{http_code}' -b "$JAR" "$URL/meta-foto.php?p=7000000000000002")
+confere "$([ "$code" = "404" ]; echo $?)" "sem foto da Meta, nada ($code)"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=perfis" "$URL/meta-interacoes.php")
+confere "$(tem 'Nada para buscar' "$r")" "nome e foto não são buscados de novo antes de 2 dias"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=organico&periodo=tudo")
+confere "$(tem '<a href="meta-interacoes.php">Comentários e mensagens</a>: 5 recebido(s)' "$r")" "aba Orgânico leva aos comentários e mensagens"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=app_remover" "$URL/meta-api.php")
+confere "$(tem 'App da Meta removido do painel' "$r")" "remover o app da Meta"
+r=$(aviso "$FB" "$(assina "$FB")")
+confere "$(tem ' 403$' "$r")" "sem o app (sem a chave secreta), nenhum aviso é gravado"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/meta-interacoes.php")
+confere "$([ "$code" = "302" ]; echo $?)" "tela Comentários e mensagens exige login ($code)"
+
 echo "Avisos do PHP"
 # Aviso escondido (variavel que nao existe, indice faltando) nao quebra a tela, mas na
 # hospedagem pode aparecer para quem usa: nenhum pode sobrar depois de passar por todas as telas

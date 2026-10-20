@@ -154,6 +154,13 @@ function organico_render(PDO $db, string $periodo, string $de, string $ate): voi
         . numero($vendasOrg ? reais((int)round($fatOrg / $vendasOrg)) : 'N/A', 'Ticket médio orgânico', 'Faturamento orgânico ÷ vendas orgânicas.')
         . '</div>';
 
+    // Comentarios e mensagens do webhook da Meta (meta-interacoes.php), quando ligado
+    $interacoes = (int)$db->query('SELECT COUNT(*) FROM meta_interacoes')->fetchColumn();
+    if ($interacoes || !empty(track_config()['meta_webhook']['verificar'])) {
+        echo '<p class="suave"><a href="meta-interacoes.php">Comentários e mensagens</a>: ' . $interacoes
+            . ' recebido(s) pelo webhook da Meta, com quem escreveu e o anúncio de origem.</p>';
+    }
+
     // Canais organicos
     uasort($grupos, fn($a, $b) => ($a['rot'] === 'Direto / sem origem') <=> ($b['rot'] === 'Direto / sem origem') ?: [$b['vendas'], $b['vis']] <=> [$a['vendas'], $a['vis']]);
     echo '<section class="bloco">' . titulo('Canais orgânicos', 'Visitas medidas pelo painel e vendas pela etiqueta da Kiwify, no mesmo canal. "Direto / sem origem" aparece à parte: pode ser orgânico sem etiqueta, link direto do checkout ou troca de aparelho.')

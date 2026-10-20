@@ -203,15 +203,19 @@ O `?volta=` só aceita caminho do próprio site. Quem entra e sai do admin se co
 | Aparelho, sistema e navegador | O user agent completo |
 | Página, evento, etiquetas UTM e o site de onde a pessoa veio (sem os parâmetros) | Os parâmetros do endereço de origem |
 | Pedido, produto, valor, status e etiquetas da venda (pelo webhook e pela API) | Dados de pagamento e do comprador que a API da Kiwify devolve |
-| Números do perfil do Instagram (contagens por dia e por post, legenda dos posts da marca) | Quem seguiu, curtiu, comentou ou viu |
+| Números do perfil do Instagram (contagens por dia e por post, legenda dos posts da marca) | Quem seguiu, curtiu ou viu |
+| Com o webhook da Meta ligado: quem comentou, mencionou ou mandou mensagem para a página e o Instagram da marca (id, @, nome, endereço da foto na Meta), o texto do comentário (público) e o anúncio de origem | O texto das mensagens privadas e a foto em si (o painel só repassa da Meta, sem gravar) |
+| Conectar com Facebook: nome e e-mail de quem conectou a conta de anúncios | Senha ou dados do perfil do Facebook além disso |
 
-Tudo é apagado depois de `dias_retencao` (padrão 90). Cite o painel e o cookie na política de privacidade do site.
+Tudo é apagado depois de `dias_retencao` (padrão 90). Cite o painel e o cookie na política de privacidade do site e, com o webhook da Meta, o tratamento de quem comenta ou escreve para a marca.
 
 ## Segurança
 
 - Login por usuário e senha (`password_hash`), sessão `HttpOnly` + `SameSite=Strict`, token em todo formulário, 5 senhas erradas bloqueiam o IP por 15 minutos. Usuário inexistente e senha errada dão a mesma resposta, no mesmo tempo. Tirar o acesso de alguém derruba a sessão dele na hora.
 - Coleta só aceita os sites da lista, confere que a página é do mesmo domínio que chamou, valida o nome do evento e limita 240 eventos por minuto por IP.
 - Webhook só grava com a chave secreta da URL (a Kiwify não documenta assinatura dos avisos).
+- Webhook da Meta (`meta-webhook.php`): confirma a URL só com o token de verificação gerado no painel e só grava aviso assinado com a chave secreta do app (`X-Hub-Signature-256`). Sem a chave cadastrada, nada é gravado.
+- Conectar com Facebook (`meta-conectar.php`): estado aleatório de uso único (10 minutos) contra CSRF no login; a volta da Meta chega sem o cookie `SameSite=Strict` e só repassa para o painel, sem abrir sessão. A chave secreta do app vai no corpo da troca do código, nunca na URL, vem de `TRACK_META_APP_SECRET` ou da configuração fora da pasta pública e nunca volta para a tela. Com várias contas de anúncios, o token fica só na sessão até a escolha.
 - Chave da API da Kiwify: só entra depois de conferida na Kiwify, e só se for de leitura (recusa chave com permissão de reembolsar, financeiro, afiliados, webhooks ou parcelado). Fica na configuração, fora da pasta pública; o `client_secret` nunca volta para a tela.
 - Toda saída escapada (sem XSS), SQL só com parâmetros, CSP restrita, `noindex`, pastas `lib/`, `tests/`, `scripts/` e arquivos `.md/.sqlite` bloqueados no `.htaccess`.
 - Instalação só abre enquanto não há configuração e por 1 hora depois do deploy.
