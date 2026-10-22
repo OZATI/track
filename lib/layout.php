@@ -172,6 +172,12 @@ main{ animation:entrar .32s cubic-bezier(.2,.7,.2,1) backwards; } /* backwards: 
 .abas a.atual{ color:var(--texto); border-bottom-color:var(--marca); }
 .abas .ico{ display:none; }
 .abas-espaco{ margin-left:auto; }
+/* Botoes da barra das abas (camera do print e o aviso do modo compartilhar): com o icone */
+.abas-botao{ align-self:center; flex:none; min-height:30px; padding:0 10px; gap:6px; background:none; border-color:transparent; color:var(--suave); white-space:nowrap; }
+.abas-botao:hover{ background:var(--hover); color:var(--texto); }
+.abas .abas-botao .ico{ display:inline-block; }
+.abas-botao.compartilhando{ color:var(--alerta); border-color:var(--linha-forte); }
+.abas-botao[hidden]{ display:none; }
 
 main{ padding:20px 24px 56px; }
 h2{ font-size:14px; font-weight:600; margin:24px 0 8px; }
@@ -378,6 +384,53 @@ td.quebra{ white-space:normal; min-width:220px; }
 .painel-moldura .grid-stack{ min-height:400px; border:1px dashed var(--linha); border-radius:var(--r-md); }
 .painel-moldura .grid-stack-item-content{ overflow:hidden !important; }
 .painel-moldura .grid-stack-item > .grid-stack-item-content{ cursor:move; }
+/* Print (lib/grade.php): o quadro da imagem para rede social e WhatsApp, em px de tela (o PNG sai em
+   2x ou 4x). Os mesmos cartoes do Resumo, sem o (i), que nao serve numa imagem. Montando, a grade do
+   GridStack fica no lugar da .print-grade, com a margem negativa que tira o recuo dela. */
+.print-tela{ box-sizing:border-box; display:flex; flex-direction:column; gap:10px; padding:22px; background:var(--fundo); color:var(--texto); font:13px/1.5 var(--f-texto); font-feature-settings:"tnum" 1; overflow:hidden; text-align:left; }
+.print-cab{ flex:none; height:44px; display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; }
+.print-cab-txt{ display:flex; flex-direction:column; min-width:0; }
+.print-cab-txt strong{ font-size:18px; font-weight:600; line-height:1.25; }
+.print-cab-txt span{ color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.print-marca{ flex:none; max-width:45%; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.print-grade{ flex:none; display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); grid-template-rows:repeat(var(--linhas), 96px); gap:8px; }
+.print-item{ grid-column:var(--c) / span var(--w); grid-row:var(--r) / span var(--h); min-width:0; min-height:0; }
+.print-tela .pw-corpo{ overflow:hidden; }
+.print-tela .info{ display:none; }
+/* Numero no print: o icone vai para o canto, sem ocupar a altura do titulo (a linha do print e menor que a da tela) */
+.print-tela .pw-numero{ position:relative; }
+.print-tela .pw-numero .pw-cab{ padding-right:34px; }
+.print-tela .pw-numero .kpi-ico{ position:absolute; top:10px; right:12px; }
+.print-rodape{ flex:none; height:24px; margin-top:auto; display:flex; align-items:flex-end; justify-content:space-between; gap:12px; color:var(--suave); font-size:11px; }
+.print-rodape span:first-child{ min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.print-rodape span:last-child, .print-marca{ text-align:right; }
+.print-palco{ position:fixed; left:-30000px; top:0; z-index:-1; pointer-events:none; }
+.painel-moldura.print{ display:flex; justify-content:center; max-width:100%; overflow-x:auto; padding:2px; }
+.painel-moldura.print .print-tela{ flex:none; outline:1px dashed var(--linha-forte); border-radius:var(--r-md); }
+.painel-moldura.print .grid-stack{ flex:none; min-height:0; margin:-4px; border:0; border-radius:0; }
+/* Janela da camera (print): opcoes, depois a previa com Copiar, Compartilhar e Baixar */
+.print-dialogo{ width:min(520px, calc(100vw - 32px)); max-height:calc(100vh - 32px); padding:16px 18px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-md); box-shadow:0 10px 30px var(--sombra); }
+.print-dialogo::backdrop{ background:rgba(15,23,42,.45); }
+.print-dialogo-cab{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.print-dialogo-cab h2{ display:inline-flex; align-items:center; gap:8px; margin:0; font-size:15px; }
+.print-fechar{ width:32px; min-height:32px; padding:0; background:none; border-color:transparent; color:var(--suave); }
+.print-fechar:hover{ background:var(--hover); color:var(--texto); }
+.print-opcoes fieldset{ margin:0 0 14px; padding:0; border:0; }
+.print-opcoes legend{ margin-bottom:6px; padding:0; color:var(--suave); font-size:12px; font-weight:500; }
+.print-ops{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.print-op{ display:flex; align-items:flex-start; gap:8px; padding:10px 12px; border:1px solid var(--linha); border-radius:var(--r-sm); cursor:pointer; }
+.print-op:has(input:checked){ border-color:var(--marca); background:var(--realce); }
+.print-op span, .print-caixa span{ display:flex; flex-direction:column; min-width:0; }
+.print-op small, .print-caixa small{ color:var(--suave); font-size:12px; }
+.print-caixa{ display:flex; align-items:flex-start; gap:8px; padding:5px 0; cursor:pointer; }
+.print-op input, .print-caixa input{ flex:none; margin-top:3px; }
+.print-nota{ margin:0 0 12px; font-size:12px; }
+.print-botoes{ display:flex; flex-wrap:wrap; gap:8px; }
+.print-previa{ display:flex; justify-content:center; margin-bottom:8px; padding:10px; background:var(--fundo); border:1px solid var(--linha); border-radius:var(--r-sm); }
+.print-previa img{ display:block; width:auto; height:auto; max-width:100%; max-height:min(52vh, 460px); border-radius:4px; }
+.print-status{ min-height:18px; margin:10px 0 0; color:var(--suave); font-size:12px; }
+.print-status.erro{ color:var(--erro); }
+@media (max-width:640px){ .painel-barra .painel-formatos{ display:inline-flex; } .print-ops{ grid-template-columns:1fr; } }
 .painel-tirar{ position:absolute; top:8px; right:8px; z-index:5; width:26px; min-height:26px; padding:0; border-radius:999px; background:var(--cartao); color:var(--suave); border:1px solid var(--linha-forte); opacity:0; transition:opacity .12s; }
 .painel-tirar:hover{ background:var(--fundo-erro); color:var(--erro); border-color:var(--erro); }
 .grid-stack-item:hover .painel-tirar, .painel-tirar:focus-visible{ opacity:1; }
@@ -1021,6 +1074,8 @@ th.marca, td.marca{ width:34px; text-align:center; }
   .nav-mais-painel a{ display:flex; align-items:center; gap:10px; padding:12px; border-radius:var(--r-md); color:var(--texto); font-weight:500; text-decoration:none; }
   .nav-mais-painel a:hover, .nav-mais-painel a:active{ background:var(--hover); }
   .nav-mais-painel a.atual{ color:var(--marca); background:var(--realce); }
+  .nav-mais-painel button{ display:flex; align-items:center; justify-content:flex-start; gap:10px; min-height:0; padding:12px; border:0; border-radius:var(--r-md); background:none; color:var(--texto); font-size:inherit; font-weight:500; }
+  .nav-mais-painel button:hover, .nav-mais-painel button:active{ background:var(--hover); }
   .nav-mais-painel .ico{ color:var(--suave); } .nav-mais-painel a.atual .ico{ color:var(--marca); }
   .nav-mais-painel hr{ grid-column:1 / -1; border:0; border-top:1px solid var(--linha); margin:4px 0; }
   /* Primeira coluna fixa ao rolar a tabela para o lado */
@@ -1069,11 +1124,18 @@ th.marca, td.marca{ width:34px; text-align:center; }
 </style>
 </head>
 <body>
-<svg class="defs-graficos" aria-hidden="true" focusable="false"><defs>
-<linearGradient id="grad-azul-v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--grad-b)"></stop><stop offset="1" style="stop-color:var(--grad-a)"></stop></linearGradient>
-<linearGradient id="grad-azul-h" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--grad-a)"></stop><stop offset="1" style="stop-color:var(--grad-b)"></stop></linearGradient>
-</defs></svg>
+<?= graficos_defs() ?>
 <?php
+}
+
+// Degrades dos graficos (url(#grad-azul-v) e url(#grad-azul-h)). O quadro do print leva uma copia:
+// a imagem so enxerga o que esta dentro dele.
+function graficos_defs(): string
+{
+    return '<svg class="defs-graficos" aria-hidden="true" focusable="false"><defs>'
+        . '<linearGradient id="grad-azul-v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--grad-b)"></stop><stop offset="1" style="stop-color:var(--grad-a)"></stop></linearGradient>'
+        . '<linearGradient id="grad-azul-h" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--grad-a)"></stop><stop offset="1" style="stop-color:var(--grad-b)"></stop></linearGradient>'
+        . '</defs></svg>';
 }
 
 function pagina_fim(): void
@@ -1140,6 +1202,10 @@ function icone(string $nome, int $tam = 16): string
         'repetir' => '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
         'externo' => '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/>',
         'copiar' => '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+        'camera' => '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/>',
+        'quadrado' => '<rect x="4" y="4" width="16" height="16" rx="2"/>',
+        'compartilhar' => '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>',
+        'baixar' => '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
         'fixar' => '<path d="M12 17v5M9 10.76V5h6v5.76l2 3.24H7z"/><path d="M8 2h8"/>',
         'foco' => '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>',
         'ligar' => '<path d="M9 11l3 3 8-8"/><rect x="3" y="3" width="18" height="18" rx="2"/>',
@@ -1392,6 +1458,7 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
     $marcados = $filtro['produto'] ?? [];
     ?>
 <header class="topo">
+<span hidden data-produtos="<?= e((string)json_encode(produtos_apelidos($produtos), JSON_UNESCAPED_UNICODE)) ?>"></span>
 <form class="filtros" method="get" action="./" id="filtros">
   <input type="hidden" name="aba" value="<?= e($aba) ?>">
   <?php if (!$soPeriodo): ?>
@@ -1502,6 +1569,10 @@ function abas_painel(string $aba, array $filtro = []): void
         echo '<a href="./?' . e($q) . '" class="' . ($aba === $id ? 'atual' : '') . '">' . icone($ico) . e($rotulo) . '</a>';
     }
     echo '<span class="abas-espaco"></span>';
+    // Modo compartilhar ligado (o painel.js mostra o botao): nomes de produtos e valores escondidos na tela
+    echo '<button type="button" class="abas-botao compartilhando" data-compartilhar-sair hidden title="Mostrar os nomes e os valores de novo">' . icone('olho-fechado') . 'Compartilhando · sair</button>';
+    // A camera: gera a imagem do Resumo (o print) para rede social e WhatsApp
+    echo '<button type="button" class="abas-botao" data-print-abrir title="Gerar uma imagem (PNG) do Resumo para rede social ou WhatsApp">' . icone('camera', 17) . 'Print</button>';
     // Guia do admin (ex.: admin.engdesk.pro/guia): so quando o site que hospeda o painel tem um
     if (is_file(__DIR__ . '/../../guia/index.php')) {
         echo '<a href="../guia/">' . icone('guia') . 'Guia</a>';
@@ -1535,5 +1606,39 @@ function abas_painel(string $aba, array $filtro = []): void
     foreach ($config as [$id, $href, $ico, $rot]) {
         echo $item($href, $id, $ico, $rot);
     }
-    echo '</div></details></nav>';
+    echo '<button type="button" data-print-abrir>' . icone('camera', 20) . '<span>Print</span></button>';
+    echo '</div></details></nav>' . print_dialogo();
+}
+
+// A janela da camera: formato (post ou story), qualidade (Full HD ou 4K) e o que esconder; depois, a
+// previa com Copiar, Compartilhar e Baixar. O painel.js pede o quadro (./?aba=geral&print=post), troca
+// os nomes e os valores marcados e gera o PNG.
+function print_dialogo(): string
+{
+    $op = fn(string $nome, string $valor, string $rotulo, string $sub, bool $marcado) => '<label class="print-op"><input type="radio" name="' . $nome . '" value="' . $valor . '"' . ($marcado ? ' checked' : '') . '>'
+        . '<span><strong>' . e($rotulo) . '</strong><small>' . e($sub) . '</small></span></label>';
+    $caixa = fn(string $nome, string $rotulo, string $sub, bool $marcado) => '<label class="print-caixa"><input type="checkbox" name="' . $nome . '"' . ($marcado ? ' checked' : '') . '>'
+        . '<span>' . e($rotulo) . '<small>' . e($sub) . '</small></span></label>';
+    $montar = fn(string $f) => './?' . http_build_query(['aba' => 'geral', 'montar' => 1, 'aparelho' => $f]);
+    return '<dialog class="print-dialogo" data-print-dialogo aria-labelledby="print-titulo" data-lib="' . e(admin_base() . 'screenshot.js?v=' . (int)@filemtime(__DIR__ . '/../screenshot.js')) . '" data-fonte="' . e(admin_base() . 'fontes/inter-latin.woff2') . '">'
+        . '<div class="print-dialogo-cab"><h2 id="print-titulo">' . icone('camera', 18) . 'Print do Resumo</h2>'
+        . '<button type="button" class="print-fechar" data-print-fechar aria-label="Fechar" title="Fechar (Esc)">' . icone('fechar', 16) . '</button></div>'
+        . '<form class="print-opcoes" data-print-opcoes>'
+        . '<fieldset><legend>Formato</legend><div class="print-ops">' . $op('formato', 'post', 'Post 1:1', 'Feed do Instagram', true) . $op('formato', 'story', 'Story 9:16', 'Story e status do WhatsApp', false) . '</div></fieldset>'
+        . '<fieldset><legend>Qualidade</legend><div class="print-ops">' . $op('escala', '2', 'Full HD', '1080 px de largura', true) . $op('escala', '4', '4K', '2160 px de largura', false) . '</div></fieldset>'
+        . '<fieldset><legend>Esconder</legend>'
+        . $caixa('produtos', 'Nomes dos produtos', 'Viram Produto A, Produto B... também nos nomes das campanhas.', true)
+        . $caixa('valores', 'Valores em reais', 'Ficam R$ •••. Porcentagens, ROI e quantidades continuam.', false)
+        . $caixa('tela', 'Esconder também na tela', 'Modo compartilhar: para mostrar o painel numa chamada ou mandar um print da tela.', false)
+        . '</fieldset>'
+        . '<p class="suave print-nota">Sai o layout de print do Resumo, com o período e o produto escolhidos no topo. '
+        . '<a href="' . e($montar('post')) . '" data-print-montar data-post="' . e($montar('post')) . '" data-story="' . e($montar('story')) . '" data-recarrega>Montar o print</a></p>'
+        . '<div class="print-botoes"><button type="submit" data-print-gerar>' . icone('camera', 14) . 'Gerar imagem</button></div></form>'
+        . '<div class="print-resultado" data-print-resultado hidden><div class="print-previa"><img data-print-imagem alt="Prévia do print"></div>'
+        . '<p class="suave print-nota" data-print-tamanho></p>'
+        . '<div class="print-botoes"><button type="button" data-print-copiar>' . icone('copiar', 14) . 'Copiar</button>'
+        . '<button type="button" data-print-compartilhar>' . icone('compartilhar', 14) . 'Compartilhar</button>'
+        . '<button type="button" class="discreto neutro" data-print-baixar>' . icone('baixar', 14) . 'Baixar</button>'
+        . '<button type="button" class="discreto neutro" data-print-voltar>' . icone('voltar', 14) . 'Mudar opções</button></div></div>'
+        . '<p class="print-status" data-print-status role="status" aria-live="polite"></p></dialog>';
 }

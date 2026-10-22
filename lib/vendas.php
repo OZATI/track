@@ -68,6 +68,18 @@ function produtos_conhecidos(PDO $db): array
     return $db->query("SELECT DISTINCT produto FROM vendas WHERE produto IS NOT NULL AND produto <> '' ORDER BY produto")->fetchAll(PDO::FETCH_COLUMN);
 }
 
+// Apelido de cada produto para o modo compartilhar e o print ("Produto A", "Produto B"...), na ordem
+// alfabetica dos nomes: o mesmo produto tem o mesmo apelido em todas as telas
+function produtos_apelidos(array $nomes): array
+{
+    sort($nomes, SORT_STRING | SORT_FLAG_CASE);
+    $apelidos = [];
+    foreach (array_values(array_unique($nomes)) as $i => $n) {
+        $apelidos[$n] = 'Produto ' . ($i < 26 ? chr(65 + $i) : (string)($i + 1));
+    }
+    return $apelidos;
+}
+
 // ROI e margem com as contas da UTMify (e da planilha de campanhas): o imposto que a Meta
 // cobra sobre o gasto sai do faturamento.
 //   ROI    = (faturamento liquido - imposto) / gasto        (acima de 1, se paga)

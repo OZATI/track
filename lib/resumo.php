@@ -311,6 +311,13 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     // Fonte de trafego: varias de uma vez (canal[]); a forma antiga (canal=organico) ainda vale
     $fCanais = array_values(array_unique(array_filter(array_map('strval', (array)($_GET['canal'] ?? [])), fn($c) => isset($canaisNome[$c]))));
 
+    // Print (a camera da barra de cima, ./?aba=geral&print=post): so o quadro da imagem, sem a pagina
+    if (($formato = grade_print_formato()) !== null) {
+        $info = grade_print_info(resumo_grade(), implode(', ', array_map(fn($c) => $canaisNome[$c], $fCanais)));
+        grade_print_render(resumo_grade(), resumo_ctx($db, $periodo, $de, $ate, $fCanais), $formato, $info, produtos_apelidos(produtos_conhecidos($db)));
+        return;
+    }
+
     // Montando a tela (o lapis da barra lateral): so a barra de edicao e os blocos
     if (grade_editando()) {
         grade_render(resumo_grade(), resumo_ctx($db, $periodo, $de, $ate, $fCanais));

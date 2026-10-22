@@ -24,13 +24,24 @@
 //   Voltar ao padrao, Cancelar, Salvar) e os blocos com os dados de verdade. Grava o painel-salvar.php.
 // - Layout por pessoa, por tela e por aparelho, na tabela painel_layouts (banco v15), com a chave
 //   "<tela>:<aparelho>". As linhas antigas, so com o aparelho, sao do Painel, que virou o Resumo.
+// - Print (22/10/2026): mais dois "aparelhos", post (1:1) e story (9:16), que sao a imagem para rede
+//   social e WhatsApp. Montam como os outros (Computador | Celular | Print) num quadro de tamanho
+//   fixo; a camera da barra de cima pede o quadro (grade_print_render) e o painel.js o transforma em
+//   PNG de 1080 px (Full HD) ou 2160 px (4K), escondendo o que a pessoa marcar (nomes dos produtos,
+//   valores em reais).
 //
 // Tela nova: monte o array numa funcao, registre em GRADE_TELAS (o painel-salvar.php usa para
 // validar), chame grade_lapis('<id>') antes de casca_inicio() (o lapis aparece na barra lateral) e
 // grade_render($tela, $ctx) no lugar dos blocos fixos.
 
-const GRADE_COLUNAS = ['computador' => 12, 'celular' => 2];
+const GRADE_COLUNAS = ['computador' => 12, 'celular' => 2, 'post' => 4, 'story' => 4];
 const GRADE_LINHA_PX = 110;
+// Print: formato => [nome, largura e altura do quadro em px de tela, linhas da grade]. O PNG sai em 2x
+// (1080 px de largura) ou 4x (2160 px). Quadro: 22 px de margem, cabecalho de 44, grade de linhas de
+// 96 px com 8 de espaco e rodape de 24, com 10 entre eles (post: 4 linhas cabem em 540; story: 8 em 960).
+const GRADE_PRINT = ['post' => ['Post 1:1', 540, 540, 4], 'story' => ['Story 9:16', 540, 960, 8]];
+const GRADE_PRINT_LINHA_PX = 96;
+const GRADE_PRINT_ESPACO_PX = 8;
 // id da tela => [arquivos em lib/ que ela usa, funcao que devolve o array da tela]
 const GRADE_TELAS = [
     'resumo' => [['painel.php'], 'resumo_grade'],
@@ -59,7 +70,7 @@ function grade_aqui(): string
         $arquivo = './';
     }
     parse_str((string)parse_url($uri, PHP_URL_QUERY), $q);
-    unset($q['montar'], $q['aparelho']);
+    unset($q['montar'], $q['aparelho'], $q['print']);
     return $arquivo . ($q ? '?' . http_build_query($q) : '');
 }
 
@@ -81,7 +92,33 @@ function grade_editando(): bool
 
 function grade_aparelho(): string
 {
-    return ($_GET['aparelho'] ?? '') === 'celular' ? 'celular' : 'computador';
+    $a = is_string($_GET['aparelho'] ?? null) ? $_GET['aparelho'] : '';
+    return isset(GRADE_COLUNAS[$a]) ? $a : 'computador';
+}
+
+// Nome do aparelho nas mensagens ("Resumo salvo (print post, 6 blocos)")
+function grade_aparelho_nome(string $aparelho): string
+{
+    return isset(GRADE_PRINT[$aparelho]) ? 'print ' . strtolower(explode(' ', GRADE_PRINT[$aparelho][0])[0]) : $aparelho;
+}
+
+// Tamanho do bloco no aparelho: [w, h, minW, minH, maxW, maxH]. Celular: numero em meia largura,
+// grafico na largura toda. Print: numero em meia largura (um quarto fica apertado), nada passa da
+// altura do quadro.
+function grade_tamanho(array $bloco, string $aparelho): array
+{
+    [$w0, $h0, $minW, $minH, $maxW, $maxH] = $bloco[4];
+    $cols = GRADE_COLUNAS[$aparelho] ?? 12;
+    $numero = $bloco[2] === 'numero';
+    if (isset(GRADE_PRINT[$aparelho])) {
+        $linhas = GRADE_PRINT[$aparelho][3];
+        $minH = min($minH, $linhas);
+        return [$numero ? 2 : $cols, max($minH, min($h0, $linhas)), 2, $minH, $cols, max($minH, min($maxH, $linhas))];
+    }
+    if ($cols < 12) {
+        return [$numero ? 1 : $cols, $h0, 1, $minH, $cols, $maxH];
+    }
+    return [$w0, $h0, $minW, $minH, $maxW, $maxH];
 }
 
 // Periodo anterior do mesmo tamanho, como periodo personalizado ("2026-09-24_2026-09-30"), ou null.
@@ -137,10 +174,12 @@ function grade_tela(string $id): ?array
     return is_callable($t[1]) ? ($t[1])() : null;
 }
 
-// Layout valido: so blocos da tela, sem repetir, no tamanho permitido e dentro da grade
+// Layout valido: so blocos da tela, sem repetir, no tamanho permitido e dentro da grade (no print,
+// o que passa da altura do quadro fica de fora)
 function grade_validar(array $tela, array $itens, string $aparelho): array
 {
     $cols = GRADE_COLUNAS[$aparelho] ?? 12;
+    $linhas = GRADE_PRINT[$aparelho][3] ?? null;
     $blocos = $tela['blocos'];
     $vistos = [];
     $saida = [];
@@ -149,14 +188,14 @@ function grade_validar(array $tela, array $itens, string $aparelho): array
         if (!isset($blocos[$t]) || isset($vistos[$t])) {
             continue;
         }
-        [$w0, $h0, $minW, $minH, $maxW, $maxH] = $blocos[$t][4];
-        if ($cols < 12) {
-            [$minW, $maxW] = [1, $cols];
-            $w0 = $blocos[$t][2] === 'numero' ? 1 : $cols;
-        }
+        [$w0, $h0, $minW, $minH, $maxW, $maxH] = grade_tamanho($blocos[$t], $aparelho);
         $w = max($minW, min($maxW, $cols, (int)($i['w'] ?? $w0)));
         $h = max($minH, min($maxH, (int)($i['h'] ?? $h0)));
-        $saida[] = ['tipo' => $t, 'x' => max(0, min($cols - $w, (int)($i['x'] ?? 0))), 'y' => max(0, min(500, (int)($i['y'] ?? 0))), 'w' => $w, 'h' => $h];
+        $y = max(0, min(500, (int)($i['y'] ?? 0)));
+        if ($linhas !== null && $y + $h > $linhas) {
+            continue;
+        }
+        $saida[] = ['tipo' => $t, 'x' => max(0, min($cols - $w, (int)($i['x'] ?? 0))), 'y' => $y, 'w' => $w, 'h' => $h];
         $vistos[$t] = true;
     }
     usort($saida, fn($a, $b) => [$a['y'], $a['x']] <=> [$b['y'], $b['x']]);
@@ -198,6 +237,40 @@ function grade_para_celular(array $tela, array $itens): array
     return $saida;
 }
 
+// Print a partir do computador: de cima para baixo, numeros dois por linha e graficos na largura
+// toda (ate 3 linhas), enquanto couber no quadro
+function grade_para_print(array $tela, array $itens, string $aparelho): array
+{
+    $linhas = GRADE_PRINT[$aparelho][3];
+    $saida = [];
+    $y = 0;
+    $meia = null; // linha com a metade direita livre
+    foreach ($itens as $i) {
+        $b = $tela['blocos'][$i['tipo']] ?? null;
+        if (!$b) {
+            continue;
+        }
+        [, $h0, , $minH] = grade_tamanho($b, $aparelho);
+        if ($b[2] === 'numero') {
+            if ($meia !== null) {
+                $saida[] = ['tipo' => $i['tipo'], 'x' => 2, 'y' => $meia, 'w' => 2, 'h' => 1];
+                $meia = null;
+            } elseif ($y < $linhas) {
+                $saida[] = ['tipo' => $i['tipo'], 'x' => 0, 'y' => $y, 'w' => 2, 'h' => 1];
+                $meia = $y++;
+            }
+            continue;
+        }
+        $h = max($minH, min($h0, 3));
+        if ($y + $h <= $linhas) {
+            $meia = null;
+            $saida[] = ['tipo' => $i['tipo'], 'x' => 0, 'y' => $y, 'w' => 4, 'h' => $h];
+            $y += $h;
+        }
+    }
+    return $saida;
+}
+
 function grade_salvo(array $tela, string $usuario, string $aparelho): ?array
 {
     $st = track_db()->prepare('SELECT layout FROM painel_layouts WHERE usuario = ? AND aparelho = ?');
@@ -211,7 +284,7 @@ function grade_salvo(array $tela, string $usuario, string $aparelho): ?array
     return is_array($itens) ? grade_validar($tela, $itens, $aparelho) : null;
 }
 
-// O layout de cada aparelho: o salvo, ou o padrao (no celular, o do computador arrumado)
+// O layout de cada aparelho: o salvo, ou o padrao (no celular e no print, o do computador arrumado)
 function grade_layout(array $tela, string $usuario, string $aparelho): array
 {
     $salvo = grade_salvo($tela, $usuario, $aparelho);
@@ -219,6 +292,9 @@ function grade_layout(array $tela, string $usuario, string $aparelho): array
         return $salvo;
     }
     $computador = grade_salvo($tela, $usuario, 'computador') ?? grade_padrao($tela);
+    if (isset(GRADE_PRINT[$aparelho])) {
+        return grade_para_print($tela, $computador, $aparelho);
+    }
     return $aparelho === 'celular' ? grade_para_celular($tela, $computador) : $computador;
 }
 
@@ -240,7 +316,7 @@ function grade_salvar(array $tela, string $usuario, string $aparelho, string $js
     if ($tela['id'] === 'resumo') { // a linha antiga do Painel nao volta a valer
         $db->prepare('DELETE FROM painel_layouts WHERE usuario = ? AND aparelho = ?')->execute([$usuario, $aparelho]);
     }
-    return [true, $tela['titulo'] . ' salvo (' . $aparelho . ', ' . count($layout) . ' ' . (count($layout) === 1 ? 'bloco' : 'blocos') . ').'];
+    return [true, $tela['titulo'] . ' salvo (' . grade_aparelho_nome($aparelho) . ', ' . count($layout) . ' ' . (count($layout) === 1 ? 'bloco' : 'blocos') . ').'];
 }
 
 function grade_apagar(array $tela, string $usuario, string $aparelho): void
@@ -295,14 +371,19 @@ function grade_render(array $tela, array $ctx): void
     $aqui = grade_aqui();
     $aparelho = grade_aparelho();
     $cols = GRADE_COLUNAS[$aparelho];
+    $print = GRADE_PRINT[$aparelho] ?? null;
     $layout = grade_layout($tela, $usuario, $aparelho);
-    $padrao = $aparelho === 'celular' ? grade_para_celular($tela, grade_padrao($tela)) : grade_padrao($tela);
+    $padrao = match (true) {
+        $print !== null => grade_para_print($tela, grade_padrao($tela), $aparelho),
+        $aparelho === 'celular' => grade_para_celular($tela, grade_padrao($tela)),
+        default => grade_padrao($tela),
+    };
     $presentes = array_column($layout, 'tipo');
     $blocos = $tela['blocos'];
     $nomeFonte = array_map(fn($f) => $f[3] ?? '', $tela['fontes'] ?? []);
-    $tam = function (string $t) use ($blocos, $cols): array {
-        [$w0, $h0, $minW, $minH, $maxW, $maxH] = $blocos[$t][4];
-        return $cols < 12 ? [1, $minH, $cols, $maxH, $blocos[$t][2] === 'numero' ? 1 : $cols, $h0] : [$minW, $minH, $maxW, $maxH, $w0, $h0];
+    $tam = function (string $t) use ($blocos, $aparelho): array {
+        [$w0, $h0, $minW, $minH, $maxW, $maxH] = grade_tamanho($blocos[$t], $aparelho);
+        return [$minW, $minH, $maxW, $maxH, $w0, $h0];
     };
     $attrs = function (string $t, ?array $pos = null) use ($tam): string {
         [$minW, $minH, $maxW, $maxH, $w, $h] = $tam($t);
@@ -310,16 +391,30 @@ function grade_render(array $tela, array $ctx): void
         return $a . ($pos ? ' gs-x="' . $pos['x'] . '" gs-y="' . $pos['y'] . '" gs-w="' . $pos['w'] . '" gs-h="' . $pos['h'] . '"' : ' gs-w="' . $w . '" gs-h="' . $h . '"');
     };
     $tirar = '<button type="button" class="painel-tirar" data-painel-tirar aria-label="Tirar da tela" title="Tirar da tela">' . icone('fechar', 14) . '</button>';
-    $trocar = fn(string $ap, string $rot, string $ico) => '<a href="' . e(grade_url($aqui, ['montar' => 1, 'aparelho' => $ap])) . '" data-recarrega data-painel-troca' . ($ap === $aparelho ? ' class="atual" aria-current="true"' : '') . '>' . icone($ico, 14) . e($rot) . '</a>';
+    $trocar = fn(string $ap, string $rot, string $ico, ?bool $atual = null) => '<a href="' . e(grade_url($aqui, ['montar' => 1, 'aparelho' => $ap])) . '" data-recarrega data-painel-troca' . (($atual ?? $ap === $aparelho) ? ' class="atual" aria-current="true"' : '') . '>' . icone($ico, 14) . e($rot) . '</a>';
+    $formatos = '';
+    if ($print !== null) {
+        foreach (GRADE_PRINT as $f => $p) {
+            $formatos .= $trocar($f, $p[0], $f === 'post' ? 'quadrado' : 'anuncio');
+        }
+        $formatos = '<span class="segmentos painel-formatos" aria-label="Formato do print">' . $formatos . '</span>';
+    }
     echo '<form class="painel-barra" method="post" action="' . e(admin_base()) . 'painel-salvar.php" data-painel-form data-recarrega>'
         . '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="tela" value="' . e($tela['id']) . '"><input type="hidden" name="aparelho" value="' . e($aparelho) . '">'
         . '<input type="hidden" name="volta" value="' . e($aqui) . '"><input type="hidden" name="layout" value="">'
-        . '<span class="painel-barra-txt">' . icone('lapis', 15) . 'Você está montando ' . e($tela['titulo']) . '<span class="painel-barra-pc">para:</span><span class="painel-barra-cel">no celular</span></span>'
-        . '<span class="segmentos">' . $trocar('computador', 'Computador', 'colunas') . $trocar('celular', 'Celular', 'anuncio') . '</span>'
+        . '<span class="painel-barra-txt">' . icone('lapis', 15) . 'Você está montando ' . e($tela['titulo']) . ($print !== null ? '<span>para o print:</span>' : '<span class="painel-barra-pc">para:</span><span class="painel-barra-cel">no celular</span>') . '</span>'
+        . '<span class="segmentos">' . $trocar('computador', 'Computador', 'colunas') . $trocar('celular', 'Celular', 'anuncio') . $trocar('post', 'Print', 'camera', $print !== null) . '</span>'
+        . $formatos
         . '<span class="painel-barra-acoes"><button type="button" class="discreto neutro" data-painel-padrao>' . icone('restaurar', 14) . 'Voltar ao padrão</button>'
         . '<a class="botao discreto neutro" href="' . e($aqui) . '" data-recarrega data-painel-cancelar>Cancelar</a><button type="submit">' . icone('ok', 14) . 'Salvar</button></span></form>';
-    echo '<p class="suave painel-dica">Arraste os blocos da lista para a tela. Na tela, arraste o bloco para mudar de lugar e o canto de baixo para mudar o tamanho; o X tira. Esc cancela, Ctrl+S salva.</p>';
-    echo '<div class="painel-edicao" data-painel-editar data-painel-colunas="' . $cols . '" data-linha="' . (GRADE_LINHA_PX + 12) . '" data-padrao="' . e((string)json_encode($padrao)) . '">'
+    echo '<p class="suave painel-dica">' . ($print !== null
+        ? 'O que estiver dentro do quadro sai na imagem: ' . e($print[0]) . ', em 1080 px (Full HD) ou 2160 px (4K) de largura. Arraste os blocos da lista para o quadro; o (i) não aparece no print. Depois de salvar, gere a imagem pela câmera da barra de cima. Esc cancela, Ctrl+S salva.'
+        : 'Arraste os blocos da lista para a tela. Na tela, arraste o bloco para mudar de lugar e o canto de baixo para mudar o tamanho; o X tira. Esc cancela, Ctrl+S salva.') . '</p>';
+    // Linha do GridStack = a da tela + o espaco entre cartoes (a margem e metade do espaco): o cartao
+    // fica do mesmo tamanho que na tela ou no print
+    [$linhaPx, $espaco] = $print !== null ? [GRADE_PRINT_LINHA_PX, GRADE_PRINT_ESPACO_PX] : [GRADE_LINHA_PX, 12];
+    echo '<div class="painel-edicao" data-painel-editar data-painel-colunas="' . $cols . '" data-linha="' . ($linhaPx + $espaco) . '" data-margem="' . intdiv($espaco, 2) . '"'
+        . ($print !== null ? ' data-linhas-max="' . $print[3] . '"' : '') . ' data-padrao="' . e((string)json_encode($padrao)) . '">'
         . '<aside class="painel-biblioteca" aria-label="Blocos disponíveis"><h2>Blocos disponíveis</h2>'
         . '<label class="tcard-busca">' . icone('busca', 14) . '<input type="search" data-painel-busca placeholder="Buscar bloco" aria-label="Buscar bloco"></label>';
     foreach ($tela['categorias'] as $cat => $rot) {
@@ -338,15 +433,75 @@ function grade_render(array $tela, array $ctx): void
         }
         echo '</div></details>';
     }
-    echo '</aside><div class="painel-moldura' . ($aparelho === 'celular' ? ' celular' : '') . '"><div class="grid-stack">';
+    echo '</aside><div class="painel-moldura' . ($aparelho === 'celular' ? ' celular' : '') . ($print !== null ? ' print' : '') . '">';
+    if ($print !== null) { // o quadro do print, com o cabecalho e o rodape que saem na imagem
+        $info = grade_print_info($tela);
+        echo '<div class="print-tela" style="width:' . $print[1] . 'px;height:' . $print[2] . 'px">' . grade_print_cab($info);
+    }
+    echo '<div class="grid-stack">';
     foreach ($layout as $i) {
         echo '<div class="grid-stack-item"' . $attrs($i['tipo'], $i) . '><div class="grid-stack-item-content">' . $tirar . grade_cartao($tela, $i['tipo'], $ctx) . '</div></div>';
     }
-    echo '</div></div></div><div hidden>';
+    echo '</div>' . ($print !== null ? grade_print_rodape($info) . '</div>' : '') . '</div></div><div hidden>';
     // Modelos de todos os blocos (o que entra ao arrastar da lista ou ao voltar ao padrao)
     foreach (array_keys($blocos) as $t) {
         echo '<template data-painel-modelo="' . e($t) . '">' . $tirar . grade_cartao($tela, $t, $ctx) . '</template>';
     }
     echo '</div><style>' . (string)@file_get_contents(__DIR__ . '/gridstack.css') . '</style>'
         . '<script src="' . e(admin_base()) . 'gridstack.js?v=' . (int)@filemtime(__DIR__ . '/../gridstack.js') . '"></script>';
+}
+
+// ---------------------------------------------------------------- print
+// O pedido do quadro do print: ./?aba=geral&print=post devolve so o quadro, sem a pagina (a camera
+// da barra de cima pede e o painel.js transforma em PNG)
+function grade_print_formato(): ?string
+{
+    $f = is_string($_GET['print'] ?? null) ? $_GET['print'] : '';
+    return isset(GRADE_PRINT[$f]) ? $f : null;
+}
+
+// O que o cabecalho e o rodape do print dizem: a tela, o periodo com as datas, os filtros, o nome do
+// painel e quando foi gerado. $extra: filtro proprio da tela (no Resumo, a fonte de trafego).
+function grade_print_info(array $tela, string $extra = ''): array
+{
+    sessao_iniciar();
+    $periodo = (string)($_SESSION['track_filtro']['periodo'] ?? '7d');
+    $periodo = periodo_valido($periodo) ? $periodo : '7d';
+    $rotulo = periodo_rotulo($periodo);
+    if ($periodo !== 'tudo' && isset(PERIODOS[$periodo])) {
+        [$d1, $d2] = periodo_dias($periodo);
+        $f = fn(string $d) => (new DateTime($d))->format('d/m/Y');
+        $rotulo .= ' · ' . ($d1 === $d2 ? $f($d1) : $f($d1) . ' a ' . $f($d2));
+    }
+    return [
+        'titulo' => $tela['nome'] ?? ucfirst((string)preg_replace('/^(o|a) /', '', $tela['titulo'])),
+        'periodo' => $rotulo,
+        'filtros' => implode(' · ', array_filter([function_exists('produto_filtro') ? implode(', ', produto_filtro()) : '', $extra])),
+        'marca' => (string)((track_config() ?? [])['app_nome'] ?? 'Painel'),
+        'gerado' => (new DateTime('now', fuso()))->format('d/m/Y \à\s H:i'),
+    ];
+}
+
+function grade_print_cab(array $info): string
+{
+    return '<header class="print-cab"><span class="print-cab-txt"><strong>' . e($info['titulo']) . '</strong><span>' . e($info['periodo']) . '</span></span>'
+        . '<span class="print-marca">' . e($info['marca']) . '</span></header>';
+}
+
+function grade_print_rodape(array $info): string
+{
+    return '<footer class="print-rodape"><span>' . ($info['filtros'] !== '' ? 'Filtro: ' . e($info['filtros']) : '') . '</span><span>Gerado em ' . e($info['gerado']) . '</span></footer>';
+}
+
+// O quadro do print com os blocos do layout de print de quem esta logado. $produtos: nome => apelido
+// ("Produto A"), que o painel.js usa quando a pessoa escolhe esconder os nomes dos produtos.
+function grade_print_render(array $tela, array $ctx, string $formato, array $info, array $produtos = []): void
+{
+    [, $w, $h, $linhas] = GRADE_PRINT[$formato];
+    echo '<div class="print-tela" data-print-tela data-formato="' . e($formato) . '" data-produtos="' . e((string)json_encode($produtos, JSON_UNESCAPED_UNICODE)) . '" style="width:' . $w . 'px;height:' . $h . 'px">'
+        . graficos_defs() . grade_print_cab($info) . '<div class="print-grade" style="--linhas:' . $linhas . '">';
+    foreach (grade_layout($tela, (string)usuario_atual(), $formato) as $i) {
+        echo '<div class="print-item" style="--c:' . ($i['x'] + 1) . ';--r:' . ($i['y'] + 1) . ';--w:' . $i['w'] . ';--h:' . $i['h'] . '">' . grade_cartao($tela, $i['tipo'], $ctx) . '</div>';
+    }
+    echo '</div>' . grade_print_rodape($info) . '</div>';
 }

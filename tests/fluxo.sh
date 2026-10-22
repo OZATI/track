@@ -1400,11 +1400,33 @@ confere "$(tem 'gs-id="Profit"[^>]*gs-x="0" gs-y="0" gs-w="1" gs-h="1"' "$r")" "
 r=$(salvar "$cp" resumo celular './?aba=geral&periodo=tudo' '[{"tipo":"SalesByHour","x":0,"y":0,"w":2,"h":3}]' 'index.php?aba=geral&periodo=tudo')
 confere "$(tem 'O Resumo salvo (celular, 1 bloco)' "$r")" "salvar o Resumo do celular"
 confere "$(tem 'class="painel-item so-computador"' "$r")" "computador e celular com layouts separados (lucro só no computador)"
+# Print (a camera da barra de cima): post e story montam como aparelhos, num quadro de altura fixa
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem 'data-print-abrir title="Gerar uma imagem (PNG) do Resumo' "$r")" "câmera do print na barra das abas"
+confere "$(tem '<dialog class="print-dialogo" data-print-dialogo[^>]*data-lib="screenshot.js?v=' "$r")" "janela do print com o gerador de imagem"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&montar=1&aparelho=post")
+confere "$(tem 'data-painel-editar data-painel-colunas="4" data-linha="104" data-margem="4" data-linhas-max="4"' "$r")" "print post numa grade de 4 colunas e 4 linhas"
+confere "$(tem 'Você está montando o Resumo<span>para o print:</span>' "$r")" "barra de edição diz que é o print"
+confere "$(tem 'class="painel-moldura print"><div class="print-tela" style="width:540px;height:540px">' "$r")" "quadro do post em 540 x 540 (PNG em 1080 ou 2160)"
+r=$(salvar "$cp" resumo story './?aba=geral&periodo=tudo' '[{"tipo":"Profit","x":0,"y":0,"w":1,"h":1},{"tipo":"SalesByHour","x":0,"y":7,"w":4,"h":3}]' 'index.php?aba=geral&periodo=tudo')
+confere "$(tem 'O Resumo salvo (print story, 1 bloco)' "$r")" "salvar o story: o que passa da altura do quadro fica de fora"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&print=story")
+confere "$(tem '<div class="print-tela" data-print-tela data-formato="story"' "$r")" "a câmera pede só o quadro do story"
+confere "$(tem 'class="print-item" style="--c:1;--r:1;--w:2;--h:1"' "$r")" "número do print com no mínimo meia largura"
+confere "$(grep -q '<html' < <(printf '%s
+' "$r"); [ $? -ne 0 ]; echo $?)" "quadro do print sem a página em volta"
+confere "$(tem 'data-produtos="{&quot;[^"]*&quot;:&quot;Produto A&quot;' "$r")" "quadro leva o apelido de cada produto (esconder nomes)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&print=outro")
+confere "$(tem '<!doctype html>' "$r")" "formato de print desconhecido abre a página normal"
+for arq in screenshot.js fontes/inter-latin.woff2; do
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/$arq")
+  confere "$([ "$code" = "200" ]; echo $?)" "$arq servido ($code)"
+done
 r=$(salvar "" resumo computador './?aba=geral&periodo=tudo' '[]' 'index.php?aba=geral&periodo=tudo')
 confere "$(tem 'Sessão expirada' "$r")" "salvar sem o token do formulário é recusado"
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "tela=resumo" --data-urlencode "volta=https://outro.site/" --data-urlencode "layout=[]" "$URL/painel-salvar.php")
 confere "$([ -n "$destino" ] && ! printf '%s' "$destino" | grep -q 'outro.site'; echo $?)" "volta para fora do painel é recusada ($destino)"
-for ap in computador celular; do curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "tela=resumo" --data-urlencode "aparelho=$ap" --data-urlencode "acao=padrao" "$URL/painel-salvar.php"; done
+for ap in computador celular post story; do curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "tela=resumo" --data-urlencode "aparelho=$ap" --data-urlencode "acao=padrao" "$URL/painel-salvar.php"; done
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'data-tipo="NetRevenue"' "$r")" "voltar ao padrão"
 # Financeiro: a mesma grade, com os blocos do caixa

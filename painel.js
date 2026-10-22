@@ -698,7 +698,8 @@
       a.href = u.href;
     });
   }
-  if (pEd && pCel && new URL(location.href).searchParams.get('aparelho') !== 'celular') {
+  // (o print, post ou story, monta em qualquer aparelho: o quadro tem tamanho fixo)
+  if (pEd && pCel && (new URL(location.href).searchParams.get('aparelho') || 'computador') === 'computador') {
     var pU = new URL(location.href);
     pU.searchParams.set('aparelho', 'celular');
     location.replace(pU.href);
@@ -708,11 +709,14 @@
     var pForm = document.querySelector('[data-painel-form]');
     var pGradeEl = pEd.querySelector('.grid-stack');
     var pSujo = false;
+    // Print: o quadro tem altura fixa (data-linhas-max); nada entra nem passa dela
+    var pLinhasMax = parseInt(pEd.getAttribute('data-linhas-max'), 10) || 0;
     var pGrid = GridStack.init({
       column: parseInt(pEd.getAttribute('data-painel-colunas'), 10) || 12,
-      // Linha da grade = a da tela (110 px) + o espaco entre cartoes: o cartao fica do mesmo tamanho
+      // Linha da grade = a da tela (110 px; no print, 96) + o espaco entre cartoes: o cartao fica do mesmo tamanho
       cellHeight: parseInt(pEd.getAttribute('data-linha'), 10) || 122,
-      margin: 6, float: false, animate: true, minRow: 4,
+      margin: parseInt(pEd.getAttribute('data-margem'), 10) || 6, float: false, animate: true,
+      minRow: pLinhasMax || 4, maxRow: pLinhasMax,
       acceptWidgets: '.painel-novo', removable: '.painel-biblioteca',
       resizable: { handles: 'se' },
       draggable: { handle: '.grid-stack-item-content', cancel: 'button, a, input, select, textarea, summary, .info' }
@@ -820,6 +824,202 @@
         var c = document.querySelector('[data-painel-cancelar]');
         if (c) { c.click(); }
       }
+    });
+  }
+
+  // ---------------------------------------------------------------- print e modo compartilhar
+  // A camera da barra de cima (print_dialogo em lib/layout.php): pede o quadro do print do Resumo
+  // (./?aba=geral&print=post, lib/grade.php), esconde o que a pessoa marcou e gera o PNG com o
+  // screenshot.js (modern-screenshot, MIT, copiado no painel por causa da CSP; so carrega aqui). A
+  // fonte vem da pasta fontes/ do painel: a imagem nao enxerga a do Google. As escolhas ficam
+  // guardadas neste navegador; "Esconder tambem na tela" liga o modo compartilhar, que vale em todas
+  // as telas ate sair pelo botao da barra.
+  var privLer = function () {
+    var p = null;
+    try { p = JSON.parse(localStorage.getItem('track_privacidade') || 'null'); } catch (x) { p = null; }
+    p = p && typeof p === 'object' ? p : {};
+    return { formato: p.formato === 'story' ? 'story' : 'post', escala: p.escala === '4' ? '4' : '2', produtos: p.produtos !== false, valores: !!p.valores, tela: !!p.tela };
+  };
+  var privGravar = function (p) { try { localStorage.setItem('track_privacidade', JSON.stringify(p)); } catch (x) {} };
+  var apelidosDe = function (el) {
+    try { return JSON.parse((el && el.getAttribute('data-produtos')) || '{}') || {}; } catch (x) { return {}; }
+  };
+  // Troca, dentro de raiz, os nomes dos produtos pelo apelido (Produto A...) e os valores em reais
+  // por "R$ •••": nos textos, nas opcoes dos seletores e nas dicas
+  var esconderDados = function (raiz, op, apelidos) {
+    var nomes = Object.keys(apelidos).filter(function (n) { return n.length > 1; }).sort(function (a, b) { return b.length - a.length; });
+    var reNomes = op.produtos && nomes.length ? new RegExp(nomes.map(function (n) { return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|'), 'g') : null;
+    var reValor = op.valores ? /R\$\s?-?\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?/g : null;
+    if (!reNomes && !reValor) { return; }
+    var trocar = function (t) {
+      if (reNomes) { t = t.replace(reNomes, function (m) { return apelidos[m] || m; }); }
+      return reValor ? t.replace(reValor, 'R$ •••') : t;
+    };
+    var andar = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT, null);
+    var textos = [];
+    while (andar.nextNode()) { textos.push(andar.currentNode); }
+    textos.forEach(function (n) {
+      if (/^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName)) { return; }
+      var novo = trocar(n.nodeValue);
+      if (novo !== n.nodeValue) { n.nodeValue = novo; }
+    });
+    Array.prototype.forEach.call(raiz.querySelectorAll('[data-dica], [data-dica-titulo], [title], [aria-label]'), function (el) {
+      ['data-dica', 'data-dica-titulo', 'title', 'aria-label'].forEach(function (a) {
+        var v = el.getAttribute(a);
+        if (v) { var novo = trocar(v); if (novo !== v) { el.setAttribute(a, novo); } }
+      });
+    });
+  };
+  var priv = privLer();
+  var bSair = document.querySelector('[data-compartilhar-sair]');
+  if (priv.tela) {
+    esconderDados(document.body, priv, apelidosDe(document.querySelector('[data-produtos]')));
+    if (bSair) {
+      bSair.hidden = false;
+      bSair.addEventListener('click', function () { var p = privLer(); p.tela = false; privGravar(p); location.reload(); });
+    }
+  }
+  var dPrint = document.querySelector('[data-print-dialogo]');
+  if (dPrint && typeof dPrint.showModal === 'function') {
+    var fOp = dPrint.querySelector('[data-print-opcoes]');
+    var res = dPrint.querySelector('[data-print-resultado]');
+    var st = dPrint.querySelector('[data-print-status]');
+    var img = dPrint.querySelector('[data-print-imagem]');
+    var bGerar = dPrint.querySelector('[data-print-gerar]');
+    var bCopiar = dPrint.querySelector('[data-print-copiar]');
+    var bComp = dPrint.querySelector('[data-print-compartilhar]');
+    var aMontar = dPrint.querySelector('[data-print-montar]');
+    var atual = null; // a imagem gerada: { blob, nome }
+    var recarregar = false; // o modo compartilhar da tela mudou: recarrega ao fechar
+    var status = function (txt, erro) { st.textContent = txt || ''; st.classList.toggle('erro', !!erro); };
+    var lerOp = function () {
+      var el = fOp.elements;
+      return { formato: el.formato.value === 'story' ? 'story' : 'post', escala: el.escala.value === '4' ? '4' : '2', produtos: el.produtos.checked, valores: el.valores.checked, tela: el.tela.checked };
+    };
+    var acertarMontar = function () { if (aMontar) { aMontar.href = aMontar.getAttribute('data-' + lerOp().formato); } };
+    var opcoes = function () { fOp.hidden = false; res.hidden = true; status(''); };
+    fOp.elements.formato.value = priv.formato;
+    fOp.elements.escala.value = priv.escala;
+    fOp.elements.produtos.checked = priv.produtos;
+    fOp.elements.valores.checked = priv.valores;
+    fOp.elements.tela.checked = priv.tela;
+    acertarMontar();
+    fOp.addEventListener('change', acertarMontar);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-print-abrir]'), function (b) {
+      b.addEventListener('click', function () {
+        var mais = b.closest('details');
+        if (mais) { mais.open = false; }
+        opcoes();
+        dPrint.showModal();
+      });
+    });
+    dPrint.querySelector('[data-print-fechar]').addEventListener('click', function () { dPrint.close(); });
+    dPrint.addEventListener('click', function (e) { if (e.target === dPrint) { dPrint.close(); } }); // fora da caixa
+    dPrint.addEventListener('close', function () { if (recarregar) { location.reload(); } });
+    dPrint.querySelector('[data-print-voltar]').addEventListener('click', opcoes);
+    // A biblioteca so carrega na primeira imagem
+    var carregarLib = function () {
+      if (window.modernScreenshot) { return Promise.resolve(window.modernScreenshot); }
+      return new Promise(function (ok, falha) {
+        var s = document.createElement('script');
+        s.src = new URL(dPrint.getAttribute('data-lib'), location.href).href;
+        s.onload = function () { if (window.modernScreenshot) { ok(window.modernScreenshot); } else { falha(new Error('lib')); } };
+        s.onerror = function () { falha(new Error('lib')); };
+        document.head.appendChild(s);
+      });
+    };
+    // O quadro do print, com o periodo e o produto do topo (lembrados) e, no Resumo, a fonte de trafego
+    var pedirQuadro = function (formato) {
+      var q = new URLSearchParams();
+      q.set('aba', 'geral');
+      q.set('print', formato);
+      var aqui = new URL(location.href);
+      if ((aqui.searchParams.get('aba') || 'geral') === 'geral') {
+        aqui.searchParams.getAll('canal[]').forEach(function (c) { q.append('canal[]', c); });
+      }
+      return fetch(PAINEL + '?' + q.toString(), { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
+        if (!r.ok) { throw new Error('rede'); }
+        return r.text();
+      });
+    };
+    var gerar = function (op) {
+      var palco = null;
+      bGerar.disabled = true;
+      status('Gerando a imagem…');
+      Promise.all([carregarLib(), pedirQuadro(op.formato)]).then(function (r) {
+        palco = document.createElement('div');
+        palco.className = 'print-palco';
+        palco.setAttribute('aria-hidden', 'true');
+        palco.innerHTML = r[1];
+        var tela = palco.querySelector('[data-print-tela]');
+        if (!tela) { throw new Error('sessao'); }
+        document.body.appendChild(palco);
+        esconderDados(tela, op, apelidosDe(tela));
+        var fonte = new URL(dPrint.getAttribute('data-fonte'), location.href).href;
+        // A Inter do Google precisa estar carregada na pagina: e com ela que o quadro e medido, e a
+        // imagem desenha com a mesma Inter (a copia da pasta fontes/)
+        var carregar = document.fonts && document.fonts.load ? Promise.all(['400', '500', '600'].map(function (w) { return document.fonts.load(w + ' 13px Inter'); })).catch(function () {}) : Promise.resolve();
+        return carregar.then(function () {
+          return r[0].domToBlob(tela, {
+            scale: Number(op.escala),
+            type: 'image/png',
+            backgroundColor: getComputedStyle(tela).backgroundColor,
+            font: { cssText: "@font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:block;src:url('" + fonte + "') format('woff2');}" },
+            filter: function (n) { return !(n.classList && n.classList.contains('info')); }
+          });
+        });
+      }).then(function (blob) {
+        var d = new Date();
+        var dois = function (n) { return (n < 10 ? '0' : '') + n; };
+        atual = { blob: blob, nome: 'resumo-' + op.formato + '-' + d.getFullYear() + dois(d.getMonth() + 1) + dois(d.getDate()) + '-' + dois(d.getHours()) + dois(d.getMinutes()) + '.png' };
+        var leitor = new FileReader();
+        leitor.onload = function () { img.src = leitor.result; }; // data: (a CSP aceita data:, nao blob:)
+        leitor.readAsDataURL(blob);
+        var w = 540 * Number(op.escala);
+        var h = (op.formato === 'story' ? 960 : 540) * Number(op.escala);
+        dPrint.querySelector('[data-print-tamanho]').textContent = (op.formato === 'story' ? 'Story 9:16' : 'Post 1:1') + ' · ' + w + ' × ' + h + ' px · PNG de ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB';
+        var arq = new File([blob], atual.nome, { type: 'image/png' });
+        bComp.hidden = !(navigator.canShare && navigator.canShare({ files: [arq] }));
+        bCopiar.hidden = !(navigator.clipboard && navigator.clipboard.write && window.ClipboardItem);
+        fOp.hidden = true;
+        res.hidden = false;
+        status(bComp.hidden ? 'Pronto. Copie e cole no WhatsApp ou baixe o arquivo.' : 'Pronto. Compartilhar abre o WhatsApp, o Instagram e os outros apps do aparelho.');
+      }).catch(function (err) {
+        var m = err && err.message;
+        status(m === 'sessao' ? 'A sessão expirou. Recarregue a página e entre de novo.' : m === 'lib' ? 'Não deu para carregar o gerador de imagem. Recarregue a página e tente de novo.' : 'Não deu para gerar a imagem. Tente de novo em instantes.', true);
+      }).then(function () {
+        bGerar.disabled = false;
+        if (palco && palco.parentNode) { palco.parentNode.removeChild(palco); }
+      });
+    };
+    fOp.addEventListener('submit', function (e) {
+      e.preventDefault(); // o formulario so junta as opcoes: nao navega
+      var op = lerOp();
+      var antes = privLer();
+      recarregar = recarregar || op.tela !== antes.tela || (op.tela && (op.produtos !== antes.produtos || op.valores !== antes.valores));
+      privGravar(op);
+      gerar(op);
+    });
+    bCopiar.addEventListener('click', function () {
+      if (!atual) { return; }
+      navigator.clipboard.write([new ClipboardItem({ 'image/png': atual.blob })]).then(function () {
+        status('Imagem copiada. Cole no WhatsApp, no Instagram ou onde quiser.');
+      }, function () { status('O navegador não deixou copiar. Use Compartilhar ou Baixar.', true); });
+    });
+    bComp.addEventListener('click', function () {
+      if (!atual) { return; }
+      navigator.share({ files: [new File([atual.blob], atual.nome, { type: 'image/png' })], title: 'Resumo' }).catch(function (err) {
+        if (!err || err.name !== 'AbortError') { status('Não deu para compartilhar. Use Copiar ou Baixar.', true); }
+      });
+    });
+    dPrint.querySelector('[data-print-baixar]').addEventListener('click', function () {
+      if (!atual || !img.src) { return; }
+      var a = document.createElement('a');
+      a.href = img.src;
+      a.download = atual.nome;
+      document.body.appendChild(a);
+      a.click();
+      a.parentNode.removeChild(a);
     });
   }
 

@@ -245,6 +245,15 @@ function rotulo_origem(array $ev): string
     return 'direto (sem origem)';
 }
 
+// Print do Resumo (a camera da barra de cima): o painel.js pede so o quadro da imagem, sem a pagina
+if ($aba === 'geral' && grade_print_formato() !== null) {
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
+    header('X-Robots-Tag: noindex, nofollow');
+    resumo_render($db, $periodo, $de, $ate);
+    exit;
+}
+
 pagina_inicio('Painel');
 if ($aba === 'geral') {
     grade_lapis('resumo'); // o Resumo e montavel: o lapis aparece na barra lateral

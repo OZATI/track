@@ -144,6 +144,7 @@ function resumo_grade(): array
     return [
         'id' => 'resumo',
         'titulo' => 'o Resumo',
+        'nome' => 'Resumo',
         'acesso' => 'utm',
         'categorias' => RESUMO_CATEGORIAS,
         'blocos' => resumo_blocos(),

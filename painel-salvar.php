@@ -1,6 +1,6 @@
 <?php
 // Grava a tela montada (lib/grade.php) de quem esta logado: a tela (resumo, financeiro...), o
-// aparelho (computador ou celular) e o layout, e volta para a tela. So POST, com login, o acesso da
+// aparelho (computador, celular ou um formato de print: post, story) e o layout, e volta para a tela. So POST, com login, o acesso da
 // tela e o token do formulario. "padrao" apaga o salvo: a tela volta ao padrao.
 
 require __DIR__ . '/lib/util.php';
@@ -16,12 +16,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || !$tela) {
     header('Location: ' . $volta);
     exit;
 }
-$aparelho = ($_POST['aparelho'] ?? '') === 'celular' ? 'celular' : 'computador';
+$aparelho = is_string($_POST['aparelho'] ?? null) && isset(GRADE_COLUNAS[$_POST['aparelho']]) ? $_POST['aparelho'] : 'computador';
 if (!csrf_valido()) {
     aviso_definir('Sessão expirada. Recarregue a página e tente de novo.', 'erro');
 } elseif (($_POST['acao'] ?? '') === 'padrao') {
     grade_apagar($tela, (string)usuario_atual(), $aparelho);
-    aviso_definir(ucfirst($tela['titulo']) . ' do ' . $aparelho . ' de volta ao padrão.');
+    aviso_definir(ucfirst($tela['titulo']) . ' do ' . grade_aparelho_nome($aparelho) . ' de volta ao padrão.');
 } else {
     [$ok, $msg] = grade_salvar($tela, (string)usuario_atual(), $aparelho, (string)($_POST['layout'] ?? ''));
     aviso_definir(ucfirst($msg), $ok ? 'ok' : 'erro');
