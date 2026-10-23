@@ -317,8 +317,14 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor tr > th.nome, .tabela.gestor tr.total > td.nome{ background:var(--cartao-2); }
 .tabela.gestor tr:hover > td.nome{ background:var(--hover); }
 .tabela.gestor tr.marcada > td.nome{ background:var(--realce); }
+/* Linhas alternadas (todos os temas): uma no fundo do cartao, a seguinte um tom mais forte. Conta so as
+   linhas a mostra (a paginacao e a busca escondem com hidden). O :where deixa a marcada e a ao vivo por
+   cima; a coluna do nome, que e fixa, acompanha a listra. */
+.tabela.gestor tbody tr:where(:nth-child(even of :not([hidden]))) > td{ background:var(--zebra); }
+.tabela.gestor tbody tr:where(:nth-child(even of :not([hidden]))) > td.nome{ background:var(--zebra); }
+.tabela.gestor tbody tr:not(.marcada, .ao-vivo-linha):hover > td{ background:var(--zebra-hover); }
 .tabela.gestor{ background:linear-gradient(270deg, var(--cartao) 40%, transparent) right / 48px 100% no-repeat local,
-  radial-gradient(farthest-side at 100% 50%, var(--sombra), transparent) right / 14px 100% no-repeat scroll, var(--cartao); }
+  radial-gradient(farthest-side at 100% 50%, var(--sombra-rolagem), transparent) right / 14px 100% no-repeat scroll, var(--cartao); }
 .tcard-corpo tfoot td{ position:sticky; bottom:0; z-index:2; }
 /* Grafico comparativo das marcadas */
 .gestor-grafico{ padding:12px 16px 14px; border-bottom:1px solid var(--linha); }

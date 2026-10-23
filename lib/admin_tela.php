@@ -83,6 +83,11 @@ function admin_css_base(): string
   --marca:#1A66E0; --marca-hover:#1557C2; --marca-fundo:#1A66E0; --marca-fundo-hover:#1557C2;
   --ok:#15803D; --alerta:#B45309; --erro:#B91C1C; --laranja:#C2410C;
   --lateral:#0B1B2E; --realce:#EEF4FF; --fundo-ok:#ECFDF3; --fundo-alerta:#FFF7ED; --fundo-erro:#FEF2F2; --sombra:rgba(17,24,39,.12);
+  /* a borda da tabela que continua para o lado (gestor): no escuro, um tom mais fundo do proprio fundo, nao preto */
+  --sombra-rolagem:rgba(17,24,39,.12);
+  /* Linhas alternadas das tabelas (gestor) e o hover delas: saem do cartao e do texto de cada tema, entao
+     o contraste vale no claro, no escuro, no Pretao e nas cores livres */
+  --zebra:color-mix(in srgb, var(--cartao), var(--texto) 6%); --zebra-hover:color-mix(in srgb, var(--cartao), var(--texto) 11%);
   --grad-a:#1D6FF2; --grad-b:#60A5FA; --rolagem:#C9CED6; --rolagem-hover:#9CA3AF;
   --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --f-titulo:var(--f-texto); --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
   --r-sm:6px; --r-md:8px; --r-lg:8px; --topo-alt:73px;
@@ -102,7 +107,7 @@ function admin_css_base(): string
   --marca:#60A5FA; --marca-hover:#93C5FD; --marca-fundo:#2563EB; --marca-fundo-hover:#1D4ED8;
   --ok:#22C55E; --alerta:#F59E0B; --erro:#F05252; --laranja:#FB923C;
   --lateral:color-mix(in srgb, var(--base), #000 35%); --realce:rgba(59,130,246,.16);
-  --fundo-ok:rgba(34,197,94,.14); --fundo-alerta:rgba(245,158,11,.14); --fundo-erro:rgba(240,82,82,.14); --sombra:rgba(0,0,0,.55);
+  --fundo-ok:rgba(34,197,94,.14); --fundo-alerta:rgba(245,158,11,.14); --fundo-erro:rgba(240,82,82,.14); --sombra:rgba(0,0,0,.55); --sombra-rolagem:color-mix(in srgb, var(--base), #000 28%);
   --grad-a:#2563EB; --grad-b:#93C5FD; --rolagem:color-mix(in srgb, var(--base), #fff 22%); --rolagem-hover:color-mix(in srgb, var(--base), #fff 38%);
 }
 :root[data-tema=escuro] .lateral{ border-right:1px solid var(--linha); }
