@@ -106,14 +106,20 @@
   var token = document.getElementById('csrf-painel') || document.querySelector('#form-sair input[name=csrf]');
   if (sync && token && window.fetch) {
     var texto = sync.querySelector('[data-sync-texto]');
+    // O Atualizar da barra lateral gira enquanto a busca roda (no Resumo, e o unico sinal dela)
+    var giro = document.querySelector('[data-atualizar-lateral]');
+    var parar = function () { if (giro) { giro.classList.remove('girando'); } };
+    if (giro) { giro.classList.add('girando'); }
     if (texto) { texto.textContent = 'Buscando vendas na API da Kiwify…'; }
     fetch(PAINEL + 'sincronizar.php', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF': token.value } })
       .then(function (r) { return r.json(); })
       .then(function (d) {
+        parar();
         if (d && d.buscou && (d.novas || d.atualizadas || !d.ok)) { navegar(location.href, { manter: true, substituir: true }); return; }
         if (texto) { texto.textContent = 'Vendas da Kiwify pelo webhook e pela API · nada novo agora'; }
       })
       .catch(function () {
+        parar();
         if (texto) { texto.textContent = 'Não foi possível buscar as vendas agora. Use o botão Atualizar vendas.'; }
       });
   }
@@ -307,7 +313,7 @@
   var atualizar = document.querySelectorAll('.form-atualizar');
   for (var fa = 0; fa < atualizar.length; fa++) {
     atualizar[fa].addEventListener('submit', function (e) {
-      var b = e.target.querySelector('.botao-icone');
+      var b = e.target.querySelector('.botao-icone, .conta-icone');
       if (b) { b.classList.add('girando'); b.setAttribute('aria-busy', 'true'); }
     });
   }

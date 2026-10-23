@@ -931,6 +931,10 @@ confere "$(tem 'Taxa de aprovação' "$(sem_tags "$r")")" "taxa de aprovação c
 confere "$(tem 'name="produto\[\]"' "$r")" "filtro de produto (no topo, vários de uma vez)"
 confere "$(tem 'name="canal\[\]" value="organico"' "$r")" "filtro de fonte de tráfego com várias de uma vez"
 confere "$(tem 'data-multi-todos checked>Todas as fontes' "$r")" "fonte de tráfego com Todas como a primeira caixa"
+confere "$(tem 'class="conta-icone" data-atualizar-lateral aria-label="Atualizar agora"' "$r")" "Atualizar na barra lateral, com a última busca na dica"
+confere "$(grep -q 'class="bloco resumo-cab"\|class="resumo-filtros"' < <(printf '%s
+' "$r"); [ $? -ne 0 ]; echo $?)" "Resumo sem o cartão do topo: a fonte de tráfego foi para o filtro de cima"
+confere "$(grep -q 'name="canal\[\]"' < <(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo"); [ $? -ne 0 ]; echo $?)" "fonte de tráfego só no filtro de cima do Resumo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&canal[]=organico&canal[]=direto")
 confere "$(tem 'contam só Orgânico, Direto / sem origem' "$(sem_tags "$r")")" "duas fontes de tráfego de uma vez"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&canal=organico")

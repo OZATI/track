@@ -951,9 +951,9 @@ th[aria-sort=descending] > button.ordena::after{ content:" ↓"; }
 /* Botao so com icone (Atualizar): quadrado, gira enquanto busca */
 .botao-icone{ display:inline-flex; align-items:center; justify-content:center; width:var(--alt); height:var(--alt); padding:0; background:var(--cartao); color:var(--suave); border:1px solid var(--linha-forte); border-radius:var(--r-sm); }
 .botao-icone:hover{ background:var(--hover); color:var(--marca); border-color:var(--marca); }
-.botao-icone.girando svg{ animation:girar .8s linear infinite; }
+.botao-icone.girando svg, .conta-icone.girando svg{ animation:girar .8s linear infinite; }
 @keyframes girar{ to{ transform:rotate(360deg); } }
-@media (prefers-reduced-motion:reduce){ .botao-icone.girando svg{ animation:none; } }
+@media (prefers-reduced-motion:reduce){ .botao-icone.girando svg, .conta-icone.girando svg{ animation:none; } }
 /* Aparencia: a paleta no topo abre os temas prontos e a cor livre (como na UTMify) */
 .cartao .tema-form{ max-width:340px; }
 /* Link do nome no topo: Configuracoes */
@@ -1051,13 +1051,7 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .barras .val{ text-align:right; white-space:nowrap; }
 .barras .val span{ color:var(--suave); margin-left:8px; }
 /* Resumo como o da UTMify: grade de 12 colunas, cartoes, rosca e aneis */
-.resumo-cab{ margin-bottom:12px; }
-.resumo-topo{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px 16px; }
-.resumo-topo h2{ margin:0; font-size:17px; }
-.resumo-topo .barra-vendas{ margin:0; }
-.resumo-filtros{ display:flex; flex-wrap:wrap; gap:10px 14px; margin-top:12px; }
-.resumo-filtros label{ display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--suave); min-width:200px; }
-.resumo-aviso{ margin:10px 0 0; font-size:13px; }
+.resumo-aviso{ margin:0 0 12px; font-size:13px; }
 .rgrade{ display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:12px; margin:0 0 12px; }
 .rgrade > *{ min-width:0; margin:0 !important; }
 .rgrade .c2{ grid-column:span 2; } .rgrade .c3{ grid-column:span 3; } .rgrade .c4{ grid-column:span 4; } .rgrade .c6{ grid-column:span 6; } .rgrade .c8{ grid-column:span 8; } .rgrade .c12{ grid-column:1 / -1; } .rgrade .r2{ grid-row:span 2; }
@@ -1096,7 +1090,6 @@ th.marca, td.marca{ width:34px; text-align:center; }
   .rgrade > *{ grid-column:1 / -1 !important; }
   .rgrade > .rc.c2, .rgrade > .rc.c3, .rgrade > .rc.c6{ grid-column:span 1 !important; }
   .rc > b{ font-size:19px; }
-  .resumo-filtros label{ min-width:0; flex:1 1 140px; }
 }
 /* Funil em fluxo (resumo_funil) */
 .fluxo-cab, .fluxo-pct, .fluxo-pe{ display:grid; grid-template-columns:repeat(var(--n),minmax(0,1fr)); text-align:center; }
@@ -1572,6 +1565,11 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
     <?= filtro_multi('produto', array_combine($produtos, $produtos) ?: [], $marcados, 'Todos (com order bump)', ['produto', 'produtos'], 'Nenhuma venda ainda.') ?>
   </div>
   <?php endif; ?>
+  <?php if ($aba === 'geral' && function_exists('resumo_canais')): // so no Resumo (lib/resumo.php) ?>
+  <div class="campo"><span><?= com_info('Fonte de tráfego', 'Só no Resumo. Canal da venda, pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto... Marque uma ou mais; Todas soma tudo. Aplica ao fechar a lista. O gasto e o funil da Meta continuam os da conta toda.') ?></span>
+    <?= filtro_multi('canal', resumo_canais(), resumo_canais_marcados(), 'Todas as fontes', ['fonte', 'fontes']) ?>
+  </div>
+  <?php endif; ?>
   <noscript><button type="submit">Filtrar</button></noscript>
 </form>
 </header>
@@ -1689,13 +1687,23 @@ function abas_painel(string $aba, array $filtro = []): void
     echo '</div></details></nav>' . print_dialogo();
 }
 
-// As ferramentas da tela na barra lateral (admin_lateral), acima do lapis: a camera (o print do
-// Resumo, PNG para rede social e WhatsApp), o olho (modo compartilhar, para gravar video ou mostrar
-// a tela) e o (i) (esconde e mostra os icones de informacao). So o icone, com a dica.
+// As ferramentas da tela na barra lateral (admin_lateral), acima do lapis: Atualizar (busca agora
+// na Kiwify, na Meta e no Instagram; a dica diz quando foi a ultima), a camera (o print do Resumo,
+// PNG para rede social e WhatsApp), o olho (modo compartilhar, para gravar video ou mostrar a tela)
+// e o (i) (esconde e mostra os icones de informacao). So o icone, com a dica.
 function lateral_ferramentas(): string
 {
-    $camera = usuario_pode('utm') ? '<button type="button" class="conta-icone" data-print-abrir aria-label="Print" title="Print: gera uma imagem (PNG) do Resumo para rede social ou WhatsApp">' . icone('camera', 19) . '</button>' . print_dialogo() : '';
-    return $camera . compartilhar_botao('conta-icone', 19, false) . info_botao('conta-icone', 19, false);
+    if (!usuario_pode('utm')) {
+        return compartilhar_botao('conta-icone', 19, false) . info_botao('conta-icone', 19, false);
+    }
+    $datas = array_filter([ajuste('kiwify_sync_ok_em'), ajuste('meta_sync_ok_em')]);
+    $quando = !$datas ? 'Ainda não atualizado.' : (function_exists('resumo_ha') ? ucfirst(resumo_ha(min($datas))) . '.' : 'Atualizado em ' . data_local(min($datas), 'd/m H:i') . '.');
+    $atualizar = '<form method="post" action="' . e(admin_base()) . 'sincronizar.php" class="form-atualizar"><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
+        . '<input type="hidden" name="volta" value="' . e(destino_seguro((string)($_SERVER['REQUEST_URI'] ?? ''))) . '">'
+        . '<button type="submit" class="conta-icone" data-atualizar-lateral aria-label="Atualizar agora" title="' . e($quando . ' Atualizar agora: busca as vendas na Kiwify, o gasto na Meta e o Instagram (no máximo uma vez por minuto).') . '">'
+        . icone('atualizar', 19) . '</button></form>';
+    $camera = '<button type="button" class="conta-icone" data-print-abrir aria-label="Print" title="Print: gera uma imagem (PNG) do Resumo para rede social ou WhatsApp">' . icone('camera', 19) . '</button>' . print_dialogo();
+    return $atualizar . $camera . compartilhar_botao('conta-icone', 19, false) . info_botao('conta-icone', 19, false);
 }
 
 // O (i) da barra das abas: esconde e mostra os (i) de informacao de todas as telas (o mesmo que

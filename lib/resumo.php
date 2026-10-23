@@ -297,19 +297,30 @@ function resumo_dados(PDO $db, string $periodo, string $de, string $ate, array $
     return compact('pct', 'dia1', 'dia2', 'g', 'gasto', 'imposto', 'fat', 'fatBruto', 'fatMeta', 'aprovadas', 'pendValor', 'pendN', 'reembValor', 'reembN', 'cbValor', 'cbN', 'foraTipo', 'metaIniciadas', 'metaAprovadas', 'siteIniciadas', 'siteAprovadas', 'comOrigem', 'semOrigem', 'porPagamento', 'porProduto', 'fatProduto', 'porTermo', 'porCanal', 'porHora', 'fatHora', 'porSemana', 'tentativas', 'aprovPorMeio', 'lucro', 'investido', 'roi', 'roiMeta', 'ticket', 'ticketInfo', 'visitantes', 'clicaram', 'leads', 'conversas', 'gastoHora', 'acF', 'acG', 'acL', 'lucroHora');
 }
 
+// Fonte de trafego do Resumo (o filtro do topo, barra_topo em lib/layout.php): canal => nome
+function resumo_canais(): array
+{
+    return ['instagram' => 'Instagram · anúncio', 'facebook' => 'Facebook · anúncio', 'meta' => 'Anúncio sem posicionamento',
+        'compartilhado' => 'Anúncio compartilhado', 'google' => 'Google · anúncio', 'organico' => 'Orgânico', 'outros' => 'Outras origens', 'direto' => 'Direto / sem origem'];
+}
+
+// As fontes marcadas: varias de uma vez (canal[]); a forma antiga (canal=organico) ainda vale
+function resumo_canais_marcados(): array
+{
+    return array_values(array_unique(array_filter(array_map('strval', (array)($_GET['canal'] ?? [])), fn($c) => isset(resumo_canais()[$c]))));
+}
+
 function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
 {
     require_once __DIR__ . '/painel.php';
     $temMeta = (bool)meta_api_chave();
 
-    // Filtros das vendas: produto (no topo, vale para todas as telas) e fonte de trafego (aqui,
-    // como na UTMify). O gasto e o funil da Meta sao da conta toda (a Meta nao divide o gasto
-    // por produto nem por fonte).
+    // Filtros das vendas, os dois no topo: produto (vale para todas as telas) e fonte de trafego
+    // (so no Resumo, como na UTMify). O gasto e o funil da Meta sao da conta toda (a Meta nao
+    // divide o gasto por produto nem por fonte).
     $fProduto = implode(', ', produto_filtro());
-    $canaisNome = ['instagram' => 'Instagram · anúncio', 'facebook' => 'Facebook · anúncio', 'meta' => 'Anúncio sem posicionamento',
-        'compartilhado' => 'Anúncio compartilhado', 'google' => 'Google · anúncio', 'organico' => 'Orgânico', 'outros' => 'Outras origens', 'direto' => 'Direto / sem origem'];
-    // Fonte de trafego: varias de uma vez (canal[]); a forma antiga (canal=organico) ainda vale
-    $fCanais = array_values(array_unique(array_filter(array_map('strval', (array)($_GET['canal'] ?? [])), fn($c) => isset($canaisNome[$c]))));
+    $canaisNome = resumo_canais();
+    $fCanais = resumo_canais_marcados();
 
     // Print (a camera da barra de cima, ./?aba=geral&print=post): so o quadro da imagem, sem a pagina
     if (($formato = grade_print_formato()) !== null) {
@@ -324,25 +335,17 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
         return;
     }
 
-    // Cabecalho: titulo, ultima atualizacao, Atualizar e os filtros
-    $meta = meta_sync_estado();
-    $k = kiwify_sync_estado();
-    $vencida = meta_sync_vencida() || kiwify_sync_vencida() || historico_vencido();
-    $datas = array_filter([$k['ok_em'], $meta['ok_em']]);
-    $quando = $datas ? resumo_ha(min($datas)) : 'ainda não atualizado';
-    echo '<section class="bloco resumo-cab"><div class="resumo-topo"><h2>' . com_info('Resumo', 'Os números do período escolhido no topo. As vendas vêm da Kiwify (webhook e API), o gasto e o funil da Meta, e as visitas do próprio painel. O lápis da barra lateral monta a tela: arraste, aumente, tire e acrescente blocos. Cada pessoa tem a sua, uma para o computador e outra para o celular.') . '</h2>'
-        . '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '><span data-sync-texto>' . e(ucfirst($quando)) . '</span>'
-        . botao_atualizar('./?' . http_build_query(array_filter(['aba' => 'geral', 'periodo' => $periodo, 'canal' => $fCanais]))) . '</div></div>'
-        . '<form class="resumo-filtros" method="get" action="./" data-auto><input type="hidden" name="aba" value="geral"><input type="hidden" name="periodo" value="' . e($periodo) . '">'
-        . '<div class="campo"><span>' . com_info('Fonte de tráfego', 'Canal da venda, pela etiqueta que a Kiwify gravou: anúncio no Instagram ou no Facebook, orgânico, direto... Marque uma ou mais; Todas soma tudo. Aplica ao fechar a lista. O produto se escolhe no topo e vale para todas as telas.') . '</span>'
-        . filtro_multi('canal', $canaisNome, $fCanais, 'Todas as fontes', ['fonte', 'fontes']) . '</div>'
-        . '<noscript><button type="submit" class="discreto neutro">Filtrar</button></noscript></form>';
+    // Sem cabecalho (desde 23/10/2026): a fonte de trafego foi para o filtro do topo e o Atualizar,
+    // com a hora da ultima busca, para a barra lateral. Fica o gatilho da busca em segundo plano
+    // (painel.js) e o aviso do filtro ligado.
+    if (meta_sync_vencida() || kiwify_sync_vencida() || historico_vencido()) {
+        echo '<span id="sync" data-sync="1" hidden><span data-sync-texto></span></span>';
+    }
     if ($fProduto !== '' || $fCanais) {
         $nomesCanais = implode(', ', array_map(fn($c) => $canaisNome[$c], $fCanais));
         echo '<p class="suave resumo-aviso">Filtro ligado: faturamento, vendas e lucro contam só ' . e(trim(($fProduto !== '' ? $fProduto : '') . ($fProduto !== '' && $fCanais ? ' · ' : '') . $nomesCanais))
             . '. O gasto e o funil da Meta continuam os da conta toda. <a href="' . e('./?' . http_build_query(['aba' => 'geral', 'periodo' => $periodo, 'produto' => ['']])) . '">Tirar o filtro</a></p>';
     }
-    echo '</section>';
     if (!$temMeta) {
         echo '<p class="aviso-meta">Sem a conta de anúncios conectada, gasto, lucro, ROI e o funil da Meta ficam zerados. Conecte em <a href="meta-api.php">Integrações → Meta Ads</a>.</p>';
     }
