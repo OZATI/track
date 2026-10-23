@@ -204,7 +204,8 @@ function grafico_mapa_calor(array $grade): string
         $h .= '<span class="calor-dia">' . $nome . '</span>';
         for ($hr = 0; $hr < 24; $hr++) {
             $v = (int)($grade[$d][$hr] ?? 0);
-            $h .= '<i class="' . ($v ? 'calor' : 'calor-vazio') . '"' . ($v ? ' style="--q:' . round(.18 + .82 * $v / $max, 2) . '"' : '')
+            // --t: atraso da entrada, em onda da madrugada de segunda para a noite de domingo (lib/layout.php)
+            $h .= '<i class="' . ($v ? 'calor' : 'calor-vazio') . '"' . ($v ? ' style="--q:' . round(.18 + .82 * $v / $max, 2) . ';--t:' . ($hr * 16 + $d * 36) . 'ms"' : '')
                 . dica_attr($nome . ' · ' . sprintf('%02dh às %02dh', $hr, ($hr + 1) % 24), [$v ? $v . ' venda' . ($v === 1 ? '' : 's') . ' · ' . number_format($v * 100 / $total, 1, ',', '.') . '% do período' : 'Nenhuma venda']) . '></i>';
         }
     }

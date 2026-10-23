@@ -421,6 +421,8 @@ td.quebra{ white-space:normal; min-width:220px; }
 .print-item{ grid-column:var(--c) / span var(--w); grid-row:var(--r) / span var(--h); min-width:0; min-height:0; }
 .print-tela .pw-corpo{ overflow:hidden; }
 .print-tela .info{ display:none; }
+/* O print e tirado logo que o quadro monta: nada de entrada animada (o mapa, o ponteiro e a regua sairiam no meio) */
+.print-tela *, .print-tela *::before, .print-tela *::after{ animation:none !important; transition:none !important; }
 /* Numero no print: o icone vai para o canto, sem ocupar a altura do titulo (a linha do print e menor que a da tela) */
 .print-tela .pw-numero{ position:relative; }
 .print-tela .pw-numero .pw-cab{ padding-right:34px; }
@@ -583,6 +585,14 @@ td.quebra{ white-space:normal; min-width:220px; }
 .mapa-calor i{ min-height:8px; border-radius:4px; background:var(--cartao-2); cursor:help; }
 .mapa-calor i.calor{ background:var(--marca); opacity:var(--q); }
 .mapa-calor i:hover, .mapa-calor i:focus{ outline:none; box-shadow:inset 0 0 0 2px var(--texto); opacity:1; }
+/* Entrada: as casas vazias aparecem juntas e as com venda crescem em onda (--t, da madrugada de segunda
+   para a noite de domingo), na curva do ponteiro do ROI. Na mesma tela (filtro, "fica") nao repete. */
+.mapa-calor i{ animation:calor-base .3s ease-out backwards; }
+.mapa-calor i.calor{ animation:calor-entra .55s cubic-bezier(.2,.8,.2,1) var(--t, 0ms) backwards; }
+@keyframes calor-base{ from{ opacity:0; } }
+@keyframes calor-entra{ from{ opacity:0; transform:scale(.35); } }
+.fica .mapa-calor i{ animation:none; }
+@media (prefers-reduced-motion:reduce){ .mapa-calor i{ animation:none; } }
 .calor-dia{ align-self:center; font-size:12px; color:var(--suave); }
 .calor-hora{ font-size:12px; line-height:16px; color:var(--suave); white-space:nowrap; }
 /* Celular: o mapa fica em pe (dias nas colunas, horas nas linhas), porque 24 casas na largura ficam
