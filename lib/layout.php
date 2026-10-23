@@ -527,12 +527,18 @@ td.quebra{ white-space:normal; min-width:220px; }
 /* Regua do CPA (grafico_regua_cpa), ao lado do "71% do ticket": a barra enche a trilha ate o CPA, verde
    ate a meta e vermelha no que passou; a meta e um corte na cor do cartao (como os do mostrador do ROI),
    com a escala embaixo e a meta em verde. Cabe no bloco estreito sem empurrar o numero. */
-.pw-valor-txt:has(> .cpa-linha){ flex:1 1 auto; } /* a linha da regua ocupa o bloco todo, nao so a largura do numero */
-.cpa-linha{ display:flex; align-items:flex-start; gap:10px; min-width:0; }
-.cpa-linha > small{ flex:0 1 auto; min-width:0; color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.cpa-linha .delta{ font-size:12px; font-weight:600; }
-@container (max-width:300px){ .cpa-sub-longo{ display:none; } }
-.cpa-regua{ container-type:inline-size; flex:1 1 64px; min-width:64px; max-width:260px; display:flex; flex-direction:column; gap:3px; padding:0 6px; cursor:help; }
+/* Bloco largo: numero e texto a esquerda e a regua a direita, alinhada embaixo (como a linha dos outros
+   numeros). Estreito: a regua desce para a linha do texto, que fica so "72%". */
+.cpa-valor{ display:grid; grid-template-columns:auto minmax(0, 1fr); grid-template-areas:"num regua" "sub regua"; column-gap:24px; align-items:end; }
+.cpa-valor > .pw-num{ grid-area:num; }
+.cpa-valor > small{ grid-area:sub; min-width:0; color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cpa-valor .delta{ font-size:12px; font-weight:600; }
+.cpa-valor > .cpa-regua{ grid-area:regua; justify-self:end; width:100%; max-width:340px; }
+@container (max-width:300px){
+  .cpa-valor{ grid-template-areas:"num num" "sub regua"; column-gap:10px; align-items:start; }
+  .cpa-sub-longo{ display:none; }
+}
+.cpa-regua{ container-type:inline-size; min-width:64px; display:flex; flex-direction:column; gap:3px; padding:0 6px; cursor:help; }
 .cpa-regua:focus{ outline:none; }
 .cpa-trilho{ position:relative; height:8px; margin-top:5px; overflow:hidden; border-radius:999px; background:var(--linha); }
 .cpa-trilho::after{ content:""; position:absolute; top:0; bottom:0; left:var(--meta); width:3px; margin-left:-1.5px; background:var(--cartao); }
