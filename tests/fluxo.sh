@@ -795,6 +795,9 @@ confere "$(tem 'CTR 1,50%: abaixo dos 2% de referência' "$r")" "leitura: CTR ab
 confere "$(tem 'Custo por IC R\$ 16,67: acima dos 10% do ticket (R\$ 6,70)' "$r")" "leitura: custo por IC contra 10% do ticket-base do produto principal"
 confere "$(tem 'CPA R\$ 25,00: dentro dos 60% do ticket (R\$ 40,20), cada venda deixa margem.' "$r")" "leitura: CPA contra 60% do ticket-base do produto principal"
 confere "$(tem 'CPA</span><span class="info"[^>]*><svg[^>]*>.*</svg></span></div><b class="positivo">R\$ 25,00</b><small>60% do ticket: R\$ 40,20</small>' "$r")" "análise: cartão do CPA verde, com 60% do ticket-base embaixo"
+rcpa=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem 'class="cpa-linha"><small>[^<]*% do ticket</small><div class="cpa-regua[^"]*" style="--meta:60%"' "$rcpa")" "Resumo: CPA com a régua de 0 ao ticket (meta em 60%) ao lado do % do ticket"
+confere "$(tem 'data-dica-titulo="CPA × ticket" data-dica="CPA: R\$ [0-9.,]* ([0-9]*% do ticket)&#10;Meta: até R\$' "$rcpa")" "régua do CPA com o CPA, a meta e o ticket na dica"
 confere "$(tem 'Mulheres <b>2</b>' "$r")" "quem compra: pizza por sexo com as compras da Meta"
 confere "$(tem 'Homens <b>1</b>' "$r")" "quem compra: homens"
 confere "$(tem '25-34 anos' "$r")" "quem compra: por idade"

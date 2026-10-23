@@ -215,6 +215,22 @@ function grafico_mapa_calor(array $grade): string
     return $h . '</div>';
 }
 
+// Regua do CPA (o bloco CPA do Resumo, ao lado do "71% do ticket"): o trilho vai de 0 ao ticket,
+// verde ate a meta (CPA_PCT_TICKET% do ticket) e vermelho depois; a barra e o CPA do periodo (passou
+// do ticket, para no fim) e o traco, a meta. A dica traz os valores e o mix das ofertas.
+function grafico_regua_cpa(float $cpa, float $ticket, string $mix = ''): string
+{
+    $pct = $cpa * 100 / $ticket;
+    $limite = (float)cpa_limite($ticket);
+    $dentro = round($cpa) <= round($limite);
+    $pctTxt = number_format($pct, 0, ',', '.') . '% do ticket';
+    $linhas = ['CPA: ' . reais((int)round($cpa)) . ' (' . $pctTxt . ')', 'Meta: até ' . reais((int)round($limite)) . ' (' . CPA_PCT_TICKET . '% do ticket)',
+        'Ticket médio: ' . reais((int)round($ticket)), $mix];
+    return '<div class="cpa-regua' . ($dentro ? '' : ' acima') . '" style="--meta:' . CPA_PCT_TICKET . '%" role="img" aria-label="CPA em ' . e($pctTxt) . ', meta até ' . CPA_PCT_TICKET . '%"'
+        . dica_attr('CPA × ticket', $linhas) . '>'
+        . '<i class="cpa-barra" style="width:' . round(min(100, $pct), 1) . '%"></i><i class="cpa-meta"></i></div>';
+}
+
 // Mostrador do ROI de 0 a 4: vermelho abaixo de 1, laranja de 1 a 2, verde de 2 para cima
 function grafico_velocimetro(?float $roi, string $sub = ''): string
 {
