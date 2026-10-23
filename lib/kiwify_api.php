@@ -222,3 +222,11 @@ function mascarar(string $v): string
 {
     return strlen($v) <= 8 ? str_repeat('•', strlen($v)) : substr($v, 0, 4) . '…' . substr($v, -4);
 }
+
+// Conta nova: o historico de vendas (lib/kiwify_sync.php) recomeca do zero
+function kiwify_historico_zerar(): void
+{
+    foreach (['kiwify_hist_ate', 'kiwify_hist_pagina', 'kiwify_hist_vazias', 'kiwify_hist_fim', 'kiwify_hist_erro'] as $c) {
+        definir_ajuste($c, null);
+    }
+}

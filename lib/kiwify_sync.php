@@ -2,10 +2,13 @@
 require_once __DIR__ . '/ofertas.php';
 // Busca as vendas pela API da Kiwify e grava na mesma tabela do webhook.
 //
-// Primeira busca: os ultimos 89 dias (limite da API: 90), ou menos se a retencao for
-// menor. Depois, so o que mudou desde a ultima busca (filtro updated_at da API), o que
-// traz venda nova, Pix pago, reembolso e chargeback. Uma vez por dia, os 89 dias de novo. Quem chama: o painel, em segundo
-// plano, quando a ultima busca tem mais de 10 minutos, e o botao "Atualizar vendas".
+// Primeira busca: os ultimos 89 dias (a API aceita no maximo 90 entre o inicio e o fim). Depois,
+// so o que mudou desde a ultima busca (filtro updated_at da API), o que traz venda nova, Pix
+// pago, reembolso e chargeback. Uma vez por dia, os 89 dias de novo. Quem chama: o painel, em
+// segundo plano, quando a ultima busca tem mais de 10 minutos, e o botao "Atualizar vendas".
+// O que e mais antigo vem do historico (kiwify_historico_passo, no fim do arquivo), e as
+// vendas ficam guardadas: sao o historico do faturamento (desde 23/10/2026 nao saem com a
+// retencao, que vale para visitas e eventos).
 //
 // LGPD: igual ao webhook. Nome, e-mail, telefone, CPF e endereco do comprador vem na
 // resposta e sao descartados aqui; so pedido, produto, valor, status e etiquetas ficam.
@@ -15,6 +18,9 @@ require_once __DIR__ . '/push.php';
 
 const KIWIFY_SYNC_INTERVALO = 600;  // segundos entre buscas automaticas
 const KIWIFY_SYNC_PAGINAS = 30;     // teto por busca (100 vendas por pagina)
+const KIWIFY_HIST_JANELA = 89;      // dias por consulta (a API aceita ate 90 entre o inicio e o fim)
+const KIWIFY_HIST_VAZIAS = 4;       // janelas seguidas sem venda (quase um ano) = chegou no comeco das vendas
+const KIWIFY_HIST_PISO = '2019-01-01'; // antes disso a Kiwify nao vendia
 
 // Busca automatica vencida? (e nao ha outra em andamento)
 function kiwify_sync_vencida(): bool
@@ -90,11 +96,9 @@ function kiwify_sync_buscar(array $k, bool $completa): array
     if (!$t['ok']) {
         return $t;
     }
-    $tokenNovo = false;
-    $dias = min(89, max(7, (int)(track_config()['dias_retencao'] ?? 90)));
     $agora = new DateTime('now', new DateTimeZone('UTC'));
     $consulta = [
-        'start_date' => kiwify_api_data((clone $agora)->modify("-$dias days")),
+        'start_date' => kiwify_api_data((clone $agora)->modify('-' . KIWIFY_HIST_JANELA . ' days')),
         'end_date' => kiwify_api_data((clone $agora)->modify('+1 day')),
         'view_full_sale_details' => 'true',
         'page_size' => '100',
@@ -110,9 +114,19 @@ function kiwify_sync_buscar(array $k, bool $completa): array
         $consulta['updated_at_start_date'] = kiwify_api_data($desde->modify('-15 minutes'));
         $consulta['updated_at_end_date'] = $consulta['end_date'];
     }
+    $r = kiwify_sync_paginas($k, $t, $consulta, true);
+    return $r['ok'] ? $r + ['inicio' => $inicio, 'completa' => $completa] : $r;
+}
 
+// Le as paginas de uma consulta a /sales (ate KIWIFY_SYNC_PAGINAS, a partir de $pagina) e grava
+// cada venda. $avisar: manda o aviso de venda nova (o historico nao avisa: sao vendas antigas).
+// $t: o token, pedido de novo aqui se vencer. 'proxima': a pagina em que parou, se nao leu tudo.
+function kiwify_sync_paginas(array $k, array &$t, array $consulta, bool $avisar, int $pagina = 1): array
+{
+    $tokenNovo = false;
     $novas = $atualizadas = $lidas = $vistas = 0;
-    for ($pagina = 1; $pagina <= KIWIFY_SYNC_PAGINAS; $pagina++) {
+    $proxima = null;
+    for ($fim = $pagina + KIWIFY_SYNC_PAGINAS; $pagina < $fim; $pagina++) {
         [$status, $corpo] = kiwify_api_get('/sales', $consulta + ['page_number' => (string)$pagina], $t['token'], $k['account_id']);
         if ($status === 401 && !$tokenNovo) {
             // Token guardado venceu ou foi revogado: pede outro uma vez e repete a pagina
@@ -145,7 +159,7 @@ function kiwify_sync_buscar(array $k, bool $completa): array
             } elseif ($r === 'atualizada') {
                 $atualizadas++;
             }
-            if ($r !== 'igual') {
+            if ($r !== 'igual' && $avisar) {
                 try {
                     push_avisar_venda(texto($venda['id'] ?? '', 100));
                 } catch (Throwable $e) {
@@ -155,11 +169,15 @@ function kiwify_sync_buscar(array $k, bool $completa): array
             $lidas++;
         }
         // count = total do periodo; para quando ja veio tudo (ou a pagina veio vazia)
-        if (!$lista || $vistas >= (int)($corpo['pagination']['count'] ?? 0)) {
+        // (pela pagina e pelo tamanho que a API devolveu: a busca pode ter comecado no meio)
+        $total = (int)($corpo['pagination']['count'] ?? 0);
+        $tamanho = max(count($lista), (int)($corpo['pagination']['page_size'] ?? 0));
+        if (!$lista || ($pagina - 1) * $tamanho + count($lista) >= $total) {
             break;
         }
+        $proxima = $pagina + 1 < $fim ? null : $pagina + 1;
     }
-    return ['ok' => true, 'inicio' => $inicio, 'novas' => $novas, 'atualizadas' => $atualizadas, 'lidas' => $lidas, 'completa' => $completa];
+    return ['ok' => true, 'novas' => $novas, 'atualizadas' => $atualizadas, 'lidas' => $lidas, 'vistas' => $vistas, 'proxima' => $proxima];
 }
 
 // Data da Kiwify (ISO, UTC) no formato do banco
@@ -262,4 +280,100 @@ function kiwify_sync_gravar(array $v): string
         || ($antes['fonte'] !== 'ambos' && $antes['fonte'] !== 'api')
         || $antes['referencia'] === null || $antes['tipo'] === null;
     return $mudou ? 'atualizada' : 'igual';
+}
+
+// ---------------------------------------------------------------- historico
+// A busca normal le os ultimos 89 dias. O historico volta no tempo, uma janela de 89 dias por
+// passo (a API nao limita quao antigo, so o tamanho da janela), ate o comeco das vendas:
+// KIWIFY_HIST_VAZIAS janelas seguidas sem venda ou KIWIFY_HIST_PISO. Grava como a busca normal,
+// sem o aviso de venda nova. Roda em segundo plano (sincronizar.php, com o painel aberto, e o
+// cron.php), com a mesma trava da busca normal. Estado nos ajustes:
+//   kiwify_hist_ate     ate onde (para tras) ja buscou, Y-m-d em UTC; as janelas sao [ate - 89, ate)
+//   kiwify_hist_pagina  pagina em que a janela parou (janela com mais de 3.000 vendas)
+//   kiwify_hist_vazias  janelas seguidas sem venda
+//   kiwify_hist_fim     quando terminou: o historico esta completo
+//   kiwify_hist_erro    o ultimo erro (a busca tenta de novo no proximo passo)
+function kiwify_historico_pendente(): bool
+{
+    return kiwify_api_chave() !== null && !ajuste('kiwify_hist_fim');
+}
+
+// Para a tela (Integracoes): ate onde buscou, se terminou e a venda mais antiga guardada
+function kiwify_historico_estado(): array
+{
+    $primeira = track_db()->query('SELECT MIN(recebida_em) FROM vendas')->fetchColumn();
+    return ['ate' => ajuste('kiwify_hist_ate'), 'fim' => ajuste('kiwify_hist_fim'), 'erro' => ajuste('kiwify_hist_erro'),
+        'primeira' => $primeira ? (string)$primeira : null];
+}
+
+// Um passo: uma janela (ou as proximas paginas dela). ['ok', 'novas', 'fim'] ou o erro.
+function kiwify_historico_passo(): array
+{
+    $k = kiwify_api_chave();
+    if (!$k || ajuste('kiwify_hist_fim')) {
+        return ['ok' => true, 'novas' => 0, 'fim' => true];
+    }
+    if (!function_exists('curl_init')) {
+        return ['ok' => false, 'erro' => 'O PHP deste servidor está sem a extensão curl.'];
+    }
+    $db = track_db();
+    $db->exec('BEGIN IMMEDIATE');
+    if (time() - (int)(ajuste('kiwify_sync_rodando') ?? 0) < 120) {
+        $db->exec('COMMIT');
+        return ['ok' => false, 'ocupado' => true, 'erro' => 'Já há uma busca em andamento.'];
+    }
+    definir_ajuste('kiwify_sync_rodando', (string)time());
+    $db->exec('COMMIT');
+    try {
+        $utc = new DateTimeZone('UTC');
+        // Comeca um dia depois do inicio da busca normal: as duas se encostam, sem buraco
+        $ate = new DateTime((ajuste('kiwify_hist_ate') ?: (new DateTime('today', $utc))->modify('-' . (KIWIFY_HIST_JANELA - 1) . ' days')->format('Y-m-d')) . ' 00:00:00', $utc);
+        $piso = new DateTime(KIWIFY_HIST_PISO . ' 00:00:00', $utc);
+        $de = max($piso, (clone $ate)->modify('-' . KIWIFY_HIST_JANELA . ' days'));
+        if ($ate <= $piso) {
+            definir_ajuste('kiwify_hist_fim', agora_utc());
+            return ['ok' => true, 'novas' => 0, 'fim' => true];
+        }
+        $t = kiwify_api_token_salvo($k);
+        if (!$t['ok']) {
+            definir_ajuste('kiwify_hist_erro', $t['erro'] ?? 'Não deu para entrar na API da Kiwify.');
+            return $t;
+        }
+        $consulta = ['start_date' => kiwify_api_data($de), 'end_date' => kiwify_api_data($ate), 'view_full_sale_details' => 'true', 'page_size' => '100'];
+        $r = kiwify_sync_paginas($k, $t, $consulta, false, max(1, (int)(ajuste('kiwify_hist_pagina') ?? 1)));
+        if (!$r['ok']) {
+            if (empty($r['adiada'])) {
+                definir_ajuste('kiwify_hist_erro', $r['erro']);
+            }
+            return $r;
+        }
+        definir_ajuste('kiwify_hist_erro', null);
+        if ($r['proxima']) { // a janela continua no proximo passo
+            definir_ajuste('kiwify_hist_pagina', (string)$r['proxima']);
+            return ['ok' => true, 'novas' => $r['novas'], 'fim' => false];
+        }
+        // Janela lida: a proxima e a de antes
+        $vazias = $r['vistas'] || ajuste('kiwify_hist_pagina') ? 0 : (int)(ajuste('kiwify_hist_vazias') ?? 0) + 1;
+        definir_ajuste('kiwify_hist_pagina', null);
+        definir_ajuste('kiwify_hist_vazias', (string)$vazias);
+        definir_ajuste('kiwify_hist_ate', $de->format('Y-m-d'));
+        $fim = $vazias >= KIWIFY_HIST_VAZIAS || $de <= $piso;
+        if ($fim) {
+            definir_ajuste('kiwify_hist_fim', agora_utc());
+        }
+        return ['ok' => true, 'novas' => $r['novas'], 'fim' => $fim];
+    } finally {
+        definir_ajuste('kiwify_sync_rodando', null);
+    }
+}
+
+// Uma linha para a tela: completo (desde a venda mais antiga) ou ate onde ja foi
+function kiwify_historico_texto(): string
+{
+    $h = kiwify_historico_estado();
+    $data = fn(?string $d) => $d ? (new DateTime(substr($d, 0, 10)))->format('d/m/Y') : '';
+    if ($h['fim']) {
+        return 'Histórico completo' . ($h['primeira'] ? ': vendas desde ' . $data($h['primeira']) : '');
+    }
+    return $h['ate'] ? 'Buscando o histórico de vendas: já foi até ' . $data($h['ate']) : 'Histórico de vendas: começa na próxima busca';
 }

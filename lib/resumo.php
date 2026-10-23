@@ -327,7 +327,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     // Cabecalho: titulo, ultima atualizacao, Atualizar e os filtros
     $meta = meta_sync_estado();
     $k = kiwify_sync_estado();
-    $vencida = meta_sync_vencida() || kiwify_sync_vencida();
+    $vencida = meta_sync_vencida() || kiwify_sync_vencida() || historico_vencido();
     $datas = array_filter([$k['ok_em'], $meta['ok_em']]);
     $quando = $datas ? resumo_ha(min($datas)) : 'ainda não atualizado';
     echo '<section class="bloco resumo-cab"><div class="resumo-topo"><h2>' . com_info('Resumo', 'Os números do período escolhido no topo. As vendas vêm da Kiwify (webhook e API), o gasto e o funil da Meta, e as visitas do próprio painel. O lápis da barra lateral monta a tela: arraste, aumente, tire e acrescente blocos. Cada pessoa tem a sua, uma para o computador e outra para o celular.') . '</h2>'

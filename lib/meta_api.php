@@ -191,3 +191,11 @@ function meta_api_testar(string $token, string $conta): array
     }
     return ['ok' => true, 'conta_nome' => $nome, 'moeda' => $moeda, 'permissoes' => $permissoes, 'edita' => $edita, 'gasto_7d' => $gasto];
 }
+
+// Conta de anuncios nova: o historico de gasto (lib/meta_sync.php) recomeca do zero
+function meta_historico_zerar(): void
+{
+    foreach (['meta_hist_ate', 'meta_hist_vazias', 'meta_hist_fim', 'meta_hist_erro'] as $c) {
+        definir_ajuste($c, null);
+    }
+}

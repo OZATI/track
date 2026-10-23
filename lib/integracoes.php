@@ -101,8 +101,8 @@ function integracao_estado_meta(): array
     }
     $s = meta_sync_estado();
     return ['ligada' => true, 'conta' => trim(($k['conta_nome'] ?? '') . ' · ' . $k['conta'], ' ·'),
-        'detalhe' => $s['ok_em'] ? 'Última busca: ' . data_local($s['ok_em'], 'd/m H:i') : 'Ainda sem busca completa.',
-        'erro' => $s['erro'] ?: null];
+        'detalhe' => ($s['ok_em'] ? 'Última busca: ' . data_local($s['ok_em'], 'd/m H:i') : 'Ainda sem busca completa.') . ' · ' . meta_historico_texto(),
+        'erro' => $s['erro'] ?: (ajuste('meta_hist_erro') ? 'Histórico: ' . ajuste('meta_hist_erro') : null)];
 }
 
 function integracao_estado_kiwify(): array
@@ -115,8 +115,11 @@ function integracao_estado_kiwify(): array
     $s = kiwify_sync_estado();
     $partes = [$webhook ? 'Webhook: última venda ' . data_local($webhook, 'd/m H:i') : 'Webhook: nenhuma venda ainda'];
     $partes[] = $k ? 'API: ' . ($s['ok_em'] ? 'última busca ' . data_local($s['ok_em'], 'd/m H:i') : 'chave salva') : 'API: sem chave';
+    if ($k) {
+        $partes[] = kiwify_historico_texto();
+    }
     return ['ligada' => true, 'conta' => $k ? 'Conta ' . $k['account_id'] : 'Só pelo webhook', 'detalhe' => implode(' · ', $partes),
-        'erro' => $k && $s['erro'] ? $s['erro'] : null];
+        'erro' => $k ? ($s['erro'] ?: (ajuste('kiwify_hist_erro') ? 'Histórico: ' . ajuste('kiwify_hist_erro') : null)) : null];
 }
 
 function integracao_estado_instagram(): array

@@ -166,13 +166,18 @@ if (preg_match('~^/graph/(\d+)/insights$~', $rota, $m) && ($_GET['breakdowns'] ?
     exit;
 }
 if ($rota === '/graph/act_587364236934346/insights') {
+    // Como a Meta: so os dias dentro do time_range (o historico pede janelas antigas). Ha 150 dias,
+    // um gasto antigo do cv 05, para o historico achar.
+    $periodo = json_decode((string)($_GET['time_range'] ?? ''), true);
+    $no = fn(string $dia) => !is_array($periodo) || ($dia >= ($periodo['since'] ?? '') && $dia <= ($periodo['until'] ?? ''));
+    $antigo = (new DateTime('now', new DateTimeZone('America/Sao_Paulo')))->modify('-150 days')->format('Y-m-d');
     if (($_GET['breakdowns'] ?? '') === 'hourly_stats_aggregated_by_advertiser_time_zone') {
         // Gasto da conta por hora de hoje
         $hoje = (new DateTime('now', new DateTimeZone('America/Sao_Paulo')))->format('Y-m-d');
-        echo json_encode(['data' => [
+        echo json_encode(['data' => $no($hoje) ? [
             ['spend' => '20.00', 'hourly_stats_aggregated_by_advertiser_time_zone' => '00:00:00 - 00:59:59', 'date_start' => $hoje, 'date_stop' => $hoje],
             ['spend' => '40.00', 'hourly_stats_aggregated_by_advertiser_time_zone' => '01:00:00 - 01:59:59', 'date_start' => $hoje, 'date_stop' => $hoje],
-        ]]);
+        ] : []]);
         exit;
     }
     // Alcance de hoje por conjunto e por campanha
@@ -188,6 +193,11 @@ if ($rota === '/graph/act_587364236934346/insights') {
         // Gasto de hoje por anuncio (dia no fuso da conta); o cv 05 e um video
         $hoje = (new DateTime('now', new DateTimeZone('America/Sao_Paulo')))->format('Y-m-d');
         $vv = fn(int $n) => [['action_type' => 'video_view', 'value' => (string)$n]];
+        if (!$no($hoje)) {
+            echo json_encode(['data' => $no($antigo) ? [['ad_id' => '222222', 'adset_id' => '111111', 'campaign_id' => '120120', 'spend' => '30.00', 'impressions' => '1500',
+                'inline_link_clicks' => '20', 'ad_name' => 'cv 05', 'adset_name' => 'conjunto 5', 'campaign_name' => 'TL 1', 'date_start' => $antigo, 'date_stop' => $antigo]] : []]);
+            exit;
+        }
         echo json_encode(['data' => [
             ['ad_id' => '222222', 'adset_id' => '111111', 'campaign_id' => '120120', 'spend' => '50.00', 'impressions' => '4000', 'inline_link_clicks' => '60',
                 'actions' => [['action_type' => 'offsite_conversion.fb_pixel_initiate_checkout', 'value' => '3'], ['action_type' => 'omni_initiated_checkout', 'value' => '3'],

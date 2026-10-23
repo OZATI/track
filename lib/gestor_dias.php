@@ -197,7 +197,7 @@ function gestor_dias_render(PDO $db, string $periodo): void
         $pais .= ' <span class="suave">›</span> <a href="' . e('./?' . http_build_query(array_filter(['aba' => 'campanha', 'nivel' => $nPai === 'campanha' ? null : $nPai, 'id' => $idPai, 'periodo' => $periodo]))) . '">' . e($nomePai) . '</a>';
     }
     $meta = meta_sync_estado();
-    $vencida = meta_sync_vencida() || kiwify_sync_vencida();
+    $vencida = meta_sync_vencida() || kiwify_sync_vencida() || historico_vencido();
     // Abaixo do nome: o proximo nivel no gestor (conjuntos da campanha, anuncios do conjunto)
     $proximo = ['campanha' => ['Ver os conjuntos', ['nivel' => 'conjuntos', 'campanha' => $id]],
         'conjunto' => ['Ver os anúncios', ['nivel' => 'anuncios', 'campanha' => $obj['campanha_id'] ?? '', 'conjunto' => $id]],

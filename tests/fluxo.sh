@@ -1695,6 +1695,50 @@ confere "$(tem ' 403$' "$r")" "sem o app (sem a chave secreta), nenhum aviso é 
 code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/meta-interacoes.php")
 confere "$([ "$code" = "302" ]; echo $?)" "tela Comentários e mensagens exige login ($code)"
 
+echo "Histórico (vendas e gasto de antes dos 89 dias)"
+# A retencao (LGPD) apaga visitas e eventos; as vendas ficam (sao o historico do faturamento)
+# shellcheck disable=SC2086
+ret=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; $db = track_db(); $velha = gmdate("Y-m-d H:i:s", time() - 500 * 86400);
+$db->prepare("INSERT INTO vendas (pedido, status, produto, valor, recebida_em, atualizada_em) VALUES (?, ?, ?, ?, ?, ?)")->execute(["retencao-1", "paid", "Drive", 6700, $velha, $velha]);
+limpar_antigos(); echo (int)$db->query("SELECT COUNT(*) FROM vendas WHERE pedido = \"retencao-1\"")->fetchColumn();')
+confere "$([ "$ret" = "1" ]; echo $?)" "a retenção (LGPD) não apaga vendas: são o histórico do faturamento ($ret)"
+# Venda de 200 dias atras na Kiwify falsa (a busca normal le 89 dias) e o historico zerado; a Meta
+# falsa tem um gasto de 150 dias atras (tests/meta-falsa.php)
+# shellcheck disable=SC2086
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r '$arq = getenv("TRACK_DADOS") . DIRECTORY_SEPARATOR . "kiwify-falsa-vendas.json";
+$v = json_decode(file_get_contents($arq), true); $antiga = gmdate("Y-m-d\TH:i:s.000\Z", time() - 200 * 86400);
+$v[] = ["id" => "historico-1", "reference" => "RefHist1", "type" => "product", "parent_order_id" => null, "status" => "paid", "payment_method" => "pix",
+    "created_at" => $antiga, "updated_at" => $antiga, "approved_date" => $antiga, "product" => ["name" => "Drive de Projetos"], "payment" => ["charge_amount" => 6700, "net_amount" => 6000]];
+file_put_contents($arq, json_encode($v));
+require "lib/util.php"; require "lib/kiwify_api.php"; require "lib/meta_api.php";
+kiwify_historico_zerar(); meta_historico_zerar(); definir_ajuste("historico_tentativa", null);
+definir_ajuste("kiwify_api_pausa_ate", null); // a pausa que o teste do 429 deixou
+track_db()->exec("DELETE FROM limites WHERE chave LIKE \"kiwify-api:%\"");')
+# A chave da Kiwify saiu la em cima (API da Kiwify): volta para o historico ter de onde buscar
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=salvar" --data-urlencode "client_id=$CID" \
+    --data-urlencode "client_secret=SegredoLeitura0000000000000000" --data-urlencode "account_id=ContaCerta123" "$URL/kiwify-api.php")
+confere "$(tem 'em segundo plano, o histórico inteiro' "$r")" "chave da Kiwify de volta: o aviso conta do histórico"
+r=$(curl -s -b "$JAR" "$URL/kiwify-api.php")
+confere "$(tem 'Histórico de vendas: começa na próxima busca' "$r")" "tela da API Kiwify mostra o histórico ainda por buscar"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
+confere "$(tem 'id="sync" data-sync="1"' "$r")" "histórico pendente: o painel pede a busca em segundo plano"
+r=$(curl -s -b "$JAR" -X POST -H "X-CSRF: $csrf" "$URL/sincronizar.php")
+confere "$(tem '"buscou":true' "$r")" "histórico roda na busca em segundo plano ($r)"
+# shellcheck disable=SC2086
+hist=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; $db = track_db();
+echo $db->query("SELECT fonte FROM vendas WHERE pedido = \"historico-1\"")->fetchColumn(), "|",
+    (int)$db->query("SELECT COUNT(*) FROM meta_gasto WHERE anuncio_id = \"222222\" AND gasto = 3000 AND dia < date(\"now\", \"-100 days\")")->fetchColumn(), "|",
+    ajuste("kiwify_hist_fim") ? "fim" : "pendente", "|", ajuste("meta_hist_fim") ? "fim" : "pendente";')
+confere "$([ "$hist" = "api|1|fim|fim" ]; echo $?)" "histórico: venda de 200 dias atrás pela Kiwify e gasto de 150 dias atrás pela Meta, até o começo ($hist)"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
+confere "$(tem 'RefHist1' "$r")" "venda antiga do histórico aparece em Tudo"
+confere "$(grep -q 'data-sync="1"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "histórico completo: a tela não pede outra busca"
+confere "$(tem 'Histórico completo: vendas desde' "$(curl -s -b "$JAR" "$URL/kiwify-api.php")")" "tela da API Kiwify: histórico completo, com a venda mais antiga"
+confere "$(tem 'Histórico completo: gasto desde' "$(curl -s -b "$JAR" "$URL/meta-api.php")")" "tela da API Meta: histórico de gasto completo"
+# shellcheck disable=SC2086
+pend=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; require "lib/historico.php"; echo historico_pendente() ? "sim" : "nao";')
+confere "$([ "$pend" = "nao" ]; echo $?)" "histórico completo não roda de novo ($pend)"
+
 echo "Avisos do PHP"
 # Aviso escondido (variavel que nao existe, indice faltando) nao quebra a tela, mas na
 # hospedagem pode aparecer para quem usa: nenhum pode sobrar depois de passar por todas as telas

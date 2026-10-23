@@ -31,6 +31,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if (!$r['ok']) {
                 $erros[] = $r['erro'] . ' Nada foi salvo.';
             } else {
+                $contaAntes = (string)($cfg['kiwify_api']['account_id'] ?? '');
                 $cfg['kiwify_api'] = [
                     'client_id' => $clientId,
                     'client_secret' => $secret,
@@ -46,8 +47,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     definir_ajuste('kiwify_sync_erro', null);
                     definir_ajuste('kiwify_sync_adiada', null);
                     definir_ajuste('kiwify_api_token', null);
+                    if ($contaAntes !== $conta) { // outra conta: o historico de vendas e outro
+                        kiwify_historico_zerar();
+                    }
                     $aviso = 'Chave conferida e salva.' . ($r['vendas'] !== null ? ' A API encontrou ' . $r['vendas'] . ' venda(s) entre ontem e hoje.' : '')
-                        . ' Ao abrir o painel, ele busca as vendas dos últimos 89 dias.';
+                        . ' Ao abrir o painel, ele busca as vendas dos últimos 89 dias e, em segundo plano, o histórico inteiro.';
                 } else {
                     $erros[] = 'Não foi possível gravar a configuração. Confira as permissões de ' . track_pasta_dados() . '.';
                 }
@@ -99,6 +103,9 @@ casca_inicio('integracoes');
       <?php $sync = kiwify_sync_estado(); ?>
       <tr><th>Última busca de vendas</th><td><?= $sync['ok_em'] ? e(data_local($sync['ok_em'], 'd/m/Y H:i')) : '<span class="suave">ainda não feita</span>' ?>
         <?= $sync['adiada'] ? '<br><span class="suave">Adiada: ' . e($sync['adiada']) . '</span>' : ($sync['erro'] ? '<br><span class="erro">' . e($sync['erro']) . '</span>' : '') ?></td></tr>
+      <tr><th>Histórico de vendas</th><td><?= e(kiwify_historico_texto()) ?>
+        <?= ajuste('kiwify_hist_erro') ? '<br><span class="erro">' . e(ajuste('kiwify_hist_erro')) . '</span>' : '' ?>
+        <br><span class="suave">A API entrega no máximo 90 dias por consulta, então o painel volta no tempo de 89 em 89 dias, em segundo plano, até o começo das vendas. As vendas ficam guardadas: o histórico não depende mais da API.</span></td></tr>
       <?php $pausa = kiwify_api_pausa_ate(); ?>
       <tr><th>Uso da API</th><td><?= kiwify_api_uso(60) ?> chamada(s) no último minuto · <?= kiwify_api_uso(3600) ?> na última hora
         <br><span class="suave">Limite interno: <?= kiwify_api_limite_minuto() ?> por minuto (a Kiwify aceita 100).</span>

@@ -140,7 +140,7 @@ function barra_vendas(array $parLink, string $aba): void
         $texto = 'Vendas da Kiwify: primeira busca pela API ainda não feita';
     }
     $volta = './?' . http_build_query(['aba' => $aba] + $parLink);
-    echo '<div class="barra-vendas" id="sync"' . (kiwify_sync_vencida() ? ' data-sync="1"' : '') . '>'
+    echo '<div class="barra-vendas" id="sync"' . (kiwify_sync_vencida() || historico_vencido() ? ' data-sync="1"' : '') . '>'
         . '<span class="suave" data-sync-texto>' . e($texto) . '</span>'
         . botao_atualizar($volta, 'Atualizar vendas: busca agora na API da Kiwify (no máximo uma vez por minuto)')
         . '</div>';

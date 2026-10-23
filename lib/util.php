@@ -302,7 +302,10 @@ function registrar_tentativa(string $chave): void
     track_db()->prepare('INSERT INTO limites (chave, em) VALUES (?, ?)')->execute([$chave, time()]);
 }
 
-// Apaga o que passou do prazo de retencao (LGPD). Roda de vez em quando, no meio das coletas.
+// Apaga o que passou do prazo de retencao (LGPD): visitas, eventos e mensagens da Meta. Roda de
+// vez em quando, no meio das coletas. As vendas ficam (desde 23/10/2026): sao o historico do
+// faturamento e nao tem dado pessoal (nome, e-mail, telefone e CPF do comprador sao descartados ao
+// chegar, no webhook e na API); o visitante ligado a venda some com a retencao, como os outros.
 function limpar_antigos(): void
 {
     $cfg = track_config();
@@ -310,7 +313,6 @@ function limpar_antigos(): void
     $corte = gmdate('Y-m-d H:i:s', time() - $dias * 86400);
     $db = track_db();
     $db->prepare('DELETE FROM eventos WHERE em < ?')->execute([$corte]);
-    $db->prepare('DELETE FROM vendas WHERE recebida_em < ?')->execute([$corte]);
     $db->prepare('DELETE FROM visitantes WHERE visto_em < ?')->execute([$corte]);
     $db->prepare('DELETE FROM meta_interacoes WHERE recebida_em < ?')->execute([$corte]);
     $db->prepare('DELETE FROM limites WHERE em < ?')->execute([time() - 86400]);

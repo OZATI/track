@@ -102,6 +102,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if (!$r['ok']) {
                 $erros[] = $r['erro'] . ' Nada foi salvo.';
             } else {
+                $contaAntes = (string)($cfg['meta_api']['conta'] ?? '');
                 $cfg['meta_api'] = [
                     'token' => $token,
                     'conta' => $conta,
@@ -112,6 +113,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     'salva_por' => usuario_atual(),
                 ];
                 if (track_salvar_config($cfg)) {
+                    if ($contaAntes !== $conta) { // outra conta de anuncios: o historico de gasto e outro
+                        meta_historico_zerar();
+                    }
                     $aviso = 'Token conferido e salvo. Conta ' . $r['conta_nome'] . ': ' . reais_simples($r['gasto_7d'], $r['moeda']) . ' investidos nos últimos 7 dias.'
                         . ($r['edita'] ? ' Atenção: este token também pode ' . implode(', ', $r['edita']) . '. Ele fica só aqui no painel; não o compartilhe.' : '');
                 } else {
@@ -190,6 +194,9 @@ integracoes_topo('anuncios', 'Meta Ads');
       <tr><th>Conectado com o Facebook</th><td><?= e(implode(' · ', $chave['conectado_por'] ?? []) ?: 'a Meta não informou nome nem e-mail') ?>
         <br><span class="suave"><?= !empty($chave['vence_em']) ? 'Vence em ' . e(data_local($chave['vence_em'], 'd/m/Y')) . ': conecte de novo antes disso.' : 'Token sem vencimento.' ?></span></td></tr>
       <?php endif; ?>
+      <tr><th>Histórico de gasto</th><td><?= e(meta_historico_texto()) ?>
+        <?= ajuste('meta_hist_erro') ? '<br><span class="erro">' . e(ajuste('meta_hist_erro')) . '</span>' : '' ?>
+        <br><span class="suave">A Meta guarda os números dos anúncios por 37 meses. O painel volta no tempo de 89 em 89 dias, em segundo plano, e guarda o gasto de cada dia (com o nome das campanhas que já saíram da conta).</span></td></tr>
       <?php $pausa = meta_api_pausa_ate(); ?>
       <tr><th>Uso da API</th><td><?= meta_api_uso(60) ?> consulta(s) no último minuto · <?= meta_api_uso(3600) ?> na última hora
         <br><span class="suave">Limite interno: <?= meta_api_limite_minuto() ?> por minuto.</span>

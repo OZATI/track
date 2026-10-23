@@ -12,6 +12,7 @@ require __DIR__ . '/lib/util.php';
 require_once __DIR__ . '/lib/kiwify_sync.php';
 require_once __DIR__ . '/lib/meta_sync.php';
 require_once __DIR__ . '/lib/instagram_sync.php';
+require_once __DIR__ . '/lib/historico.php';
 
 header('Cache-Control: no-store');
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -48,6 +49,12 @@ if ($json) {
         $resposta['buscou'] = true;
         $resposta['ok'] = $resposta['ok'] && ($r['ok'] || !empty($r['ocupado']));
         $resposta['atualizadas'] += $r['ok'] ? 1 : 0;
+    }
+    // Historico (vendas e gasto de antes dos 89 dias): ate 25 s por rodada, com o tempo que sobrou
+    if (historico_vencido()) {
+        $h = historico_rodar(25);
+        $resposta['buscou'] = true;
+        $resposta['atualizadas'] += $h['novas'] + ($h['dias'] ? 1 : 0); // entrou coisa antiga: a tela recarrega
     }
     responder_json(200, $resposta);
 }

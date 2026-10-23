@@ -27,17 +27,16 @@ function analise_num(?float $v, int $casas = 2): string
     return $v === null ? 'N/A' : number_format($v, $casas, ',', '.');
 }
 
-// Primeiro dia do "desde o inicio": o primeiro gasto ou venda da campanha, mas nao antes do que o
-// painel ainda guarda (vendas mais antigas que a retencao ja foram apagadas) nem de 1 ano atras
+// Primeiro dia do "desde o inicio": o primeiro gasto ou venda da campanha, ate 1 ano atras (mais
+// que isso, o grafico de uma vela por dia fica ilegivel)
 function analise_inicio(PDO $db, string $id, string $nivel = 'campanha'): ?string
 {
     $primeiro = gestor_dias_inicio($db, $id, $nivel);
     if ($primeiro === null) {
         return null;
     }
-    $dias = max(7, (int)((track_config() ?? [])['dias_retencao'] ?? 90));
     $hoje = new DateTime('today', fuso());
-    return max($primeiro, (clone $hoje)->modify('-' . min($dias - 1, 365) . ' days')->format('Y-m-d'));
+    return max($primeiro, (clone $hoje)->modify('-365 days')->format('Y-m-d'));
 }
 
 // Uma vela por dia com gasto ou venda: [dia, abre, fecha, max, min, roi do dia, metricas do dia]
@@ -424,9 +423,8 @@ function gestor_analise_render(PDO $db, string $id, ?array $obj, array $linhas, 
     $inicio = analise_inicio($db, $id, $nivel);
     $velas = $inicio ? analise_velas(gestor_dias_linhas($db, $id, $inicio, $hoje, $nivel), $pct) : [];
     $publico = $nivel === 'anuncio' ? null : meta_publico_campanha($id, $dia1, min($dia2, $hoje));
-    $dias = max(7, (int)((track_config() ?? [])['dias_retencao'] ?? 90));
     echo '<div class="rgrade analise"><section class="rc c8"><div class="rc-cab"><span>ROI desde o início' . ($inicio ? ' <span class="suave">(desde ' . e((new DateTime($inicio))->format('d/m/Y')) . ')</span>' : '') . '</span>'
-        . info('Como o gráfico de uma ação: cada vela é um dia. Ela abre no ROI acumulado da campanha até o dia anterior e fecha no acumulado até o fim do dia; o pavio vai até o ROI do próprio dia, o que puxou o acumulado. A primeira vela abre no 1, o ponto em que a campanha se paga. Verde: o acumulado subiu; vermelho: caiu. Dia sem gasto nem venda fica sem vela. Passe o mouse para ver o ROI. Começa no primeiro dia da campanha que o painel ainda guarda (as vendas ficam ' . $dias . ' dias).') . '</div>'
+        . info('Como o gráfico de uma ação: cada vela é um dia. Ela abre no ROI acumulado da campanha até o dia anterior e fecha no acumulado até o fim do dia; o pavio vai até o ROI do próprio dia, o que puxou o acumulado. A primeira vela abre no 1, o ponto em que a campanha se paga. Verde: o acumulado subiu; vermelho: caiu. Dia sem gasto nem venda fica sem vela. Passe o mouse para ver o ROI. Começa no primeiro dia da campanha, até 1 ano atrás.') . '</div>'
         . analise_svg_velas($velas) . '</section>'
         . ($publico === null
             ? '<section class="rc c4"><div class="rc-cab"><span>Retenção do vídeo</span>'

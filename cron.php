@@ -16,6 +16,7 @@ require_once __DIR__ . '/lib/meta_sync.php';
 require_once __DIR__ . '/lib/instagram_sync.php';
 require_once __DIR__ . '/lib/push.php';
 require_once __DIR__ . '/lib/orcamento.php';
+require_once __DIR__ . '/lib/historico.php';
 
 if (!track_config()) {
     fwrite(STDERR, "Painel ainda nao instalado.\n");
@@ -37,6 +38,15 @@ foreach ([['kiwify', 'kiwify_sync_vencida', 'kiwify_sincronizar'], ['meta', 'met
         }
     } catch (Throwable $e) {
         $feito[] = $nome . ':erro';
+    }
+}
+// Historico (vendas da Kiwify e gasto da Meta de antes dos 89 dias), ate terminar
+if ($forcada === null && historico_pendente()) {
+    try {
+        $h = historico_rodar(40);
+        $feito[] = 'historico:' . $h['novas'] . ' venda(s)';
+    } catch (Throwable $e) {
+        $feito[] = 'historico:erro';
     }
 }
 // Programacoes de orcamento (lib/orcamento.php): antes dos relatorios, para o relatorio ja sair

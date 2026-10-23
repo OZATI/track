@@ -139,7 +139,7 @@ function organico_render(PDO $db, string $periodo, string $de, string $ate): voi
     if ($ig['ok_em']) {
         $partes[] = 'Instagram em ' . data_local($ig['ok_em'], 'd/m H:i');
     }
-    $vencida = ig_sync_vencida() || kiwify_sync_vencida();
+    $vencida = ig_sync_vencida() || kiwify_sync_vencida() || historico_vencido();
     echo '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '><span data-sync-texto>' . e(ucfirst(implode(' · ', $partes))) . '</span>'
         . botao_atualizar('./?' . http_build_query(['aba' => 'organico', 'periodo' => $periodo]), 'Atualizar agora: busca o Instagram e as vendas na Kiwify', 'instagram') . '</div>';
 

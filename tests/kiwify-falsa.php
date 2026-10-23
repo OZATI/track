@@ -38,6 +38,12 @@ if ($rota === '/v1/sales' && $_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;
         }
     }
+    // Como a Kiwify: no maximo 90 dias entre o inicio e o fim
+    if (strtotime($_GET['end_date']) - strtotime($_GET['start_date']) > 90 * 86400) {
+        http_response_code(400);
+        echo json_encode(['message' => 'O período máximo entre o start_date e o end_date é de 90 dias.']);
+        exit;
+    }
     if ((int)($_GET['page_size'] ?? 10) > 100) {
         http_response_code(400);
         echo json_encode(['message' => 'ValidationError: "page_size" must be less than or equal to 100']);
@@ -59,6 +65,8 @@ if ($rota === '/v1/sales' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     // maximo 2, para exercitar a paginacao; filtro updated_at como o da Kiwify.
     $arq = rtrim((string)getenv('TRACK_DADOS'), '/\\') . DIRECTORY_SEPARATOR . 'kiwify-falsa-vendas.json';
     $vendas = is_file($arq) ? (json_decode((string)file_get_contents($arq), true) ?: []) : [];
+    // So as criadas dentro da janela (o end_date nao entra), como na Kiwify
+    $vendas = array_values(array_filter($vendas, fn($v) => ($v['created_at'] ?? '') >= $_GET['start_date'] && ($v['created_at'] ?? '') < $_GET['end_date']));
     if (isset($_GET['updated_at_start_date'])) {
         $vendas = array_values(array_filter($vendas, fn($v) => $v['updated_at'] >= $_GET['updated_at_start_date']));
     }

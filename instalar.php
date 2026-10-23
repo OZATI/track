@@ -117,7 +117,7 @@ pagina_inicio('Instalação');
     <label>Repita a senha <input type="password" name="senha2" autocomplete="new-password" required></label>
     <label>Sites que vão mandar eventos, um por linha
       <textarea name="origens" rows="3" placeholder="https://seusite.com.br" required><?= e($_POST['origens'] ?? '') ?></textarea></label>
-    <label>Guardar os dados por quantos dias (LGPD) <input type="number" name="dias" value="<?= e($_POST['dias'] ?? '90') ?>" min="7" max="400"></label>
+    <label>Guardar as visitas e os eventos por quantos dias (LGPD; as vendas ficam) <input type="number" name="dias" value="<?= e($_POST['dias'] ?? '90') ?>" min="7" max="400"></label>
     <label>Link do CMS (opcional: só se o painel fica dentro de um admin, ex.: ../)
       <input type="text" name="menu_cms" value="<?= e($_POST['menu_cms'] ?? '') ?>" placeholder="../"></label>
     <button type="submit">Instalar</button>

@@ -163,6 +163,7 @@ function meta_login_salvar(array $login, string $conta): array
         return [false, $r['erro'] . ' Nada foi salvo.'];
     }
     $cfg = track_config();
+    $contaAntes = (string)($cfg['meta_api']['conta'] ?? '');
     $cfg['meta_api'] = [
         'token' => $login['token'],
         'conta' => $conta,
@@ -177,6 +178,9 @@ function meta_login_salvar(array $login, string $conta): array
     ];
     if (!track_salvar_config($cfg)) {
         return [false, 'Não foi possível gravar a configuração. Confira as permissões de ' . track_pasta_dados() . '.'];
+    }
+    if ($contaAntes !== $conta) { // outra conta de anuncios: o historico de gasto e outro
+        meta_historico_zerar();
     }
     return [true, 'Conectado com o Facebook. Conta ' . $r['conta_nome'] . ' conferida e salva.'
         . ($r['edita'] ? ' Este token também pode ' . implode(', ', $r['edita']) . '.' : '')];

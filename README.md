@@ -153,7 +153,7 @@ Exemplo real: `admin.engdesk.pro/utm/`, dentro do admin do site, com a barra lat
    ```
    Vão só os arquivos de execução, mais um `VERSAO` com o commit daqui. Configuração e dados nunca vão junto.
 2. **Publicar:** commit no repositório do site e o deploy de sempre dele (na Hostinger, o mesmo Git que já publica o site).
-3. **Instalar, em até 1 hora depois do deploy:** abrir `https://<site>/<pasta>/instalar.php` e definir o seu usuário e a senha, os sites que vão mandar eventos (ex.: `https://engdesk.pro`), a retenção em dias e, se o painel estiver dentro de um admin, o **Link do CMS** (ex.: `../`), que liga a barra lateral. A tela mostra **uma vez** a URL do webhook.
+3. **Instalar, em até 1 hora depois do deploy:** abrir `https://<site>/<pasta>/instalar.php` e definir o seu usuário e a senha, os sites que vão mandar eventos (ex.: `https://engdesk.pro`), a retenção em dias das visitas e dos eventos (as vendas ficam) e, se o painel estiver dentro de um admin, o **Link do CMS** (ex.: `../`), que liga a barra lateral. A tela mostra **uma vez** a URL do webhook.
 4. **Kiwify:** Apps → Webhooks → criar com a URL do passo 3 e os eventos *compra aprovada, compra reembolsada, chargeback, Pix gerado, compra recusada*, para os produtos das páginas.
 5. **Páginas de venda:** no fim do `<body>`, **depois** do script de atribuição da página:
    ```html
@@ -162,7 +162,7 @@ Exemplo real: `admin.engdesk.pro/utm/`, dentro do admin do site, com a barra lat
    A página precisa ter o script da UTMify com `data-utmify-prevent-xcod-sck`, para a UTMify não sobrescrever o `sck`.
    Para funil de rolagem, dispare `window.trk('Secao', '<nome da secao>')` quando a seção entrar na tela (via `IntersectionObserver`). O painel agrupa por página e mostra a % de visitantes que alcançou cada seção.
 6. **Conferir:** abrir a página de venda, clicar no botão de compra e ver o visitante e o clique em **Eventos**. Fazer uma compra de teste e ver a venda em **Vendas** com a conferência.
-7. **API da Kiwify (recomendado):** na Kiwify, Apps → API → Criar API Key com **só "Vendas"** marcado. No painel, aba **API Kiwify**, colar `client_secret`, `client_id` e `account_id` direto (sem WhatsApp ou e-mail). O painel confere a chave na Kiwify antes de salvar. Com a chave, o painel busca as vendas pela API: na primeira vez, os últimos 89 dias; depois, a cada 10 minutos com o painel aberto, só o que mudou; uma vez por dia, os 89 dias de novo. A venda que o webhook não entregou aparece como **Só pela API** na Conferência. Botão **Atualizar vendas** nas abas Tráfego, Conferência e Vendas.
+7. **API da Kiwify (recomendado):** na Kiwify, Apps → API → Criar API Key com **só "Vendas"** marcado. No painel, aba **API Kiwify**, colar `client_secret`, `client_id` e `account_id` direto (sem WhatsApp ou e-mail). O painel confere a chave na Kiwify antes de salvar. Com a chave, o painel busca as vendas pela API: na primeira vez, os últimos 89 dias; depois, a cada 10 minutos com o painel aberto, só o que mudou; uma vez por dia, os 89 dias de novo. A venda que o webhook não entregou aparece como **Só pela API** na Conferência. **Histórico:** a API aceita no máximo 90 dias por consulta (sem limite de quão antigo), então o painel volta no tempo de 89 em 89 dias, em segundo plano (com o painel aberto e no `cron.php`), até um ano seguido sem venda; o mesmo com o gasto da Meta, até os 37 meses que ela guarda (com o nome das campanhas que já saíram da conta). O andamento aparece em Integrações e nas telas das APIs (`lib/historico.php`). Botão **Atualizar vendas** nas abas Tráfego, Conferência e Vendas.
 
 **Atualizar:** melhore o painel aqui, commite, rode o `copiar-para.sh` de novo e publique o site. Nunca edite a cópia: a próxima cópia apagaria a mudança.
 
@@ -217,7 +217,7 @@ O `?volta=` só aceita caminho do próprio site. Quem entra e sai do admin se co
 | Com o webhook da Meta ligado: quem comentou, mencionou ou mandou mensagem para a página e o Instagram da marca (id, @, nome, endereço da foto na Meta), o texto do comentário (público) e o anúncio de origem | O texto das mensagens privadas e a foto em si (o painel só repassa da Meta, sem gravar) |
 | Conectar com Facebook: nome e e-mail de quem conectou a conta de anúncios | Senha ou dados do perfil do Facebook além disso |
 
-Tudo é apagado depois de `dias_retencao` (padrão 90). Cite o painel e o cookie na política de privacidade do site e, com o webhook da Meta, o tratamento de quem comenta ou escreve para a marca.
+Visitas, eventos e mensagens são apagados depois de `dias_retencao` (padrão 90). As vendas ficam, como histórico do faturamento: não guardam nome, e-mail, telefone nem CPF do comprador. Cite o painel e o cookie na política de privacidade do site e, com o webhook da Meta, o tratamento de quem comenta ou escreve para a marca.
 
 ## Segurança
 

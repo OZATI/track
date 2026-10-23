@@ -16,6 +16,7 @@
 // O historico dia a dia (vista "Dia a dia", lib/gestor_dias.php) usa as mesmas contas.
 
 require_once __DIR__ . '/meta_sync.php';
+require_once __DIR__ . '/historico.php'; // vendas e gasto mais antigos que 89 dias, em segundo plano
 require_once __DIR__ . '/gestor_editar.php';
 require_once __DIR__ . '/gestor_ranking.php';
 require_once __DIR__ . '/gestor_dias.php';
@@ -545,7 +546,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     }
     echo '</nav>';
     $meta = meta_sync_estado();
-    $vencida = meta_sync_vencida() || kiwify_sync_vencida();
+    $vencida = meta_sync_vencida() || kiwify_sync_vencida() || historico_vencido();
     echo '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '>';
     if ($fora) {
         $detalhe = [];
