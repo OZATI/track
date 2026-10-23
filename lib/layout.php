@@ -522,19 +522,28 @@ td.quebra{ white-space:normal; min-width:220px; }
 .pw-mini.ruim .mini-linha{ stroke:var(--erro); } .pw-mini.ruim .mini-area{ fill:color-mix(in srgb, var(--erro) 12%, transparent); }
 .pw-mini:focus{ outline:none; }
 @container (max-width:230px){ .pw-mini{ display:none; } }
-/* Regua do CPA (grafico_regua_cpa), ao lado do "71% do ticket": trilho de 0 ao ticket, verde ate a meta
-   e vermelho depois; a barra e o CPA do periodo e o traco, a meta. Na mesma linha do texto, cabe no
-   bloco estreito sem empurrar o numero. */
+/* Regua do CPA (grafico_regua_cpa), ao lado do "71% do ticket": a barra enche a trilha ate o CPA, verde
+   ate a meta e vermelha no que passou; a meta e um corte na cor do cartao (como os do mostrador do ROI),
+   com a escala embaixo e a meta em verde. Cabe no bloco estreito sem empurrar o numero. */
 .pw-valor-txt:has(> .cpa-linha){ flex:1 1 auto; } /* a linha da regua ocupa o bloco todo, nao so a largura do numero */
-.cpa-linha{ display:flex; align-items:center; gap:8px; min-width:0; }
+.cpa-linha{ display:flex; align-items:flex-start; gap:10px; min-width:0; }
 .cpa-linha > small{ flex:0 1 auto; min-width:0; color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cpa-linha .delta{ font-size:12px; font-weight:600; }
-.cpa-regua{ position:relative; flex:1 1 44px; min-width:44px; max-width:200px; height:10px; border-radius:999px; cursor:help;
-  background:linear-gradient(90deg, color-mix(in srgb, var(--ok) 26%, transparent) var(--meta), color-mix(in srgb, var(--erro) 26%, transparent) var(--meta)); }
+@container (max-width:300px){ .cpa-sub-longo{ display:none; } }
+.cpa-regua{ container-type:inline-size; flex:1 1 64px; min-width:64px; max-width:260px; display:flex; flex-direction:column; gap:3px; padding:0 6px; cursor:help; }
 .cpa-regua:focus{ outline:none; }
-.cpa-barra{ position:absolute; left:0; top:3px; height:4px; border-radius:999px; background:var(--ok); }
-.cpa-regua.acima .cpa-barra{ background:var(--erro); }
-.cpa-meta{ position:absolute; left:var(--meta); top:-3px; width:2px; height:16px; margin-left:-1px; border-radius:1px; background:var(--texto); }
+.cpa-trilho{ position:relative; height:8px; margin-top:5px; overflow:hidden; border-radius:999px; background:var(--linha); }
+.cpa-trilho::after{ content:""; position:absolute; top:0; bottom:0; left:var(--meta); width:3px; margin-left:-1.5px; background:var(--cartao); }
+.cpa-cheio{ position:absolute; top:0; bottom:0; left:0; border-radius:999px;
+  background:linear-gradient(90deg, var(--ok) var(--meta), var(--erro) var(--meta)) 0 0 / var(--trilho) 100% no-repeat;
+  animation:cpa-cheio .9s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes cpa-cheio{ from{ clip-path:inset(0 100% 0 0); } to{ clip-path:inset(0 0 0 0); } }
+@media (prefers-reduced-motion:reduce){ .cpa-cheio{ animation:none; } }
+.cpa-escala{ position:relative; height:12px; color:var(--suave); font-size:10.5px; line-height:12px; }
+.cpa-escala span{ position:absolute; top:0; }
+.cpa-escala span:first-child{ left:0; } .cpa-escala span:last-child{ right:0; } /* as pontas por dentro do bloco */
+.cpa-escala .cpa-escala-meta{ left:var(--meta); transform:translateX(-50%); color:var(--ok); font-weight:600; }
+@container (max-width:110px){ .cpa-escala span:first-child, .cpa-escala span:last-child{ display:none; } } /* regua curta: so a meta */
 .pw-sub{ display:flex; align-items:center; gap:6px; margin:12px 0 4px; font-size:13px; font-weight:600; }
 .pw-sub:first-child{ margin-top:0; }
 .pw-corpo .pw-tabela{ margin:0; }

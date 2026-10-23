@@ -538,15 +538,15 @@ function resumo_bloco(string $tipo, array $d): string
             $mix = count($d['ticketInfo']['mix'] ?? []) > 1 ? (string)($d['ticketInfo']['rotulo'] ?? '') : '';
             // Com o ticket: quanto dele o CPA come e a regua (0 ao ticket, a meta no meio); sem venda, so a meta
             $regua = $cpa !== null && $ticket ? grafico_regua_cpa($cpa, $ticket, $mix) : '';
-            $sub = !$ticket ? '' : ($regua !== '' ? number_format($cpa * 100 / $ticket, 0, ',', '.') . '% do ticket' : 'meta: até ' . $din(cpa_limite($ticket)));
             $seta = $delta(fn($x) => $x['aprovadas'] ? $x['gasto'] / $x['aprovadas'] : null, true, false, $din);
             if ($regua === '') {
-                return $num($cpa === null ? 'N/A' : $din($cpa), $sub, cor_cpa($cpa, $ticket), $seta);
+                return $num($cpa === null ? 'N/A' : $din($cpa), $ticket ? 'meta: até ' . $din(cpa_limite($ticket)) : '', cor_cpa($cpa, $ticket), $seta);
             }
-            // A regua na linha de baixo, ao lado do texto: cabe no bloco de um quarto da largura
+            // A regua na linha de baixo, ao lado do texto. No bloco estreito o texto fica so "72%" (a
+            // escala da regua ja diz que e do ticket) e a regua ganha o espaco
             $classe = cor_cpa($cpa, $ticket);
             return '<div class="pw-valor"><div class="pw-valor-txt"><b class="pw-num' . ($classe !== '' ? ' ' . $classe : '') . '">' . e($din($cpa)) . '</b>'
-                . '<span class="cpa-linha"><small>' . $seta . ($seta !== '' ? ' ' : '') . e($sub) . '</small>' . $regua . '</span></div></div>';
+                . '<span class="cpa-linha"><small>' . $seta . ($seta !== '' ? ' ' : '') . e(number_format($cpa * 100 / $ticket, 0, ',', '.') . '%') . '<span class="cpa-sub-longo"> do ticket</span></small>' . $regua . '</span></div></div>';
         case 'Arpu':
             return $num($aprov ? reais((int)round($d['fat'] / $aprov)) : 'N/A', '', '', $delta(fn($x) => $x['aprovadas'] ? $x['fat'] / $x['aprovadas'] : null, false, false, $din));
         case 'ApprovedSales':
