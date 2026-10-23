@@ -7,13 +7,28 @@ require_once __DIR__ . '/admin_tela.php'; // nucleo do admin: CSS comum, barra l
 require_once __DIR__ . '/componentes.php'; // cartoes com icone e a tabela inteligente
 
 
+// Modo compartilhar (o olho da barra das abas), para gravar video ou mostrar a tela: o cookie vem do
+// painel.js e a classe sai no <html> ja do servidor, entao os blocos censurados chegam borrados
+function compartilhando(): bool
+{
+    return ($_COOKIE['track_compartilhar'] ?? '') === '1';
+}
+
+// Classes do <html> que vem dos cookies do painel.js: o modo compartilhar e os (i) escondidos
+// (Ctrl+Shift+E). Saem do servidor para a tela ja chegar certa.
+function html_classe(): string
+{
+    $c = array_keys(array_filter(['compartilhando' => compartilhando(), 'sem-info' => ($_COOKIE['track_sem_info'] ?? '') === '1']));
+    return $c ? ' class="' . implode(' ', $c) . '"' : '';
+}
+
 function pagina_inicio(string $titulo): void
 {
     header('Content-Type: text/html; charset=utf-8');
     header('X-Robots-Tag: noindex, nofollow');
     header('Cache-Control: no-store');
     ?><!doctype html>
-<html lang="pt-BR"<?= tema_atributos() ?>>
+<html lang="pt-BR"<?= tema_atributos() ?><?= html_classe() ?>>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -172,12 +187,16 @@ main{ animation:entrar .32s cubic-bezier(.2,.7,.2,1) backwards; } /* backwards: 
 .abas a.atual{ color:var(--texto); border-bottom-color:var(--marca); }
 .abas .ico{ display:none; }
 .abas-espaco{ margin-left:auto; }
-/* Botoes da barra das abas (camera do print e o aviso do modo compartilhar): com o icone */
-.abas-botao{ align-self:center; flex:none; min-height:30px; padding:0 10px; gap:6px; background:none; border-color:transparent; color:var(--suave); white-space:nowrap; }
-.abas-botao:hover{ background:var(--hover); color:var(--texto); }
-.abas .abas-botao .ico{ display:inline-block; }
-.abas-botao.compartilhando{ color:var(--alerta); border-color:var(--linha-forte); }
-.abas-botao[hidden]{ display:none; }
+/* Censura: no modo compartilhar e no print, o miolo do bloco marcado com o olho fica borrado (o titulo
+   continua), sem clique nem dica (a dica do grafico mostraria o numero) */
+html.compartilhando [data-censura] .pw-corpo, .print-tela [data-censura] .pw-corpo{ filter:blur(10px); pointer-events:none; user-select:none; }
+/* Ligado, a tela so aparece depois que o painel.js troca os nomes dos produtos (no video nao pisca o nome
+   de verdade); se o script falhar, aparece sozinha em 1,5 s */
+html.compartilhando:not(.compartilhar-pronto) body{ visibility:hidden; animation:compartilhar-mostra 0s 1.5s forwards; }
+@keyframes compartilhar-mostra{ to{ visibility:visible; } }
+/* Ctrl+Shift+E (painel.js) esconde e mostra os (i) de informacao, com um aviso rapido embaixo */
+html.sem-info .info{ display:none; }
+.aviso-atalho{ position:fixed; left:50%; bottom:24px; z-index:60; transform:translateX(-50%); max-width:calc(100vw - 32px); padding:8px 14px; background:var(--cartao); color:var(--texto); border:1px solid var(--linha-forte); border-radius:var(--r-sm); box-shadow:0 6px 20px var(--sombra); font-size:12px; pointer-events:none; }
 
 main{ padding:20px 24px 56px; }
 h2{ font-size:14px; font-weight:600; margin:24px 0 8px; }
@@ -336,7 +355,6 @@ td.quebra{ white-space:normal; min-width:220px; }
   .painel-item.so-celular{ display:block; }
   .painel-grade .pw-corpo{ overflow:visible; }
   .painel-grade .pw-graf{ height:230px; min-height:0; }
-  .painel-grade .mapa-calor{ height:250px; }
   .painel-grade .vel-caixa{ height:210px; }
 }
 .pw{ container-type:inline-size; display:flex; flex-direction:column; gap:6px; height:100%; min-height:0; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); overflow:hidden; }
@@ -433,9 +451,18 @@ td.quebra{ white-space:normal; min-width:220px; }
 @media (max-width:640px){ .painel-barra .painel-formatos{ display:inline-flex; } .print-ops{ grid-template-columns:1fr; } }
 .painel-tirar{ position:absolute; top:8px; right:8px; z-index:5; width:26px; min-height:26px; padding:0; border-radius:999px; background:var(--cartao); color:var(--suave); border:1px solid var(--linha-forte); opacity:0; transition:opacity .12s; }
 .painel-tirar:hover{ background:var(--fundo-erro); color:var(--erro); border-color:var(--erro); }
-.grid-stack-item:hover .painel-tirar, .painel-tirar:focus-visible{ opacity:1; }
-.grid-stack-item:hover .pw .kpi-ico{ visibility:hidden; }
-@media (hover:none){ .painel-tirar{ opacity:1; } }
+/* O olho, ao lado do X: aberto (aparece ao compartilhar) ou fechado (censurado, fica sempre a vista) */
+.painel-censura{ position:absolute; top:8px; right:40px; z-index:5; width:26px; min-height:26px; padding:0; border-radius:999px; background:var(--cartao); color:var(--suave); border:1px solid var(--linha-forte); opacity:0; transition:opacity .12s; }
+.painel-censura:hover{ color:var(--texto); }
+.painel-censura .ico + .ico, .painel-censura[aria-pressed="true"] .ico:first-child{ display:none; }
+.painel-censura[aria-pressed="true"] .ico + .ico{ display:inline-block; }
+.painel-censura[aria-pressed="true"]{ opacity:1; color:var(--alerta); border-color:var(--alerta); }
+.painel-edicao .grid-stack-item[data-censura] .pw-corpo{ filter:blur(6px); }
+.grid-stack-item:hover .painel-tirar, .painel-tirar:focus-visible, .grid-stack-item:hover .painel-censura, .painel-censura:focus-visible{ opacity:1; }
+.grid-stack-item:hover .pw .kpi-ico, .grid-stack-item[data-censura] .pw .kpi-ico{ visibility:hidden; }
+@media (hover:none){ .painel-tirar, .painel-censura{ opacity:1; } }
+/* Print: o que nao cabe mais no quadro fica apagado na lista */
+.painel-novo.nao-cabe > .grid-stack-item-content{ opacity:.45; }
 .grid-stack-placeholder > .placeholder-content{ background:var(--realce) !important; border:2px dashed var(--marca); border-radius:var(--r-md); }
 /* Cartoes de numero (cartoes_kpi) no celular: 2 colunas compactas, como os blocos do Resumo */
 @media (max-width:767px){
@@ -522,13 +549,22 @@ td.quebra{ white-space:normal; min-width:220px; }
 .graf-plot .vela-alvo{ fill:transparent; cursor:help; }
 .graf-plot .vela-alvo:hover, .graf-plot .vela-alvo:focus, .graf-plot .dia-graf:hover .vela-alvo, .graf-plot .dia-graf:focus .vela-alvo{ fill:var(--hover); }
 .graf-plot .vela-alvo:focus, .graf-plot .dia-graf:focus{ outline:none; }
-/* Mapa de calor: dia da semana x hora em casas */
-.mapa-calor{ display:grid; grid-template-columns:34px repeat(24, minmax(0, 1fr)); grid-template-rows:repeat(7, minmax(0, 1fr)) 16px; gap:3px; }
+/* Mapa de calor: dia da semana x hora em casas. Nada passa do bloco (sem barra de rolagem dentro): o
+   rotulo das horas cabe na linha de 16 px e o destaque da casa e por dentro dela */
+.mapa-calor{ display:grid; grid-template-columns:34px repeat(24, minmax(0, 1fr)); grid-template-rows:repeat(7, minmax(0, 1fr)) 16px; gap:3px; overflow:hidden; }
 .mapa-calor i{ min-height:8px; border-radius:4px; background:var(--cartao-2); cursor:help; }
 .mapa-calor i.calor{ background:var(--marca); opacity:var(--q); }
-.mapa-calor i:hover, .mapa-calor i:focus{ outline:2px solid var(--marca); outline-offset:1px; opacity:1; }
+.mapa-calor i:hover, .mapa-calor i:focus{ outline:none; box-shadow:inset 0 0 0 2px var(--texto); opacity:1; }
 .calor-dia{ align-self:center; font-size:12px; color:var(--suave); }
-.calor-hora{ font-size:12px; color:var(--suave); white-space:nowrap; }
+.calor-hora{ font-size:12px; line-height:16px; color:var(--suave); white-space:nowrap; }
+/* Celular: o mapa fica em pe (dias nas colunas, horas nas linhas), porque 24 casas na largura ficam
+   com 11 px. As horas vao para a primeira coluna; os dias seguem, cada um numa coluna. */
+@media (max-width:767px){
+  .painel-grade .mapa-calor{ height:auto; grid-auto-flow:column; grid-template-columns:30px repeat(7, minmax(0, 1fr)); grid-template-rows:18px repeat(24, 10px); }
+  .painel-grade .mapa-calor > span:not(.calor-dia){ grid-column:1; }
+  .painel-grade .calor-dia{ text-align:center; font-size:11px; }
+  .painel-grade .calor-hora{ font-size:11px; line-height:10px; }
+}
 /* Mostrador do ROI: o ponteiro entra girando do zero */
 .vel-caixa{ align-items:center; justify-content:center; gap:2px; }
 .velocimetro{ display:block; flex:1; min-height:0; width:100%; height:100%; }
@@ -1150,7 +1186,7 @@ function pagina_fim(): void
 // $aqui: o painel (utm) ou a tela do nucleo (conta, usuarios) aberta, marcada na barra lateral
 function casca_inicio(string $aqui = 'utm'): void
 {
-    echo '<noscript><style>.lateral-itens{ display:flex !important; }</style></noscript><div class="casca">' . admin_lateral($aqui) . '<div class="conteudo">';
+    echo '<noscript><style>.lateral-itens{ display:flex !important; }</style></noscript><div class="casca">' . admin_lateral($aqui, null, null, lateral_ferramentas()) . '<div class="conteudo">';
 }
 
 function casca_fim(): void
@@ -1193,6 +1229,8 @@ function icone(string $nome, int $tam = 16): string
         'grafico' => '<path d="M4 19V9M10 19V5M16 19v-6M22 19H2"/><path d="M4 9l6-4 6 8 5-5"/>',
         'usuarios' => '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
         'busca' => '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+        'info' => '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6v.2"/>',
+        'olho' => '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',
         'olho-fechado' => '<path d="M17.94 17.94A10 10 0 0 1 12 20C5 20 1 12 1 12a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24M1 1l22 22"/>',
         'restaurar' => '<path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/>',
         'lista' => '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
@@ -1569,10 +1607,6 @@ function abas_painel(string $aba, array $filtro = []): void
         echo '<a href="./?' . e($q) . '" class="' . ($aba === $id ? 'atual' : '') . '">' . icone($ico) . e($rotulo) . '</a>';
     }
     echo '<span class="abas-espaco"></span>';
-    // Modo compartilhar ligado (o painel.js mostra o botao): nomes de produtos e valores escondidos na tela
-    echo '<button type="button" class="abas-botao compartilhando" data-compartilhar-sair hidden title="Mostrar os nomes e os valores de novo">' . icone('olho-fechado') . 'Compartilhando · sair</button>';
-    // A camera: gera a imagem do Resumo (o print) para rede social e WhatsApp
-    echo '<button type="button" class="abas-botao" data-print-abrir title="Gerar uma imagem (PNG) do Resumo para rede social ou WhatsApp">' . icone('camera', 17) . 'Print</button>';
     // Guia do admin (ex.: admin.engdesk.pro/guia): so quando o site que hospeda o painel tem um
     if (is_file(__DIR__ . '/../../guia/index.php')) {
         echo '<a href="../guia/">' . icone('guia') . 'Guia</a>';
@@ -1607,7 +1641,37 @@ function abas_painel(string $aba, array $filtro = []): void
         echo $item($href, $id, $ico, $rot);
     }
     echo '<button type="button" data-print-abrir>' . icone('camera', 20) . '<span>Print</span></button>';
+    echo compartilhar_botao('', 20, true) . info_botao('', 20, true);
     echo '</div></details></nav>' . print_dialogo();
+}
+
+// As ferramentas da tela na barra lateral (admin_lateral), acima do lapis: a camera (o print do
+// Resumo, PNG para rede social e WhatsApp), o olho (modo compartilhar, para gravar video ou mostrar
+// a tela) e o (i) (esconde e mostra os icones de informacao). So o icone, com a dica.
+function lateral_ferramentas(): string
+{
+    $camera = usuario_pode('utm') ? '<button type="button" class="conta-icone" data-print-abrir aria-label="Print" title="Print: gera uma imagem (PNG) do Resumo para rede social ou WhatsApp">' . icone('camera', 19) . '</button>' . print_dialogo() : '';
+    return $camera . compartilhar_botao('conta-icone', 19, false) . info_botao('conta-icone', 19, false);
+}
+
+// O (i) da barra das abas: esconde e mostra os (i) de informacao de todas as telas (o mesmo que
+// Ctrl+Shift+E, painel.js). Aceso (aria-pressed) quando os (i) estao a vista.
+function info_botao(string $classe, int $tam, bool $rotulo): string
+{
+    $sem = ($_COOKIE['track_sem_info'] ?? '') === '1';
+    return '<button type="button"' . ($classe !== '' ? ' class="' . $classe . '"' : '') . ' data-info-alternar aria-pressed="' . ($sem ? 'false' : 'true') . '" aria-label="Ícones de informação (i)"'
+        . ' title="Mostrar ou esconder os ícones de informação (i) de todas as telas. Atalho: Ctrl+Shift+E">' . icone('info', $tam) . ($rotulo ? '<span>Informações (i)</span>' : '') . '</button>';
+}
+
+// O olho do modo compartilhar (o painel.js liga e desliga): esconde os blocos censurados (o olho de
+// cada bloco no editor) e os nomes dos produtos; com "Valores em reais" marcado no print, os valores
+function compartilhar_botao(string $classe, int $tam, bool $rotulo): string
+{
+    $c = compartilhando();
+    $dica = $c ? 'Compartilhando: os blocos censurados e os nomes dos produtos estão escondidos. Clique para sair.'
+        : 'Modo compartilhar: para gravar vídeo ou mostrar a tela. Esconde os blocos censurados (o olho de cada bloco ao montar a tela) e os nomes dos produtos.';
+    return '<button type="button"' . ($classe !== '' ? ' class="' . $classe . '"' : '') . ' data-compartilhar aria-pressed="' . ($c ? 'true' : 'false') . '" aria-label="Modo compartilhar" title="' . e($dica) . '">'
+        . icone($c ? 'olho-fechado' : 'olho', $tam) . ($rotulo ? '<span>' . ($c ? 'Parar de compartilhar' : 'Compartilhar') . '</span>' : '') . '</button>';
 }
 
 // A janela da camera: formato (post ou story), qualidade (Full HD ou 4K) e o que esconder; depois, a
@@ -1615,6 +1679,11 @@ function abas_painel(string $aba, array $filtro = []): void
 // os nomes e os valores marcados e gera o PNG.
 function print_dialogo(): string
 {
+    static $feito = false; // uma janela so por pagina (a barra lateral e o menu Mais do celular)
+    if ($feito) {
+        return '';
+    }
+    $feito = true;
     $op = fn(string $nome, string $valor, string $rotulo, string $sub, bool $marcado) => '<label class="print-op"><input type="radio" name="' . $nome . '" value="' . $valor . '"' . ($marcado ? ' checked' : '') . '>'
         . '<span><strong>' . e($rotulo) . '</strong><small>' . e($sub) . '</small></span></label>';
     $caixa = fn(string $nome, string $rotulo, string $sub, bool $marcado) => '<label class="print-caixa"><input type="checkbox" name="' . $nome . '"' . ($marcado ? ' checked' : '') . '>'
@@ -1625,13 +1694,11 @@ function print_dialogo(): string
         . '<button type="button" class="print-fechar" data-print-fechar aria-label="Fechar" title="Fechar (Esc)">' . icone('fechar', 16) . '</button></div>'
         . '<form class="print-opcoes" data-print-opcoes>'
         . '<fieldset><legend>Formato</legend><div class="print-ops">' . $op('formato', 'post', 'Post 1:1', 'Feed do Instagram', true) . $op('formato', 'story', 'Story 9:16', 'Story e status do WhatsApp', false) . '</div></fieldset>'
-        . '<fieldset><legend>Qualidade</legend><div class="print-ops">' . $op('escala', '2', 'Full HD', '1080 px de largura', true) . $op('escala', '4', '4K', '2160 px de largura', false) . '</div></fieldset>'
         . '<fieldset><legend>Esconder</legend>'
         . $caixa('produtos', 'Nomes dos produtos', 'Viram Produto A, Produto B... também nos nomes das campanhas.', true)
         . $caixa('valores', 'Valores em reais', 'Ficam R$ •••. Porcentagens, ROI e quantidades continuam.', false)
-        . $caixa('tela', 'Esconder também na tela', 'Modo compartilhar: para mostrar o painel numa chamada ou mandar um print da tela.', false)
         . '</fieldset>'
-        . '<p class="suave print-nota">Sai o layout de print do Resumo, com o período e o produto escolhidos no topo. '
+        . '<p class="suave print-nota">Sai em 4K o layout de print do Resumo, com o período e o produto escolhidos no topo; os blocos censurados (o olho) saem borrados. '
         . '<a href="' . e($montar('post')) . '" data-print-montar data-post="' . e($montar('post')) . '" data-story="' . e($montar('story')) . '" data-recarrega>Montar o print</a></p>'
         . '<div class="print-botoes"><button type="submit" data-print-gerar>' . icone('camera', 14) . 'Gerar imagem</button></div></form>'
         . '<div class="print-resultado" data-print-resultado hidden><div class="print-previa"><img data-print-imagem alt="Prévia do print"></div>'

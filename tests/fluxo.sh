@@ -152,11 +152,12 @@ confere "$(tem '<span>Direto / sem origem</span>' "$r")" "visita sem etiqueta ne
 confere "$(tem '<span>Direto / sem origem</span><span class="info"' "$r")" "Direto / sem origem tem o (i) explicando"
 confere "$(grep -q 'id="form-sair"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Sair saiu do topo (fica em Configurações)"
 confere "$(tem 'id="csrf-painel"' "$r")" "token do painel num campo próprio no topo (busca em segundo plano e notificações)"
-confere "$(tem 'class="conta-icone" href="conta.php" title="Minha conta' "$r")" "a engrenagem leva a Minha conta (núcleo do admin)"
+confere "$(tem 'class="conta-icone" href="conta.php" title="Configurações: minha conta' "$r")" "a engrenagem (Configurações) leva a Minha conta (núcleo do admin)"
 confere "$(tem 'class="conta-perfil"' "$r")" "bolinha do perfil"
 confere "$(tem '<div class="lateral-conta">' "$r")" "a conta fica na barra lateral do admin (é do admin inteiro)"
 confere "$(tem 'data-lateral-alterna' "$r")" "no celular, a barra do admin recolhe numa linha (a seta abre)"
-confere "$(tem 'href="usuarios.php" title="Usuários' "$r")" "Usuários na barra lateral"
+confere "$(grep -q 'href="usuarios.php" title="Usuários' < <(printf '%s
+' "$r"); [ $? -ne 0 ]; echo $?)" "Usuários saiu da barra lateral (fica nas Configurações, a engrenagem)"
 confere "$(tem '<a href="configuracoes.php" class="">.*Configurações</a></nav>' "$r")" "Configurações do UTM nas abas do painel"
 confere "$(grep -q 'class="topo-resumo\|data-recolher' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "os filtros não recolhem mais: ficam sempre à mostra"
 confere "$(tem 'data-periodo-campo' "$r")" "período com o seletor de calendário"
@@ -1402,12 +1403,25 @@ confere "$(tem 'O Resumo salvo (celular, 1 bloco)' "$r")" "salvar o Resumo do ce
 confere "$(tem 'class="painel-item so-computador"' "$r")" "computador e celular com layouts separados (lucro só no computador)"
 # Print (a camera da barra de cima): post e story montam como aparelhos, num quadro de altura fixa
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
-confere "$(tem 'data-print-abrir title="Gerar uma imagem (PNG) do Resumo' "$r")" "câmera do print na barra das abas"
+confere "$(tem 'class="conta-icone" data-print-abrir aria-label="Print"' "$r")" "câmera do print na barra lateral, só o ícone"
+confere "$(tem 'class="conta-icone" data-compartilhar aria-pressed="false" aria-label="Modo compartilhar"' "$r")" "olho do modo compartilhar na barra lateral, desligado"
+confere "$(tem 'class="conta-icone" data-info-alternar aria-pressed="true"' "$r")" "(i) na barra lateral liga e desliga os ícones de informação"
+confere "$(grep -q 'class="abas-botao"' < <(printf '%s
+' "$r"); [ $? -ne 0 ]; echo $?)" "a barra das abas não tem mais botão de ferramenta"
+confere "$(grep -q 'name="escala"\|name="tela"' < <(printf '%s
+' "$r"); [ $? -ne 0 ]; echo $?)" "print sempre em 4K: sem escolher a qualidade nem o modo compartilhar na janela"
 confere "$(tem '<dialog class="print-dialogo" data-print-dialogo[^>]*data-lib="screenshot.js?v=' "$r")" "janela do print com o gerador de imagem"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&montar=1&aparelho=post")
 confere "$(tem 'data-painel-editar data-painel-colunas="4" data-linha="104" data-margem="4" data-linhas-max="4"' "$r")" "print post numa grade de 4 colunas e 4 linhas"
 confere "$(tem 'Você está montando o Resumo<span>para o print:</span>' "$r")" "barra de edição diz que é o print"
-confere "$(tem 'class="painel-moldura print"><div class="print-tela" style="width:540px;height:540px">' "$r")" "quadro do post em 540 x 540 (PNG em 1080 ou 2160)"
+confere "$(tem 'class="painel-moldura print"><div class="print-tela" style="width:540px;height:540px">' "$r")" "quadro do post em 540 x 540 (PNG em 4K, 2160)"
+confere "$(tem '<div class="grid-stack-item" gs-id="RevenueByDay"[^>]*gs-x="0" gs-y="2" gs-w="4" gs-h="2"' "$r")" "post padrão: 4 números e o faturamento × investimento por dia embaixo"
+confere "$(grep -q '<div class="grid-stack-item" gs-id="\(SalesByProduct\|RevenueByProduct\)"' < <(printf '%s
+' "$r"); [ $? -ne 0 ]; echo $?)" "post padrão sem bloco com nome de produto"
+confere "$(tem 'class="painel-censura" data-painel-censura aria-pressed="false"' "$r")" "olho de censurar ao lado do X de cada bloco"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&montar=1&aparelho=story")
+confere "$(tem '<div class="grid-stack-item" gs-id="SalesByPayment"[^>]*gs-x="2" gs-y="5" gs-w="2" gs-h="3"' "$r")" "story padrão: vendas por pagamento no canto de baixo"
+confere "$(tem '<div class="grid-stack-item" gs-id="\(RoiGauge\|SalesByDayOfWeek\)"[^>]*gs-x="0" gs-y="5"' "$r")" "story padrão: mostrador do ROI (sem a Meta, vendas por dia da semana) ao lado"
 r=$(salvar "$cp" resumo story './?aba=geral&periodo=tudo' '[{"tipo":"Profit","x":0,"y":0,"w":1,"h":1},{"tipo":"SalesByHour","x":0,"y":7,"w":4,"h":3}]' 'index.php?aba=geral&periodo=tudo')
 confere "$(tem 'O Resumo salvo (print story, 1 bloco)' "$r")" "salvar o story: o que passa da altura do quadro fica de fora"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&print=story")
@@ -1418,6 +1432,31 @@ confere "$(grep -q '<html' < <(printf '%s
 confere "$(tem 'data-produtos="{&quot;[^"]*&quot;:&quot;Produto A&quot;' "$r")" "quadro leva o apelido de cada produto (esconder nomes)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&print=outro")
 confere "$(tem '<!doctype html>' "$r")" "formato de print desconhecido abre a página normal"
+# Olho (censurar ao compartilhar): vale para a tela toda; o modo compartilhar e um cookie que o servidor le
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "tela=resumo" --data-urlencode "aparelho=post" --data-urlencode "volta=./?aba=geral" \
+    --data-urlencode 'layout=[{"tipo":"Profit","x":0,"y":0,"w":2,"h":1}]' --data-urlencode 'censura={"presentes":["Profit"],"marcados":["Profit","SalesByProduct"]}' "$URL/painel-salvar.php"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem '" data-censura><div class="pw pw-numero[^"]*" data-tipo="Profit"' "$r")" "olho marcado no print censura o bloco no computador também"
+confere "$(grep -q 'data-censura><div class="pw[^"]*" data-tipo="SalesByProduct"' < <(printf '%s
+' "$r"); [ $? -ne 0 ]; echo $?)" "bloco que não estava na grade não é marcado pelo Salvar"
+confere "$(grep -q '<html[^>]*class="compartilhando"' < <(printf '%s
+' "$r"); [ $? -ne 0 ]; echo $?)" "sem o cookie, a tela não está compartilhando"
+JAR2="$DADOS/cookies-compartilhar.txt"
+cp "$JAR" "$JAR2"
+printf '127.0.0.1\tFALSE\t/\tFALSE\t0\ttrack_compartilhar\t1\n' >> "$JAR2"
+r=$(curl -s -b "$JAR2" "$URL/index.php?aba=geral&periodo=tudo")
+confere "$(tem '<html lang="pt-BR"[^>]*class="compartilhando">' "$r")" "modo compartilhar ligado sai do servidor (bloco censurado chega borrado)"
+confere "$(tem 'data-compartilhar aria-pressed="true"' "$r")" "olho da barra aceso no modo compartilhar"
+JAR3="$DADOS/cookies-sem-info.txt"
+cp "$JAR" "$JAR3"
+printf '127.0.0.1	FALSE	/	FALSE	0	track_sem_info	1
+' >> "$JAR3"
+confere "$(tem '<html lang="pt-BR"[^>]*class="sem-info">' "$(curl -s -b "$JAR3" "$URL/index.php?aba=geral&periodo=tudo")")" "Ctrl+Shift+E: os (i) escondidos já saem do servidor"
+r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&print=post")
+confere "$(tem 'class="print-item" style="[^"]*" data-censura><div class="pw pw-numero[^"]*" data-tipo="Profit"' "$r")" "bloco censurado sai borrado no print"
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "tela=resumo" --data-urlencode "aparelho=post" --data-urlencode "volta=./?aba=geral" \
+    --data-urlencode 'layout=[{"tipo":"Profit","x":0,"y":0,"w":2,"h":1}]' --data-urlencode 'censura={"presentes":["Profit"],"marcados":[]}' "$URL/painel-salvar.php"
+confere "$(grep -q '" data-censura>' < <(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo"); [ $? -ne 0 ]; echo $?)" "abrir o olho tira a censura"
 for arq in screenshot.js fontes/inter-latin.woff2; do
   code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/$arq")
   confere "$([ "$code" = "200" ]; echo $?)" "$arq servido ($code)"

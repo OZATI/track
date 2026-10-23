@@ -14,7 +14,7 @@ mapfile -t PAGINAS < <(cd "$ORIGEM" && ls -1 *.php *.js)
 ARQUIVOS=("${PAGINAS[@]}" app-192.png app-512.png .htaccess robots.txt LICENSE)
 
 # O VERSAO diz qual commit esta na copia: com alteracao sem commit ele mentiria
-if [ -n "$(git -C "$ORIGEM" status --porcelain -- "${ARQUIVOS[@]}" lib)" ]; then
+if [ -n "$(git -C "$ORIGEM" status --porcelain -- "${ARQUIVOS[@]}" lib fontes)" ]; then
   echo "Ha alteracoes sem commit no painel. Commite no OZATI/track antes de copiar." >&2
   exit 1
 fi
@@ -25,13 +25,15 @@ if [ -e "$DESTINO" ] && [ -n "$(ls -A "$DESTINO")" ]; then
     echo "$DESTINO nao esta vazia e nao e uma copia do painel (sem VERSAO). Nada foi copiado." >&2
     exit 1
   fi
-  rm -rf "$DESTINO/lib"
+  rm -rf "$DESTINO/lib" "$DESTINO/fontes"
   rm -f "$DESTINO"/*.php "$DESTINO"/*.js "$DESTINO"/app-*.png "$DESTINO/.htaccess" "$DESTINO/robots.txt" "$DESTINO/LICENSE"
 fi
 
 mkdir -p "$DESTINO"
 for f in "${ARQUIVOS[@]}"; do cp "$ORIGEM/$f" "$DESTINO/"; done
 cp -r "$ORIGEM/lib" "$DESTINO/"
+# A Inter do print (screenshot.js): a imagem nao enxerga a fonte do Google
+cp -r "$ORIGEM/fontes" "$DESTINO/"
 
 COMMIT="$(git -C "$ORIGEM" rev-parse HEAD)"
 cat > "$DESTINO/VERSAO" <<EOF

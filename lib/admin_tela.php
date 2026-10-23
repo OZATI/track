@@ -133,6 +133,9 @@ function admin_css_base(): string
 .lateral .conta-icone, .lateral .tema-menu > summary{ display:inline-flex; align-items:center; justify-content:center; width:40px; height:40px; border-radius:var(--r-sm); color:#9CA3AF; }
 .lateral .conta-icone:hover, .lateral .tema-menu > summary:hover, .lateral .tema-menu[open] > summary{ background:rgba(255,255,255,.08); color:#fff; text-decoration:none; }
 .lateral .conta-icone.atual{ background:rgba(255,255,255,.1); color:#fff; }
+.lateral button.conta-icone{ min-height:0; padding:0; background:none; border:0; cursor:pointer; }
+.lateral .conta-icone[data-compartilhar][aria-pressed="true"]{ background:rgba(245,158,11,.16); color:#FBBF24; }
+.lateral .conta-icone[data-info-alternar][aria-pressed="false"]{ opacity:.5; }
 .lateral .conta-perfil{ display:inline-flex; align-items:center; gap:8px; padding:3px; margin-top:4px; border-radius:999px; color:#fff; font-weight:500; }
 .lateral .conta-perfil:hover{ background:rgba(255,255,255,.08); text-decoration:none; }
 .lateral .conta-perfil > span:not(.avatar){ display:none; }
@@ -178,11 +181,13 @@ CSS;
 
 // Barra lateral do admin inteiro: em cima os paineis que o usuario pode abrir (CMS, quando o
 // painel mora num admin com CMS, config "menu_cms", e UTM); embaixo a conta, que e do admin
-// todo: Usuarios (quem pode), aparencia, Configuracoes e a foto de quem entrou. No celular vira
-// uma linha no alto, recolhida (a seta abre); os filtros do topo ficam sempre a mostra.
+// todo: as ferramentas da tela ($ferramentas: no painel, o print, o modo compartilhar e os (i)), o
+// lapis, a aparencia, as Configuracoes (Minha conta, com a aba Usuarios para quem pode) e a foto de
+// quem entrou. No celular vira uma linha no alto, recolhida (a seta abre); os filtros do topo ficam
+// sempre a mostra.
 // $aqui: o painel aberto (utm, cms) ou a tela do nucleo (conta, usuarios); $utm: caminho ate a
 // pasta do painel UTM (padrao: admin_base(); 'utm/' no CMS); $cms: o link do CMS.
-function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms = null): string
+function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms = null, string $ferramentas = ''): string
 {
     $utm = $utm ?? admin_base();
     $cms = $cms ?? (string)((track_config() ?? [])['menu_cms'] ?? '');
@@ -219,15 +224,12 @@ function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms =
         $h .= '<a href="' . e($href) . '"' . ($k === $aqui ? ' class="atual" aria-current="page"' : '') . ' title="' . e($dicas[$k] ?? $rot) . '">' . $ico . '<span>' . e($rot) . '</span></a>';
     }
     $aquiUrl = destino_seguro((string)($_SERVER['REQUEST_URI'] ?? ''));
-    $h .= '</div><div class="lateral-conta">';
+    $h .= '</div><div class="lateral-conta">' . $ferramentas;
     // Lapis: monta a tela aberta, quando ela e montavel (lib/grade.php)
     $h .= function_exists('grade_lapis_html') ? grade_lapis_html() : '';
-    if (usuario_pode('usuarios')) {
-        $h .= '<a class="conta-icone' . $marca('usuarios') . '" href="' . e(admin_url('usuarios', $utm)) . '" title="Usuários: quem entra e o que cada um pode abrir" aria-label="Usuários">' . icone('usuarios', 19) . '</a>';
-    }
     $h .= '<details class="tema-menu"><summary title="Aparência: claro, escuro ou outra cor de fundo" aria-label="Aparência">' . icone('paleta', 19) . '</summary>'
         . '<div class="tema-painel"><h3>Aparência</h3>' . tema_form($aquiUrl === './' ? './' : $aquiUrl, $utm) . '</div></details>'
-        . '<a class="conta-icone' . $marca('conta') . '" href="' . e(admin_url('conta', $utm)) . '" title="Minha conta: foto, senha, aparência e sair" aria-label="Minha conta">' . icone('config', 19) . '</a>'
+        . '<a class="conta-icone' . $marca(in_array($aqui, ['conta', 'usuarios'], true) ? $aqui : 'conta') . '" href="' . e(admin_url('conta', $utm)) . '" title="Configurações: minha conta (foto, senha e sair)' . (usuario_pode('usuarios') ? ' e os usuários' : '') . '" aria-label="Configurações">' . icone('config', 19) . '</a>'
         . '<a class="conta-perfil" href="' . e(admin_url('conta', $utm) . '#perfil') . '" title="' . e($u) . ': foto do perfil e sair">' . avatar_html($u, 32, $utm) . '<span>' . e($u) . '</span></a>'
         . '</div></div></nav>';
     return $h;

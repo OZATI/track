@@ -24,6 +24,31 @@
   // App: o service worker deixa instalar o painel e mostra as notificacoes (sw.php). Uma vez so.
   var sw = 'serviceWorker' in navigator ? navigator.serviceWorker.register(PAINEL + 'sw.php', { scope: PAINEL }).catch(function () { return null; }) : null;
 
+  // Ctrl+Shift+E ou o (i) da barra das abas esconde e mostra os (i) de informacao da tela toda. Fica
+  // num cookie que o servidor le (a classe sem-info sai no <html>, lib/layout.php): a tela ja chega sem
+  // eles. Fora do iniciar(): o <html> e o document ficam na navegacao suave.
+  var alternarInfo = function () {
+    var sem = document.documentElement.classList.toggle('sem-info');
+    document.cookie = 'track_sem_info=' + (sem ? '1; max-age=31536000' : '; max-age=0') + '; path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-info-alternar]'), function (b) { b.setAttribute('aria-pressed', sem ? 'false' : 'true'); });
+    var a = document.querySelector('.aviso-atalho') || document.body.appendChild(document.createElement('div'));
+    a.className = 'aviso-atalho';
+    a.setAttribute('role', 'status');
+    a.textContent = sem ? 'Ícones de informação (i) escondidos. O (i) da barra ou Ctrl+Shift+E mostra de novo.' : 'Ícones de informação (i) de volta. O (i) da barra ou Ctrl+Shift+E esconde.';
+    clearTimeout(a.timer);
+    a.timer = setTimeout(function () { if (a.parentNode) { a.parentNode.removeChild(a); } }, 2600);
+  };
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key || '').toLowerCase() === 'e') { e.preventDefault(); alternarInfo(); }
+  });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-info-alternar]');
+    if (!b) { return; }
+    var mais = b.closest('details');
+    if (mais) { mais.open = false; }
+    alternarInfo();
+  });
+
   function iniciar() {
   var topoEl = document.querySelector('.topo');
   if (topoEl) {
@@ -740,6 +765,11 @@
       } else if (livre && marca) { marca.parentNode.removeChild(marca); }
     };
     var pMarcar = function () { pSujo = true; };
+    // O olho do bloco (censurar ao compartilhar): o item leva data-censura conforme o botao
+    var pCensura = function (item) {
+      var b = item.querySelector('[data-painel-censura]');
+      item.toggleAttribute('data-censura', !!b && b.getAttribute('aria-pressed') === 'true');
+    };
     GridStack.setupDragIn('.painel-biblioteca .painel-novo', { appendTo: 'body', helper: 'clone' });
     pGrid.on('dropped', function (e, antes, novo) {
       var el = novo && novo.el;
@@ -749,6 +779,7 @@
       ['hidden', 'data-tipo', 'data-dica', 'data-dica-titulo', 'data-dica-botao', 'aria-disabled'].forEach(function (a) { el.removeAttribute(a); });
       var miolo = el.querySelector('.grid-stack-item-content');
       if (miolo) { miolo.innerHTML = pModelo(tipo); }
+      pCensura(el);
       pNaLista(tipo, false);
       pMarcar();
     });
@@ -759,8 +790,40 @@
     pGrid.on('change', pMarcar);
     pEd.addEventListener('click', function (e) {
       var b = e.target.closest && e.target.closest('[data-painel-tirar]');
-      if (b) { e.preventDefault(); pGrid.removeWidget(b.closest('.grid-stack-item')); }
+      if (b) { e.preventDefault(); pGrid.removeWidget(b.closest('.grid-stack-item')); return; }
+      var c = e.target.closest && e.target.closest('[data-painel-censura]');
+      if (c) {
+        e.preventDefault();
+        c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+        pCensura(c.closest('.grid-stack-item'));
+        pMarcar();
+      }
     });
+    // Print: o quadro tem altura fixa e o GridStack recusa calado o bloco que nao cabe. A lista apaga o
+    // que nao cabe mais, o grafico entra na altura que sobra (ate o minimo dele) e a dica diz quanto
+    // espaco tem; cheio, e tirar um bloco (o X) para abrir lugar
+    if (pLinhasMax) {
+      var pEspaco = document.querySelector('[data-print-espaco]');
+      var pCaber = function () {
+        var usadas = pGrid.engine.nodes.reduce(function (m, n) { return Math.max(m, n.y + n.h); }, 0);
+        var livres = Math.max(0, pLinhasMax - usadas);
+        Array.prototype.forEach.call(pEd.querySelectorAll('.painel-biblioteca .painel-novo'), function (it) {
+          if (!it.hasAttribute('data-h0')) { it.setAttribute('data-h0', it.getAttribute('gs-h') || '1'); }
+          var h0 = parseInt(it.getAttribute('data-h0'), 10) || 1;
+          var minH = parseInt(it.getAttribute('gs-min-h'), 10) || 1;
+          var h = Math.max(minH, Math.min(h0, livres || h0));
+          it.setAttribute('gs-h', h);
+          it.classList.toggle('nao-cabe', !pGrid.willItFit({ w: parseInt(it.getAttribute('gs-w'), 10) || 1, h: h }));
+        });
+        if (pEspaco) {
+          pEspaco.textContent = pGrid.willItFit({ w: 2, h: 1 })
+            ? (livres > 0 ? 'Livre no quadro: ' + livres + (livres === 1 ? ' linha.' : ' linhas.') : 'Livre no quadro: meia linha.')
+            : 'O quadro está cheio: tire um bloco (o X) para colocar outro.';
+        }
+      };
+      pGrid.on('added removed change', pCaber);
+      pCaber();
+    }
     // Busca na biblioteca: pelo nome do bloco
     var pBusca = pEd.querySelector('[data-painel-busca]');
     if (pBusca) {
@@ -791,6 +854,7 @@
           el.setAttribute('gs-id', i.tipo);
           el.setAttribute('gs-x', i.x); el.setAttribute('gs-y', i.y); el.setAttribute('gs-w', i.w); el.setAttribute('gs-h', i.h);
           el.innerHTML = '<div class="grid-stack-item-content">' + pModelo(i.tipo) + '</div>';
+          pCensura(el);
           pGradeEl.appendChild(el);
           pGrid.makeWidget(el);
           pNaLista(i.tipo, false);
@@ -804,6 +868,9 @@
       pForm.addEventListener('submit', function () {
         var itens = pGrid.save(false).map(function (n) { return { tipo: n.id, x: n.x || 0, y: n.y || 0, w: n.w || 1, h: n.h || 1 }; });
         pForm.elements.layout.value = JSON.stringify(itens);
+        // O olho vale para a tela toda: vao os blocos da grade e os marcados entre eles
+        var marcados = pGrid.getGridItems().filter(function (el) { return el.hasAttribute('data-censura'); }).map(function (el) { return el.gridstackNode && el.gridstackNode.id; });
+        pForm.elements.censura.value = JSON.stringify({ presentes: itens.map(function (i) { return i.tipo; }), marcados: marcados.filter(Boolean) });
         pSujo = false;
       });
     }
@@ -831,14 +898,16 @@
   // A camera da barra de cima (print_dialogo em lib/layout.php): pede o quadro do print do Resumo
   // (./?aba=geral&print=post, lib/grade.php), esconde o que a pessoa marcou e gera o PNG com o
   // screenshot.js (modern-screenshot, MIT, copiado no painel por causa da CSP; so carrega aqui). A
-  // fonte vem da pasta fontes/ do painel: a imagem nao enxerga a do Google. As escolhas ficam
-  // guardadas neste navegador; "Esconder tambem na tela" liga o modo compartilhar, que vale em todas
-  // as telas ate sair pelo botao da barra.
+  // fonte vem da pasta fontes/ do painel: a imagem nao enxerga a do Google. Sai sempre em 4K (2160 px
+  // de largura). As escolhas ficam guardadas neste navegador. O olho da barra liga o modo compartilhar
+  // (para gravar video ou mostrar a tela): um cookie que o servidor le (a classe compartilhando no
+  // <html> borra os blocos censurados, lib/grade.php) e, aqui, as mesmas trocas de nomes e valores do
+  // print, em todas as telas, ate desligar pelo mesmo olho.
   var privLer = function () {
     var p = null;
     try { p = JSON.parse(localStorage.getItem('track_privacidade') || 'null'); } catch (x) { p = null; }
     p = p && typeof p === 'object' ? p : {};
-    return { formato: p.formato === 'story' ? 'story' : 'post', escala: p.escala === '4' ? '4' : '2', produtos: p.produtos !== false, valores: !!p.valores, tela: !!p.tela };
+    return { formato: p.formato === 'story' ? 'story' : 'post', produtos: p.produtos !== false, valores: !!p.valores };
   };
   var privGravar = function (p) { try { localStorage.setItem('track_privacidade', JSON.stringify(p)); } catch (x) {} };
   var apelidosDe = function (el) {
@@ -871,14 +940,17 @@
     });
   };
   var priv = privLer();
-  var bSair = document.querySelector('[data-compartilhar-sair]');
-  if (priv.tela) {
+  var compartilhando = document.documentElement.classList.contains('compartilhando');
+  if (compartilhando) {
     esconderDados(document.body, priv, apelidosDe(document.querySelector('[data-produtos]')));
-    if (bSair) {
-      bSair.hidden = false;
-      bSair.addEventListener('click', function () { var p = privLer(); p.tela = false; privGravar(p); location.reload(); });
-    }
   }
+  document.documentElement.classList.add('compartilhar-pronto'); // a tela aparece (lib/layout.php)
+  Array.prototype.forEach.call(document.querySelectorAll('[data-compartilhar]'), function (b) {
+    b.addEventListener('click', function () {
+      document.cookie = 'track_compartilhar=' + (compartilhando ? '; max-age=0' : '1; max-age=31536000') + '; path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+      location.reload();
+    });
+  });
   var dPrint = document.querySelector('[data-print-dialogo]');
   if (dPrint && typeof dPrint.showModal === 'function') {
     var fOp = dPrint.querySelector('[data-print-opcoes]');
@@ -890,19 +962,17 @@
     var bComp = dPrint.querySelector('[data-print-compartilhar]');
     var aMontar = dPrint.querySelector('[data-print-montar]');
     var atual = null; // a imagem gerada: { blob, nome }
-    var recarregar = false; // o modo compartilhar da tela mudou: recarrega ao fechar
+    var recarregar = false; // compartilhando, mudou o que esconder: recarrega ao fechar
     var status = function (txt, erro) { st.textContent = txt || ''; st.classList.toggle('erro', !!erro); };
     var lerOp = function () {
       var el = fOp.elements;
-      return { formato: el.formato.value === 'story' ? 'story' : 'post', escala: el.escala.value === '4' ? '4' : '2', produtos: el.produtos.checked, valores: el.valores.checked, tela: el.tela.checked };
+      return { formato: el.formato.value === 'story' ? 'story' : 'post', produtos: el.produtos.checked, valores: el.valores.checked };
     };
     var acertarMontar = function () { if (aMontar) { aMontar.href = aMontar.getAttribute('data-' + lerOp().formato); } };
     var opcoes = function () { fOp.hidden = false; res.hidden = true; status(''); };
     fOp.elements.formato.value = priv.formato;
-    fOp.elements.escala.value = priv.escala;
     fOp.elements.produtos.checked = priv.produtos;
     fOp.elements.valores.checked = priv.valores;
-    fOp.elements.tela.checked = priv.tela;
     acertarMontar();
     fOp.addEventListener('change', acertarMontar);
     Array.prototype.forEach.call(document.querySelectorAll('[data-print-abrir]'), function (b) {
@@ -961,7 +1031,7 @@
         var carregar = document.fonts && document.fonts.load ? Promise.all(['400', '500', '600'].map(function (w) { return document.fonts.load(w + ' 13px Inter'); })).catch(function () {}) : Promise.resolve();
         return carregar.then(function () {
           return r[0].domToBlob(tela, {
-            scale: Number(op.escala),
+            scale: 4, // 4K: 2160 px de largura
             type: 'image/png',
             backgroundColor: getComputedStyle(tela).backgroundColor,
             font: { cssText: "@font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:block;src:url('" + fonte + "') format('woff2');}" },
@@ -975,8 +1045,8 @@
         var leitor = new FileReader();
         leitor.onload = function () { img.src = leitor.result; }; // data: (a CSP aceita data:, nao blob:)
         leitor.readAsDataURL(blob);
-        var w = 540 * Number(op.escala);
-        var h = (op.formato === 'story' ? 960 : 540) * Number(op.escala);
+        var w = 540 * 4;
+        var h = (op.formato === 'story' ? 960 : 540) * 4;
         dPrint.querySelector('[data-print-tamanho]').textContent = (op.formato === 'story' ? 'Story 9:16' : 'Post 1:1') + ' · ' + w + ' × ' + h + ' px · PNG de ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB';
         var arq = new File([blob], atual.nome, { type: 'image/png' });
         bComp.hidden = !(navigator.canShare && navigator.canShare({ files: [arq] }));
@@ -996,7 +1066,7 @@
       e.preventDefault(); // o formulario so junta as opcoes: nao navega
       var op = lerOp();
       var antes = privLer();
-      recarregar = recarregar || op.tela !== antes.tela || (op.tela && (op.produtos !== antes.produtos || op.valores !== antes.valores));
+      recarregar = recarregar || (compartilhando && (op.produtos !== antes.produtos || op.valores !== antes.valores));
       privGravar(op);
       gerar(op);
     });

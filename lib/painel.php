@@ -41,6 +41,24 @@ const RESUMO_PADRAO = [
     ['RevenueInvestmentProfitByHour', 0, 36, 12, 3],
 ];
 
+// Padrao do print (a camera): um resumo da operacao que da para postar ou mandar, sem nome de produto
+// (nada de Vendas ou Faturamento por produto). Lugar => [alternativas, x, y, w, h] na grade de 4
+// colunas; entra a primeira alternativa com as fontes ligadas (sem a Meta, o ROI e o lucro dao lugar
+// ao ticket medio, ao bruto e as vendas por dia da semana).
+const RESUMO_PRINT_PADRAO = [
+    'post' => [
+        [['NetRevenue'], 0, 0, 2, 1], [['ApprovedSales'], 2, 0, 2, 1],
+        [['Roi', 'Arpu'], 0, 1, 2, 1], [['Profit', 'GrossRevenue'], 2, 1, 2, 1],
+        [['RevenueByDay'], 0, 2, 4, 2],
+    ],
+    'story' => [
+        [['NetRevenue'], 0, 0, 2, 1], [['Profit', 'GrossRevenue'], 2, 0, 2, 1],
+        [['ApprovedSales'], 0, 1, 2, 1], [['Roi', 'Arpu'], 2, 1, 2, 1],
+        [['RevenueByDay'], 0, 2, 4, 3],
+        [['RoiGauge', 'SalesByDayOfWeek'], 0, 5, 2, 3], [['SalesByPayment'], 2, 5, 2, 3],
+    ],
+];
+
 // tipo => [titulo, categoria, desenho (numero ou grafico), dica, [w, h, minW, minH, maxW, maxH], icone,
 // fontes de que depende]. As vendas (webhook da Kiwify) valem para todos e nao entram na lista.
 function resumo_blocos(): array
@@ -149,6 +167,7 @@ function resumo_grade(): array
         'categorias' => RESUMO_CATEGORIAS,
         'blocos' => resumo_blocos(),
         'padrao' => RESUMO_PADRAO,
+        'print' => RESUMO_PRINT_PADRAO,
         'fontes' => resumo_fontes(),
         'desenhar' => 'resumo_bloco',
     ];

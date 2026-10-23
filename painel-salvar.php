@@ -25,7 +25,9 @@ if (!csrf_valido()) {
 } else {
     [$ok, $msg] = grade_salvar($tela, (string)usuario_atual(), $aparelho, (string)($_POST['layout'] ?? ''));
     aviso_definir(ucfirst($msg), $ok ? 'ok' : 'erro');
-    if (!$ok) {
+    if ($ok) { // o olho de cada bloco (censurar ao compartilhar), da tela toda
+        grade_salvar_censura($tela, (string)usuario_atual(), (string)($_POST['censura'] ?? ''));
+    } else {
         $volta = grade_url($volta, ['montar' => 1, 'aparelho' => $aparelho]);
     }
 }
