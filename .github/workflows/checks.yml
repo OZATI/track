@@ -1,0 +1,23 @@
+name: Verificar Track
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fluxo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, mbstring, curl, openssl
+          coverage: none
+      - name: Sintaxe PHP
+        run: find . -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Sintaxe JavaScript
+        run: find . -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Fluxo com provedores falsos
+        run: bash tests/fluxo.sh

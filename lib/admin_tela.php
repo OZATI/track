@@ -194,6 +194,9 @@ CSS;
 // pasta do painel UTM (padrao: admin_base(); 'utm/' no CMS); $cms: o link do CMS.
 function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms = null, string $ferramentas = ''): string
 {
+    if (function_exists('track_host_sidebar')) {
+        return track_host_sidebar($aqui, $utm ?? admin_base(), $cms, $ferramentas);
+    }
     $utm = $utm ?? admin_base();
     $cms = $cms ?? (string)((track_config() ?? [])['menu_cms'] ?? '');
     $u = (string)usuario_atual();

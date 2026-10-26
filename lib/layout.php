@@ -33,7 +33,7 @@ function pagina_inicio(string $titulo): void
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title><?= e($titulo) ?> · Rastreio</title>
+<title><?= e($titulo) ?> · <?= function_exists('track_host_name') ? e(track_host_name()) : 'Rastreio' ?></title>
 <link rel="manifest" href="<?= e(admin_base()) ?>manifest.php">
 <meta name="theme-color" content="<?= e(tema_atual()) ?>">
 <meta name="mobile-web-app-capable" content="yes">
@@ -41,9 +41,11 @@ function pagina_inicio(string $titulo): void
 <link rel="icon" href="<?= e(admin_base()) ?><?= is_file(__DIR__ . '/../../favicon.svg') ? '../favicon.svg' : 'app-192.png' ?>">
 <meta name="apple-mobile-web-app-title" content="<?= e((string)((track_config() ?? [])['app_nome'] ?? 'Painel')) ?>">
 <link rel="apple-touch-icon" href="<?= e(admin_base()) ?><?= is_file(__DIR__ . '/../../apple-touch-icon.png') ? '../apple-touch-icon.png' : 'app-192.png' ?>">
+<?php if (!function_exists('track_host_head')): ?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<?php endif; ?>
 <style>
 <?= admin_css_base() ?>
 /* Visual de ferramenta de trabalho: neutro, denso e sem enfeite. Azul da marca so no que
@@ -1195,8 +1197,9 @@ th.marca, td.marca{ width:34px; text-align:center; }
 /* Telas do nucleo (Minha conta, Usuarios): as abas do nucleo continuam a mostra no celular */
 @media (max-width:760px){ .abas.abas-nucleo{ display:flex; padding-left:16px; padding-right:16px; } }
 </style>
+<?php if (function_exists('track_host_head')) { track_host_head(); } ?>
 </head>
-<body>
+<body<?= function_exists('track_host_body') ? track_host_body() : '' ?>>
 <?= graficos_defs() ?>
 <?php
 }
@@ -1223,7 +1226,7 @@ function pagina_fim(): void
 // $aqui: o painel (utm) ou a tela do nucleo (conta, usuarios) aberta, marcada na barra lateral
 function casca_inicio(string $aqui = 'utm'): void
 {
-    echo '<noscript><style>.lateral-itens{ display:flex !important; }</style></noscript><div class="casca">' . admin_lateral($aqui, null, null, lateral_ferramentas()) . '<div class="conteudo">';
+    echo '<noscript><style>.lateral-itens{ display:flex !important; }</style></noscript><div class="casca">' . admin_lateral($aqui, null, null, lateral_ferramentas()) . '<div class="conteudo" id="track-workspace" tabindex="-1">';
 }
 
 function casca_fim(): void
