@@ -17,7 +17,7 @@ FALHAS=0
 
 confere() { if [ "$1" = "0" ]; then echo "  ok     $2"; else echo "  FALHA  $2"; FALHAS=$((FALHAS + 1)); fi; }
 # Texto vai por pipe, nao por <<<: no Git Bash do Windows, <<< com mais de 64 KB trava
-tem() { printf '%s\n' "$2" | grep -q -- "$1"; echo $?; }
+tem() { printf '%s\n' "$2" | grep -- "$1" >/dev/null; echo $?; }
 # Texto como aparece na tela (sem as tags e com espaco no lugar de &nbsp;)
 sem_tags() { printf '%s\n' "$1" | sed -e 's/<[^>]*>//g' -e 's/&nbsp;/ /g'; }
 
@@ -266,8 +266,7 @@ confere "$([ "$code" = "200" ]; echo $?)" "allan abre o UTM ($code)"
 r=$(curl -s -b "$J3" "$URL/index.php")
 confere "$(grep -q 'title="CMS"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem acesso ao CMS, a barra lateral não mostra o CMS"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" --data-urlencode "acessos[]=cms" "$URL/usuarios.php")
-destino=$(curl -s -D - -o /dev/null -b "$J3" "$URL/index.php" | grep -i '^location:' | tr -d '
-')
+destino=$(curl -s -D - -o /dev/null -b "$J3" "$URL/index.php" | grep -i '^location:' | tr -d '\r\n')
 confere "$(tem 'ocation: \.\./$' "$destino")" "usuário só do CMS que abre o UTM vai para o CMS ($destino)"
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/usuarios.php")
 confere "$([ "$code" = "403" ]; echo $?)" "sem Usuários, a tela de usuários fica fechada ($code)"

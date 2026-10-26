@@ -47,6 +47,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 }
 
+if (function_exists('track_host_login')) {
+    track_host_login($cfg, $usuario, $volta, $erro);
+    exit;
+}
+
 pagina_inicio('Entrar');
 ?>
 <main class="caixa-login">

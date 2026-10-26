@@ -14,6 +14,11 @@ if (!isset(INTEGRACOES_ABAS[$aba])) {
     $aba = 'anuncios';
 }
 
+if (function_exists('track_host_integrations')) {
+    track_host_integrations($aba);
+    exit;
+}
+
 // Endereco do painel, para o codigo do t.js na aba Rastreio
 $https = ($_SERVER['HTTPS'] ?? '') !== '' && ($_SERVER['HTTPS'] ?? '') !== 'off' || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
 $host = preg_match('/^[a-z0-9.\-]+(:\d+)?$/i', (string)($_SERVER['HTTP_HOST'] ?? '')) ? (string)$_SERVER['HTTP_HOST'] : 'SEU-PAINEL';

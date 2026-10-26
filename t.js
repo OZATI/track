@@ -54,12 +54,21 @@
     Array.prototype.forEach.call(document.querySelectorAll('a'), function (a) { if (ehCheckout(a)) marcar(a); });
   }
 
+  // A atribuição já vai em utms. Query e fragmento podem carregar dados pessoais ou tokens.
+  function enderecoPublico(endereco) {
+    if (!endereco) return '';
+    try {
+      var u = new URL(endereco, location.href);
+      return /^https?:$/.test(u.protocol) ? u.origin + u.pathname : '';
+    } catch (e) { return ''; }
+  }
+
   function enviar(evento, detalhe, endereco) {
     var corpo = JSON.stringify({
       evento: evento,
       detalhe: detalhe || '',
-      url: location.href.split('#')[0],
-      referrer: document.referrer,
+      url: enderecoPublico(location.href),
+      referrer: enderecoPublico(document.referrer),
       utms: etiquetas(endereco),
       vid: vid
     });

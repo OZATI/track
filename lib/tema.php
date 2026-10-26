@@ -46,6 +46,9 @@ function tema_atual(): string
 // Atributos do <html>: modo, cor base (so quando nao e a padrao) e color-scheme
 function tema_atributos(): string
 {
+    if (function_exists('track_host_theme_attributes')) {
+        return track_host_theme_attributes();
+    }
     $base = tema_atual();
     return ' data-tema="' . (tema_escuro($base) ? 'escuro' : 'claro') . '"'
         . ($base !== TEMA_PADRAO ? ' data-base style="--base:' . e($base) . '"' : '');
@@ -56,6 +59,9 @@ function tema_atributos(): string
 // $base: caminho ate a pasta do painel ('' dentro dele, 'utm/' no CMS)
 function tema_form(string $volta, string $base = ''): string
 {
+    if (function_exists('track_host_theme_form')) {
+        return track_host_theme_form($volta, $base);
+    }
     $atual = tema_atual();
     $html = '<form method="post" action="' . e($base) . 'tema.php" class="tema-form" data-tema-form><input type="hidden" name="csrf" value="' . e(token_csrf()) . '">'
         . '<input type="hidden" name="volta" value="' . e($volta) . '"><div class="tema-prontos">';

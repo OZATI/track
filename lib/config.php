@@ -6,11 +6,16 @@
 // public_html, onde nenhum dominio publica nada e nenhum deploy mexe.
 // Em outro servidor, defina a variavel de ambiente TRACK_DADOS com o caminho.
 
+require_once __DIR__ . '/host.php';
+
 function track_pasta_dados(): string
 {
     $env = getenv('TRACK_DADOS');
     if ($env) {
         return rtrim($env, '/\\');
+    }
+    if (function_exists('track_host_data_directory')) {
+        return track_host_data_directory();
     }
     $dir = __DIR__;
     for ($i = 0; $i < 8; $i++) {
