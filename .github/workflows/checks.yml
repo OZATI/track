@@ -19,5 +19,7 @@ jobs:
         run: find . -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Sintaxe JavaScript
         run: find . -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Privacidade das URLs enviadas
+        run: node tests/url-privacidade.js
       - name: Fluxo com provedores falsos
         run: bash tests/fluxo.sh
