@@ -590,7 +590,7 @@ function fin_despesas_render(string $periodo, array $gastos, array $dias): void
         echo '<tr><td class="nome quebra"><b>' . e($g['descricao']) . '</b>' . celula_situacao($ativo, 'Ativa', 'Pausada') . '</td>'
             . '<td>' . celula_selo($tipo, $cor) . '</td>'
             . '<td>' . ($g['categoria'] ? celula_selo((string)$g['categoria']) : '<span class="suave">—</span>') . '</td>'
-            . '<td>' . e(reais((int)$g['valor'])) . '<small class="dre-nota">' . e(reais($valorPeriodo)) . ' no período</small></td>'
+            . '<td>' . e(reais((int)$g['valor'])) . '<small class="fin-valor-periodo">' . e(reais($valorPeriodo)) . ' no período</small></td>'
             . '<td>' . ($valorPeriodo && $totalPeriodo ? celula_anel($valorPeriodo * 100 / $totalPeriodo) : '<span class="suave">—</span>') . '</td>'
             . '<td>' . celula_mini_grafico($serie, $rotulos) . '</td>'
             . '<td>' . celula_data(data_local($g['criado_em'], 'm/Y')) . '</td>'

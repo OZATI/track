@@ -899,6 +899,7 @@ th[aria-sort=descending] > button.ordena::after{ content:" ↓"; }
 .fin-conexoes h3{ font-size:14px; margin:0 0 8px; }
 .fin-conexoes p{ color:var(--suave); font-size:13px; line-height:1.6; margin:0; }
 .fin-conexoes b{ color:var(--texto); }
+.fin-valor-periodo{ display:block; margin-top:4px; color:var(--suave); font-size:11px; }
 .fin-vazio{ padding:28px 20px !important; text-align:center; white-space:normal !important; }
 .fin-vazio p{ color:var(--suave); margin:8px 0 16px; }
 .fin-form + .fin-imposto{ margin-top:24px; }
