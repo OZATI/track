@@ -351,11 +351,14 @@ td.quebra{ white-space:normal; min-width:220px; }
 .painel-cab h2{ margin:0; }
 .painel-cab .barra-vendas{ margin:0; }
 .painel-grade{ display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); grid-auto-rows:110px; gap:12px; }
+/* DRE e fluxo: o cabecalho fica fora da grade e precisa do mesmo respiro dos cartoes. */
+.resumo-cab + .painel-grade{ margin-top:12px; }
 .painel-item{ grid-column:var(--c) / span var(--w); grid-row:var(--r) / span var(--h); min-width:0; min-height:0; }
 .painel-item.so-celular{ display:none; }
 @media (max-width:767px){
   /* Celular: a ordem e a largura que a pessoa montou, a altura pelo conteudo (sem espaco vazio) */
   .painel-grade{ grid-template-columns:repeat(2, minmax(0, 1fr)); grid-auto-rows:auto; gap:10px; }
+  .resumo-cab + .painel-grade{ margin-top:10px; }
   .painel-item{ grid-column:var(--mc) / span var(--mw); grid-row:auto; order:var(--mo); }
   .painel-item.so-computador{ display:none; }
   .painel-item.so-celular{ display:block; }
