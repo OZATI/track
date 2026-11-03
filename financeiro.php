@@ -24,9 +24,9 @@ if ($aba !== 'despesas') {
 }
 casca_inicio('financeiro');
 barra_periodo('financeiro.php', $periodo, ['aba' => $aba]);
-echo '<nav class="abas abas-nucleo" aria-label="DRE"><span class="abas-titulo">DRE · Resultado da empresa</span>';
+echo '<nav class="abas abas-nucleo abas-financeiro" aria-label="DRE"><span class="abas-titulo">DRE · Resultado da empresa</span>';
 foreach (FIN_ABAS as $k => [$rot, $ico]) {
-    echo '<a href="' . e('financeiro.php?' . http_build_query(['aba' => $k])) . '"' . ($k === $aba ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico) . e($rot) . '</a>';
+    echo '<a href="' . e('financeiro.php?' . http_build_query(['aba' => $k, 'periodo' => $periodo])) . '"' . ($k === $aba ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico) . e($rot) . '</a>';
 }
 echo '</nav>';
 echo '<main>';

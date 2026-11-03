@@ -851,7 +851,7 @@ r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=tudo")
 confere "$(tem 'href="financeiro.php" class="atual" aria-current="page" title="DRE: resultado da empresa (receita, anúncios, despesas e lucro)">' "$r")" "DRE (o antigo Financeiro) na barra lateral, como módulo próprio"
 confere "$(tem '<span>DRE</span></a>' "$r")" "barra lateral com a sigla DRE"
 confere "$(grep -q 'href="./?aba=financeiro' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Financeiro fora das abas do UTM"
-confere "$(tem '>DRE</a><a href="financeiro.php?aba=fluxo">.*Fluxo de caixa</a><a href="financeiro.php?aba=despesas">.*Despesas</a>' "$r")" "DRE em três abas: DRE, Fluxo de caixa e Despesas"
+confere "$(tem '>DRE</a><a href="financeiro.php?aba=fluxo&amp;periodo=tudo">.*Fluxo de caixa</a><a href="financeiro.php?aba=despesas&amp;periodo=tudo">.*Despesas</a>' "$r")" "DRE em três abas: DRE, Fluxo de caixa e Despesas"
 fluxo() { curl -s -b "$JAR" "$URL/financeiro.php?aba=fluxo&periodo=tudo"; }
 confere "$(tem 'EntradasR$ 202,00' "$(sem_tags "$(fluxo)")")" "Fluxo de caixa: entradas (todas as vendas aprovadas, líquido)"
 confere "$(tem 'AnúnciosR$ 67,29' "$(sem_tags "$(fluxo)")")" "Fluxo de caixa: anúncios com o imposto da Meta"
