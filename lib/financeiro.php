@@ -512,7 +512,7 @@ function financeiro_render(PDO $db, string $periodo, string $aba = 'dre'): void
         echo '<p class="' . ($aviso[1] === 'erro' ? 'erro' : 'aviso-ok') . '">' . e($aviso[0]) . '</p>';
     }
     if ($aba === 'despesas') {
-        fin_despesas_render($periodo, $gastos);
+        fin_despesas_render($periodo, $gastos, fin_dias($db, $periodo, $gastos));
         return;
     }
     $ctx = financeiro_ctx($db, $periodo, $gastos);
@@ -531,29 +531,17 @@ function financeiro_render(PDO $db, string $periodo, string $aba = 'dre'): void
     grade_render($tela, $ctx);
 }
 
-// Aba Despesas: o imposto sobre o faturamento, os cartoes do mes, a tabela das despesas e o formulario
-function fin_despesas_render(string $periodo, array $gastos): void
+// Aba Despesas: mesmo intervalo do DRE/fluxo, cadastro e configuração fiscal.
+function fin_despesas_render(string $periodo, array $gastos, array $dias): void
 {
+    [$dia1, $dia2] = $dias;
     $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
     $volta = 'financeiro.php?' . http_build_query(['aba' => 'despesas', 'periodo' => $periodo]);
-    $imp = fin_imposto_config();
-    echo '<form method="post" action="gastos.php" class="bloco fin-imposto" id="imposto"><h2>' . com_info('Imposto sobre o faturamento', 'O imposto da nota fiscal, que o DRE desconta da receita bruta (menos os reembolsos) para chegar à receita líquida. MEI: o DAS é um valor fixo por mês (o DRE divide pelos dias). Simples Nacional e Lucro Presumido: a alíquota efetiva sobre o faturamento que o contador passar. Mudou de regime (ex.: desenquadramento do MEI)? Troque aqui; vale para todos os períodos.') . '</h2>'
-        . '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="acao" value="imposto"><input type="hidden" name="volta" value="' . e($volta) . '">'
-        . '<div class="fin-campos"><label><span>Regime</span><select name="regime">';
-    foreach (FIN_REGIMES as $k => $rot) {
-        echo '<option value="' . e($k) . '"' . ($imp['regime'] === $k ? ' selected' : '') . '>' . e($rot) . '</option>';
-    }
-    echo '</select></label><label><span>Como calcular</span><select name="modo">';
-    foreach (FIN_IMPOSTO_MODOS as $k => $rot) {
-        echo '<option value="' . e($k) . '"' . ($imp['modo'] === $k ? ' selected' : '') . '>' . e($rot) . '</option>';
-    }
-    echo '</select></label><label data-imposto="percentual"><span>' . com_info('Alíquota (%)', 'A alíquota efetiva sobre o faturamento, ex.: 6 ou 8,93.') . '</span>'
-        . '<input name="aliquota" inputmode="decimal" value="' . e($imp['pct'] ? number_format($imp['pct'], 2, ',', '') : '') . '" placeholder="0,00"></label>'
-        . '<label data-imposto="fixo"><span>' . com_info('Valor por mês (R$)', 'O DAS do MEI (ou outro imposto fixo) de cada mês, ex.: 81,05.') . '</span>'
-        . '<input name="fixo" inputmode="decimal" value="' . e($imp['fixo'] ? number_format($imp['fixo'] / 100, 2, ',', '.') : '') . '" placeholder="0,00"></label>'
-        . '<div class="linha-botoes"><button type="submit">Salvar</button></div></div></form>';
-
-    // Despesas cadastradas e o formulario (novo ou editar)
+    $datas = (new DateTime($dia1))->format('d/m/Y') . ' a ' . (new DateTime($dia2))->format('d/m/Y');
+    echo '<section class="bloco fin-abertura"><div><h2>Despesas da empresa</h2><p class="suave">' . e($datas) . ' · Mesmo período do DRE e do fluxo de caixa.</p></div>'
+        . '<div class="linha-botoes"><a class="botao" href="#despesa"><span aria-hidden="true">+</span> Nova despesa</a>'
+        . '<a href="' . e('financeiro.php?' . http_build_query(['aba' => 'dre', 'periodo' => $periodo])) . '">Ver DRE</a>'
+        . '<a href="' . e('financeiro.php?' . http_build_query(['aba' => 'fluxo', 'periodo' => $periodo])) . '">Ver fluxo de caixa</a></div></section>';
     $editar = null;
     if (is_string($_GET['editar'] ?? null) && ctype_digit($_GET['editar'])) {
         foreach ($gastos as $g) {
@@ -562,23 +550,25 @@ function fin_despesas_render(string $periodo, array $gastos): void
             }
         }
     }
-    // Despesas: os cartoes do mes e a tabela inteligente (como "Custos gerais")
-    $mes1 = (new DateTime('first day of this month', fuso()))->format('Y-m-d');
-    $mes2 = (new DateTime('last day of this month', fuso()))->format('Y-m-d');
-    $doMes = fn(array $g) => (int)($g['ativo'] ?? 1) ? count(fin_ocorrencias($g, $mes1, $mes2)) * (int)$g['valor'] : 0;
-    $totalMes = array_sum(array_map($doMes, $gastos));
-    $ativosMes = count(array_filter($gastos, fn($g) => $doMes($g) > 0));
-    $fixoMensal = array_sum(array_map(fn($g) => (int)($g['ativo'] ?? 1) && $g['repete'] === 'mensal' && (!$g['fim'] || $g['fim'] >= $hoje) ? (int)$g['valor'] : 0, $gastos));
+    // Cartões e participação usam o intervalo efetivo das outras abas.
+    $noPeriodo = fn(array $g) => (int)($g['ativo'] ?? 1) ? count(fin_ocorrencias($g, $dia1, $dia2)) * (int)$g['valor'] : 0;
+    $totalPeriodo = array_sum(array_map($noPeriodo, $gastos));
+    $ativosPeriodo = count(array_filter($gastos, fn($g) => $noPeriodo($g) > 0));
+    $recorrentesPeriodo = array_sum(fin_categorias($gastos, $dia1, $dia2, ['mensal', 'anual']));
     echo cartoes_kpi([
         cartao_kpi('Custos cadastrados', (string)count($gastos), 'fixos e variáveis na sua conta', 'carteira'),
-        cartao_kpi('Ativos neste mês', (string)$ativosMes, 'de ' . count($gastos) . ' cadastrado' . (count($gastos) === 1 ? '' : 's'), 'atividade'),
-        cartao_kpi('Total do mês', reais($totalMes), 'o que incide neste mês', 'calendario'),
-        cartao_kpi('Fixo mensal', reais($fixoMensal), 'recorrente todo mês', 'repetir'),
+        cartao_kpi('Com incidência no período', (string)$ativosPeriodo, 'despesas ativas com ocorrência nas datas selecionadas', 'atividade'),
+        cartao_kpi('Despesas no período', reais($totalPeriodo), 'mesmo total de despesas cadastradas no fluxo', 'calendario'),
+        cartao_kpi('Recorrentes no período', reais($recorrentesPeriodo), 'mensais e anuais · despesas fixas no DRE', 'repetir'),
     ]);
+    echo '<section class="bloco fin-conexoes" aria-label="Como as despesas entram no financeiro">'
+        . '<div><h3>DRE</h3><p>Recorrentes: <b>' . e(reais($recorrentesPeriodo)) . '</b> em despesas fixas. Únicas: <b>' . e(reais($totalPeriodo - $recorrentesPeriodo)) . '</b> em custos variáveis.</p></div>'
+        . '<div><h3>Fluxo de caixa</h3><p>Os lançamentos entram na data cadastrada, conforme a repetição. São valores previstos pelo cadastro; não confirmam pagamento.</p></div>'
+        . '<div><h3>Evite contar duas vezes</h3><p>Gastos da Meta e taxas das vendas importados pelas integrações já entram no financeiro. O imposto sobre faturamento tem <a href="#imposto">configuração própria</a>.</p></div></section>';
     // Historico de cada despesa: os ultimos 6 meses
     $meses = [];
     for ($i = 5; $i >= 0; $i--) {
-        $d = (new DateTime('first day of this month', fuso()))->modify('-' . $i . ' month');
+        $d = (new DateTime($dia2, fuso()))->modify('first day of this month')->modify('-' . $i . ' month');
         $meses[] = [$d->format('Y-m-01'), $d->format('Y-m-t'), $d->format('m/Y')];
     }
     $tipos = ['mensal' => ['Fixo', 'azul'], 'anual' => ['Anual', 'roxo'], 'unico' => ['Variável', 'laranja']];
@@ -586,12 +576,12 @@ function fin_despesas_render(string $periodo, array $gastos): void
     echo tabela_card_inicio('despesas', 'Despesas', count($gastos), ['icone' => 'lista', 'busca' => 'Buscar por nome ou categoria', 'por_pagina' => 10,
         'dica' => 'Os gastos da empresa fora dos anúncios. Cadastre uma vez: as que se repetem entram sozinhas em cada mês (ou ano), até a data final, se tiver. Pausar tira a despesa da conta sem apagar.']);
     echo '<table><thead><tr><th class="nome">Nome</th><th data-filtro data-col="tipo">Tipo</th><th data-filtro data-col="categoria">Categoria</th><th data-col="valor">Valor</th>'
-        . '<th data-col="participacao">' . com_info('Participação', 'Quanto essa despesa pesa no total do mês.') . '</th><th data-col="historico">' . com_info('Histórico', 'O que a despesa somou em cada um dos últimos 6 meses.') . '</th>'
+        . '<th data-col="participacao">' . com_info('Participação', 'Quanto essa despesa pesa no total do período selecionado.') . '</th><th data-col="historico">' . com_info('Histórico', 'Ocorrências previstas nos 6 meses até o fim do período. Não é um registro de pagamentos. Despesas pausadas não entram nos totais.') . '</th>'
         . '<th data-col="criado">Criado em</th><th data-col="ate">Válido até</th><th data-filtro data-col="ativo">' . com_info('Custo ativo', 'Desligado, a despesa fica cadastrada mas para de contar no DRE.') . '</th><th class="acoes"></th></tr></thead><tbody>';
     foreach ($gastos as $g) {
         $ativo = (bool)(int)($g['ativo'] ?? 1);
-        $noMes = $doMes($g);
-        $serie = array_map(fn($m) => count(fin_ocorrencias($g, $m[0], $m[1])) * (int)$g['valor'], $meses);
+        $valorPeriodo = $noPeriodo($g);
+        $serie = array_map(fn($m) => $ativo ? count(fin_ocorrencias($g, $m[0], $m[1])) * (int)$g['valor'] : 0, $meses);
         $rotulos = array_map(fn($m, $v) => $m[2] . ': ' . reais($v), $meses, $serie);
         [$tipo, $cor] = $tipos[$g['repete']] ?? [FIN_REPETE[$g['repete']] ?? $g['repete'], 'cinza'];
         $chave = '<form method="post" action="gastos.php" class="form-linha">' . $csrf . '<input type="hidden" name="acao" value="ativo"><input type="hidden" name="id" value="' . (int)$g['id'] . '">'
@@ -600,8 +590,8 @@ function fin_despesas_render(string $periodo, array $gastos): void
         echo '<tr><td class="nome quebra"><b>' . e($g['descricao']) . '</b>' . celula_situacao($ativo, 'Ativa', 'Pausada') . '</td>'
             . '<td>' . celula_selo($tipo, $cor) . '</td>'
             . '<td>' . ($g['categoria'] ? celula_selo((string)$g['categoria']) : '<span class="suave">—</span>') . '</td>'
-            . '<td>' . e(reais((int)$g['valor'])) . '</td>'
-            . '<td>' . ($noMes && $totalMes ? celula_anel($noMes * 100 / $totalMes) : '<span class="suave">—</span>') . '</td>'
+            . '<td>' . e(reais((int)$g['valor'])) . '<small class="dre-nota">' . e(reais($valorPeriodo)) . ' no período</small></td>'
+            . '<td>' . ($valorPeriodo && $totalPeriodo ? celula_anel($valorPeriodo * 100 / $totalPeriodo) : '<span class="suave">—</span>') . '</td>'
             . '<td>' . celula_mini_grafico($serie, $rotulos) . '</td>'
             . '<td>' . celula_data(data_local($g['criado_em'], 'm/Y')) . '</td>'
             . '<td>' . ($g['repete'] === 'unico' ? celula_data((new DateTime($g['inicio']))->format('d/m/Y')) : celula_prazo($g['fim'])) . '</td>'
@@ -613,7 +603,7 @@ function fin_despesas_render(string $periodo, array $gastos): void
             ], 'Ações da despesa') . '</td></tr>';
     }
     if (!$gastos) {
-        echo '<tr><td colspan="10" class="suave">Nenhuma despesa cadastrada. Use o formulário abaixo (ex.: hospedagem, ferramentas, equipe).</td></tr>';
+        echo '<tr><td colspan="10" class="fin-vazio"><strong>Nenhuma despesa cadastrada.</strong><p>Adicione hospedagem, ferramentas ou equipe para incluir esses custos no resultado da empresa.</p><a href="#despesa">Cadastrar a primeira despesa →</a></td></tr>';
     }
     echo '</tbody></table>' . tabela_card_fim('despesa', 'despesas');
 
@@ -635,5 +625,21 @@ function fin_despesas_render(string $periodo, array $gastos): void
         . '<label data-ate' . ($repete === 'unico' ? ' hidden' : '') . '><span>' . com_info('Até (opcional)', 'O último dia em que a despesa se repete. Em branco, repete sem fim.') . '</span><input type="date" name="fim" value="' . e((string)($editar['fim'] ?? '')) . '"></label></div>'
         . '<datalist id="fin-categorias">' . implode('', array_map(fn($c) => '<option value="' . e($c) . '">', $categorias)) . '</datalist>'
         . '<div class="linha-botoes"><button type="submit">' . ($editar ? 'Salvar' : 'Cadastrar') . '</button>'
-        . ($editar ? '<a href="' . e($volta) . '">Cancelar</a>' : '') . '</div></form>';
+        . ($editar ? '<a href="' . e($volta) . '">Cancelar</a>' : '') . '</div><p class="suave">Ao salvar, esta despesa passa a compor o DRE e o fluxo de caixa nas datas de incidência. Pausar remove suas ocorrências dos cálculos, inclusive de períodos anteriores.</p></form>';
+    $imp = fin_imposto_config();
+    echo '<form method="post" action="gastos.php" class="bloco fin-imposto" id="imposto"><h2>' . com_info('Imposto sobre o faturamento', 'O imposto da nota fiscal, que o DRE desconta da receita bruta (menos os reembolsos) para chegar à receita líquida. MEI: o DAS é um valor fixo por mês (o DRE divide pelos dias). Simples Nacional e Lucro Presumido: a alíquota efetiva sobre o faturamento que o contador passar. Mudou de regime (ex.: desenquadramento do MEI)? Troque aqui; vale para todos os períodos.') . '</h2>'
+        . '<input type="hidden" name="csrf" value="' . e(token_csrf()) . '"><input type="hidden" name="acao" value="imposto"><input type="hidden" name="volta" value="' . e($volta) . '">'
+        . '<div class="fin-campos"><label><span>Regime</span><select name="regime">';
+    foreach (FIN_REGIMES as $k => $rot) {
+        echo '<option value="' . e($k) . '"' . ($imp['regime'] === $k ? ' selected' : '') . '>' . e($rot) . '</option>';
+    }
+    echo '</select></label><label><span>Como calcular</span><select name="modo">';
+    foreach (FIN_IMPOSTO_MODOS as $k => $rot) {
+        echo '<option value="' . e($k) . '"' . ($imp['modo'] === $k ? ' selected' : '') . '>' . e($rot) . '</option>';
+    }
+    echo '</select></label><label data-imposto="percentual"><span>' . com_info('Alíquota (%)', 'A alíquota efetiva sobre o faturamento, ex.: 6 ou 8,93.') . '</span>'
+        . '<input name="aliquota" inputmode="decimal" value="' . e($imp['pct'] ? number_format($imp['pct'], 2, ',', '') : '') . '" placeholder="0,00"></label>'
+        . '<label data-imposto="fixo"><span>' . com_info('Valor por mês (R$)', 'O DAS do MEI (ou outro imposto fixo) de cada mês, ex.: 81,05.') . '</span>'
+        . '<input name="fixo" inputmode="decimal" value="' . e($imp['fixo'] ? number_format($imp['fixo'] / 100, 2, ',', '.') : '') . '" placeholder="0,00"></label>'
+        . '<div class="linha-botoes"><button type="submit">Salvar</button></div></div></form>';
 }

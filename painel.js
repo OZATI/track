@@ -399,8 +399,10 @@
   // Financeiro: "Ate" so aparece na despesa que se repete
   var despesa = document.querySelector('[data-despesa]');
   if (despesa) {
-    var rep = despesa.querySelector('[data-repete]'), ate = despesa.querySelector('[data-ate]');
-    if (rep && ate) { rep.addEventListener('change', function () { ate.hidden = rep.value === 'unico'; }); }
+    var despesaRepete = despesa.querySelector('[data-repete]'), despesaAte = despesa.querySelector('[data-ate]');
+    if (despesaRepete && despesaAte) {
+      despesaRepete.addEventListener('change', function () { despesaAte.hidden = despesaRepete.value === 'unico'; });
+    }
   }
   // Programar orcamento: "Repete" mostra os dias da semana; "Uma vez", a data
   var progs = document.querySelectorAll('[data-programar]');

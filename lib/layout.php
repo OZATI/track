@@ -891,6 +891,26 @@ th[aria-sort=descending] > button.ordena::after{ content:" ↓"; }
 @keyframes pulsar{ 50%{ opacity:.35; } }
 @media (prefers-reduced-motion:reduce){ .ao-vivo::before{ animation:none; } }
 /* Financeiro: formulario da despesa na largura toda (como os outros blocos), campos numa grade */
+.fin-abertura{ display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:16px; }
+.fin-abertura h2{ margin:0 0 6px; }
+.fin-abertura p{ margin:0; }
+.fin-abertura .linha-botoes{ margin:0; flex-wrap:wrap; gap:16px; }
+.fin-conexoes{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; margin:16px 0; }
+.fin-conexoes h3{ font-size:14px; margin:0 0 8px; }
+.fin-conexoes p{ color:var(--suave); font-size:13px; line-height:1.6; margin:0; }
+.fin-conexoes b{ color:var(--texto); }
+.fin-vazio{ padding:28px 20px !important; text-align:center; white-space:normal !important; }
+.fin-vazio p{ color:var(--suave); margin:8px 0 16px; }
+.fin-form + .fin-imposto{ margin-top:24px; }
+#despesa, #imposto{ scroll-margin-top:90px; }
+@media(max-width:760px){
+  .abas.abas-financeiro{ flex-wrap:wrap; column-gap:20px; }
+  .abas-financeiro .abas-titulo{ flex-basis:100%; padding-bottom:0; }
+  .fin-abertura{ align-items:flex-start; flex-direction:column; }
+  .fin-conexoes{ grid-template-columns:1fr; gap:16px; }
+  .fin-conexoes > div + div{ border-top:1px solid var(--linha); padding-top:16px; }
+  .fin-imposto .fin-campos{ grid-template-columns:minmax(0,1fr); }
+}
 .fin-form{ margin-top:16px; }
 .fin-form h2{ margin:0 0 12px; }
 .fin-campos{ display:grid; grid-template-columns:minmax(220px,2fr) repeat(5,minmax(130px,1fr)); gap:12px; align-items:end; margin:0 0 14px; }
