@@ -1,7 +1,8 @@
 <?php
 // Tarefa agendada (cron) da hospedagem, a cada 5 minutos. Com o painel fechado, busca as vendas
-// na Kiwify (o que dispara o aviso de venda nova), o gasto na Meta e o perfil do Instagram, e
-// manda os relatorios nos horarios escolhidos em Configuracoes. So pela linha de comando:
+// na Kiwify (o que dispara o aviso de venda nova), o gasto na Meta, o perfil do Instagram e os
+// numeros do GA4 (conferencia), e manda os relatorios nos horarios escolhidos em Configuracoes.
+// So pela linha de comando:
 //
 //   php /caminho/do/painel/cron.php            (a cada 5 minutos)
 //   php cron.php --hora=12                     (teste: forca o relatorio das 12h)
@@ -14,6 +15,7 @@ require __DIR__ . '/lib/util.php';
 require_once __DIR__ . '/lib/kiwify_sync.php';
 require_once __DIR__ . '/lib/meta_sync.php';
 require_once __DIR__ . '/lib/instagram_sync.php';
+require_once __DIR__ . '/lib/ga4_sync.php';
 require_once __DIR__ . '/lib/push.php';
 require_once __DIR__ . '/lib/orcamento.php';
 require_once __DIR__ . '/lib/historico.php';
@@ -30,7 +32,7 @@ foreach ($argv as $a) {
     }
 }
 $feito = [];
-foreach ([['kiwify', 'kiwify_sync_vencida', 'kiwify_sincronizar'], ['meta', 'meta_sync_vencida', 'meta_sincronizar'], ['instagram', 'ig_sync_vencida', 'ig_sincronizar']] as [$nome, $vencida, $buscar]) {
+foreach ([['kiwify', 'kiwify_sync_vencida', 'kiwify_sincronizar'], ['meta', 'meta_sync_vencida', 'meta_sincronizar'], ['instagram', 'ig_sync_vencida', 'ig_sincronizar'], ['ga4', 'ga4_sync_vencida', 'ga4_sincronizar']] as [$nome, $vencida, $buscar]) {
     try {
         if ($forcada === null && $vencida()) {
             $r = $buscar();

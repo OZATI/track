@@ -234,6 +234,11 @@ td.quebra{ white-space:normal; min-width:220px; }
 .caixa-login h1{ font-size:18px; font-weight:600; margin-top:0; }
 .linha-botoes{ display:flex; gap:8px; flex-wrap:wrap; }
 .linha-botoes button.discreto{ padding:6px 12px; }
+/* GA4 (ga4.php): o arquivo da chave e os campos de propriedade lado a lado */
+.ga4 .cartao textarea{ width:100%; font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.ga4 .linha-botoes > label{ flex:1 1 180px; }
+.ga4 > h2{ margin:24px 0 10px; }
+.ga4 .tabela td.ga4-explica{ white-space:normal; min-width:240px; }
 .passos{ margin:0 0 14px; padding-left:18px; } .passos li{ margin-bottom:3px; }
 
 /* Barra de atualizacao das vendas e do gasto */

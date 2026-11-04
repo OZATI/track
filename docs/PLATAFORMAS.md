@@ -130,6 +130,18 @@ A [Política de Dados do Usuário dos Serviços de API do Google](https://develo
 
 O painel usa os dados do Google Ads só para os relatórios e o gestor da própria empresa.
 
+### 4.5 Google Analytics 4 (conferência, conta de serviço)
+
+Ligado em 04/11/2026 para a EngDesk. Não passa pelo conector nem pela tela de consentimento:
+
+- **Conta de serviço** do Google Cloud com uma chave JSON. No GA4 ela entra como usuário com papel **Leitor** em cada propriedade (Administrador → Gerenciamento de acesso da propriedade). Sem verificação do app, sem limite de 100 usuários: a conta só lê o que alguém deu a ela.
+- **API:** Google Analytics Data API (`analyticsdata.googleapis.com`, v1beta), ativada no projeto da conta de serviço. Escopo `https://www.googleapis.com/auth/analytics.readonly`. Pode ser o projeto do Login com Google do site: a conta de serviço não mexe na tela de consentimento.
+- **Token:** JWT assinado com a chave (RS256), trocado em `oauth2.googleapis.com/token` por um token de 1 hora. O endereço é fixo no código; o `token_uri` do arquivo é ignorado.
+- **Chave:** em `track-dados/config.php` (`ga4`), nunca volta para a tela. Remover a conexão apaga a chave, o token e os números guardados.
+- **Cota** (propriedade padrão): 200.000 tokens de cota por dia e 40.000 por hora. Três relatórios por propriedade por hora gastam poucos; a tela mostra o gasto do dia. Limite interno de 30 chamadas por minuto e pausa automática no 429 (`lib/ga4_api.php`).
+- **O que fica guardado:** só contagens por dia, endereço e evento, página ou origem (`ga4_eventos`, `ga4_paginas`, `ga4_origens`), por até 400 dias. Nenhum dado de pessoa.
+- **Leitura da diferença:** o GA4 de 10% a 35% abaixo do painel é o normal (bloqueadores, Brave, Safari, saída antes do gtag). Acima do painel, ou muito abaixo, indica página sem uma das tags ou evento duplicado. A tela também mostra o fuso e a moeda da propriedade, o limiar do Google Signals (*thresholding*), a linha "(other)" e as dimensões personalizadas registradas.
+
 ## 5. Textos obrigatórios
 
 **Aviso de Uso Limitado** (vai na Política de Privacidade e na página inicial do app):
@@ -146,7 +158,7 @@ O painel usa os dados do Google Ads só para os relatórios e o gestor da própr
 |---|---|
 | Chaves fora da pasta pública | `track-dados/config.php` (`lib/config.php`), bloqueada no `.htaccess` |
 | Só o necessário de cada pessoa | Vendas sem nome, e-mail, telefone ou CPF (`kiwify.php`); IP parcial nos visitantes |
-| Proteção contra bloqueio das APIs | Limite por minuto e pausa automática (`lib/meta_api.php`, `lib/kiwify_api.php`) |
+| Proteção contra bloqueio das APIs | Limite por minuto e pausa automática (`lib/meta_api.php`, `lib/kiwify_api.php`, `lib/ga4_api.php`) |
 | Edição só com confirmação e histórico | `lib/gestor_editar.php`, `meta_alteracoes` |
 | Desconectar | Remover token em cada tela de Integrações (a revogação na plataforma vem com o conector) |
 | Retenção | `dias_retencao` na instalação (padrão 90 dias) |

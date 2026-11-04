@@ -2,7 +2,7 @@
 // Integracoes (nucleo): onde se ligam as contas de fora (anuncios, vendas, organico) e onde se
 // ve, de uma vez, o que esta conectado. Desenho da UTMify: uma aba por tipo, um cartao por
 // plataforma, com o estado e a seta para a tela dela. A tela e integracoes.php; as telas de
-// cada plataforma (meta-api.php, kiwify-api.php, instagram-api.php) abrem dentro dela, com
+// cada plataforma (meta-api.php, kiwify-api.php, instagram-api.php, ga4.php) abrem dentro dela, com
 // integracoes_topo().
 //
 // Para acrescentar uma aba: uma linha em INTEGRACOES_ABAS. Para acrescentar uma plataforma
@@ -14,6 +14,7 @@
 require_once __DIR__ . '/meta_sync.php';
 require_once __DIR__ . '/kiwify_sync.php';
 require_once __DIR__ . '/instagram_sync.php';
+require_once __DIR__ . '/ga4_sync.php';
 
 // id => [rotulo, icone, explicacao no topo da aba]
 const INTEGRACOES_ABAS = [
@@ -70,6 +71,11 @@ function integracoes_registro(): array
             'nome' => 'Instagram', 'aba' => 'organico', 'tela' => 'instagram-api.php', 'estado' => 'integracao_estado_instagram',
             'descricao' => 'Seguidores, alcance, toques no link da bio e os posts que mais engajam.',
             'avaliacao' => '4,8', 'avaliacoes_n' => '4.150', 'tipo' => 'Graph API & Insights', 'destaque' => true,
+        ],
+        'ga4' => [
+            'nome' => 'Google Analytics 4', 'aba' => 'rastreio', 'tela' => 'ga4.php', 'estado' => 'integracao_estado_ga4',
+            'descricao' => 'Confere eventos, páginas, origens e compras do GA4 com os números do painel.',
+            'tipo' => 'Data API · só leitura',
         ],
         'whatsapp' => [
             'nome' => 'WhatsApp', 'aba' => 'organico', 'tela' => null, 'breve' => 'Automático',
@@ -134,6 +140,17 @@ function integracao_estado_instagram(): array
         'erro' => $s['erro'] ?: null];
 }
 
+function integracao_estado_ga4(): array
+{
+    $k = ga4_api_chave();
+    if (!$k) {
+        return [];
+    }
+    $s = ga4_sync_estado();
+    return ['ligada' => true, 'conta' => implode(' · ', array_map(fn($p) => ($p['nome'] ?: 'Propriedade') . ' ' . $p['id'], $k['propriedades'])),
+        'detalhe' => $s['ok_em'] ? 'Última busca: ' . data_local($s['ok_em'], 'd/m H:i') : 'Ainda sem busca.', 'erro' => $s['erro'] ?: null];
+}
+
 // Logo de cada plataforma, em SVG embutido (a CSP nao carrega imagem de fora). Formas
 // simplificadas, so para reconhecer o cartao.
 function integracao_logo(string $id, int $tam = 36): string
@@ -150,6 +167,7 @@ function integracao_logo(string $id, int $tam = 36): string
         'taboola' => '<circle cx="7" cy="9" r="4" fill="#0052FF"/><circle cx="17" cy="9" r="4" fill="#0052FF"/><circle cx="7" cy="9" r="1.6" fill="#fff"/><circle cx="17" cy="9" r="1.6" fill="#fff"/><path d="M3.5 16c5 3.5 12 3.5 17 0" fill="none" stroke="#0052FF" stroke-width="2.6" stroke-linecap="round"/>',
         'kiwify' => $q('#16A34A', $letra('K')),
         'mercadopago' => $q('#00B1EA', $letra('MP')),
+        'ga4' => '<rect x="15" y="3" width="6" height="18" rx="3" fill="#F9AB00"/><rect x="9" y="9.5" width="6" height="11.5" rx="3" fill="#E37400"/><circle cx="6" cy="18" r="3" fill="#E37400"/>',
         'wiven' => $q('#6D28D9', $letra('W')),
         'instagram' => '<defs><linearGradient id="ig-grad-' . $n . '" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".35" stop-color="#FA7E1E"/><stop offset=".6" stop-color="#D62976"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs>'
             . '<rect width="24" height="24" rx="6" fill="url(#ig-grad-' . $n . ')"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16" cy="8" r="1" fill="#fff"/>',
@@ -233,9 +251,10 @@ function integracoes_lista(string $aba): string
             $selo = '<span class="selo alerta">Não conectado</span>';
         }
         $linhas = $s['ligada'] ? array_filter([$s['conta'], $s['detalhe']]) : [$i['descricao']];
-        $avaliacao = $i['avaliacao'] ?? '4,8';
-        $avaliacoes_n = $i['avaliacoes_n'] ?? '1.200';
         $tipo = $i['tipo'] ?? 'Oficial';
+        $nota = isset($i['avaliacao'])
+            ? '<span class="store-star">★</span> <b>' . e($i['avaliacao']) . '</b> <span class="suave">(' . e($i['avaliacoes_n'] ?? '') . ') · ' . e($tipo) . '</span>'
+            : '<span class="suave">' . e($tipo) . '</span>';
 
         $corpo = '<div class="store-card-top">'
             . integracao_logo($id, 44)
@@ -246,7 +265,7 @@ function integracoes_lista(string $aba): string
             . '</div>'
             . '<div class="integ-texto">'
             . '<div class="store-card-name-row"><b>' . e($i['nome']) . '</b></div>'
-            . '<div class="store-rating"><span class="store-star">★</span> <b>' . e($avaliacao) . '</b> <span class="suave">(' . e($avaliacoes_n) . ') · ' . e($tipo) . '</span></div>'
+            . '<div class="store-rating">' . $nota . '</div>'
             . '<small class="integ-desc">' . e(implode(' · ', $linhas)) . '</small>'
             . ($s['erro'] ? '<small class="integ-erro">' . e(texto((string)$s['erro'], 160)) . '</small>' : '')
             . '</div>'

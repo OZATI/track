@@ -57,12 +57,20 @@ export PUSH_FALSO_DIR="$TRACK_DADOS"
 # shellcheck disable=SC2086
 "$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_PUSH" "$RAIZ/tests/push-falso.php" >"$DADOS/push-falso.log" 2>&1 &
 PUSH_FALSO=$!
+# Google falso (tests/ga4-falsa.php): token e Data API do GA4. A chave da conta de servico de
+# teste e criada na secao GA4; o servidor le a chave publica no arquivo a cada pedido
+PORTA_GA4=$((PORTA + 5))
+export TRACK_GA4_API="http://127.0.0.1:$PORTA_GA4"
+export TRACK_GA4_CHAVE_PUBLICA="$(cygpath -w "$DADOS/ga4-publica.pem" 2>/dev/null || echo "$DADOS/ga4-publica.pem")"
+# shellcheck disable=SC2086
+"$PHP" $PHP_FLAGS -S "127.0.0.1:$PORTA_GA4" "$RAIZ/tests/ga4-falsa.php" >"$DADOS/ga4-falsa.log" 2>&1 &
+GA4_FALSA=$!
 # shellcheck disable=SC2086
 # Avisos do PHP vao para um arquivo (e nao para a tela): o fim do teste confere que nao sobrou nenhum
 ERROS_PHP="$(cygpath -w "$DADOS/php-erros.log" 2>/dev/null || echo "$DADOS/php-erros.log")"
 "$PHP" $PHP_FLAGS -d display_errors=0 -d log_errors=1 -d error_reporting=-1 -d "error_log=$ERROS_PHP" -S "127.0.0.1:$PORTA" -t "$RAIZ" >"$DADOS/servidor.log" 2>&1 &
 SERVIDOR=$!
-trap 'kill $SERVIDOR $API_FALSA $META_FALSA $IG_FALSA $PUSH_FALSO 2>/dev/null; rm -rf "$DADOS"' EXIT
+trap 'kill $SERVIDOR $API_FALSA $META_FALSA $IG_FALSA $PUSH_FALSO $GA4_FALSA 2>/dev/null; rm -rf "$DADOS"' EXIT
 sleep 1
 
 echo "Instalação"
@@ -1742,6 +1750,64 @@ confere "$(tem 'Histórico completo: gasto desde' "$(curl -s -b "$JAR" "$URL/met
 # shellcheck disable=SC2086
 pend=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; require "lib/historico.php"; echo historico_pendente() ? "sim" : "nao";')
 confere "$([ "$pend" = "nao" ]; echo $?)" "histórico completo não roda de novo ($pend)"
+
+echo "GA4 (conta de serviço e conferência)"
+destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/ga4.php")
+confere "$(tem 'entrar.php' "$destino")" "tela do GA4 exige login"
+r=$(curl -s -b "$JAR" "$URL/ga4.php")
+confere "$(tem 'Conectar o Google Analytics 4' "$r")" "tela do GA4 abre com o passo a passo e o formulário"
+confere "$(tem '<span aria-hidden="true">/</span><b>Google Analytics 4</b>' "$r")" "o GA4 abre dentro de Integrações, na aba Rastreio"
+csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
+# Chave de teste (RSA 2048) e o arquivo JSON no formato do Google Cloud
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$DADOS/ga4-chave.pem" 2>/dev/null
+openssl pkey -in "$DADOS/ga4-chave.pem" -pubout -out "$DADOS/ga4-publica.pem" 2>/dev/null
+# shellcheck disable=SC2086
+conta_ga4() { "$PHP" $PHP_FLAGS -r 'echo json_encode(["type" => "service_account", "project_id" => "projeto-teste", "private_key_id" => "abc",
+    "private_key" => file_get_contents($argv[1]), "client_email" => $argv[2], "token_uri" => "https://oauth2.googleapis.com/token"]);' \
+    "$(cygpath -w "$DADOS/ga4-chave.pem" 2>/dev/null || echo "$DADOS/ga4-chave.pem")" "$1"; }
+CONTA_GA4=$(conta_ga4 painel-ga4@projeto-teste.iam.gserviceaccount.com)
+salvar_ga4() { curl -s -b "$JAR" --data-urlencode "csrf=$1" --data-urlencode "acao=salvar" --data-urlencode "conta=$2" \
+    --data-urlencode "prop1_nome=Site" --data-urlencode "prop1_id=$3" --data-urlencode "prop2_nome=App" --data-urlencode "prop2_id=${4:-}" "$URL/ga4.php"; }
+confere "$(tem 'Sessão expirada' "$(salvar_ga4 "" "$CONTA_GA4" 111111111)")" "salvar sem o token é recusado"
+confere "$(tem 'Cole o conteúdo inteiro do arquivo' "$(salvar_ga4 "$csrf" '{nao e json' 111111111)")" "texto que não é o JSON da chave é recusado"
+confere "$(tem 'não é de conta de serviço' "$(salvar_ga4 "$csrf" '{"type":"authorized_user"}' 111111111)")" "JSON de outro tipo de credencial é recusado"
+confere "$(tem 'é o ID da métrica do fluxo de dados' "$(salvar_ga4 "$csrf" "$CONTA_GA4" G-Z3QNRRZJES)")" "ID da métrica (G-...) no lugar do ID da propriedade é explicado"
+r=$(salvar_ga4 "$csrf" "$CONTA_GA4" 999999999)
+confere "$(tem 'não tem acesso à propriedade 999999999' "$r")" "propriedade sem acesso: explica como dar o papel Leitor"
+confere "$(tem 'Nada foi salvo' "$r")" "propriedade sem acesso não salva nada"
+confere "$(tem 'Google Analytics Data API está desligada' "$(salvar_ga4 "$csrf" "$CONTA_GA4" 888888888)")" "API desligada no projeto: explica onde ativar"
+confere "$(tem 'O Google recusou a chave' "$(salvar_ga4 "$csrf" "$(conta_ga4 recusada@projeto-teste.iam.gserviceaccount.com)" 111111111)")" "chave apagada no Google Cloud é recusada"
+r=$(salvar_ga4 "$csrf" "$CONTA_GA4" 111111111 222222222)
+confere "$(tem 'Conta de serviço conferida e salva' "$r")" "conta de serviço com acesso é conferida e salva"
+confere "$(tem 'Site: 1.234 eventos' "$r")" "o teste mostra os eventos dos últimos 7 dias de cada propriedade"
+confere "$(grep -q 'PRIVATE KEY' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "a chave privada não volta para a tela"
+confere "$(tem 'painel-ga4@projeto-teste.iam.gserviceaccount.com' "$r")" "a tela mostra o e-mail da conta de serviço (para dar acesso no GA4)"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=atualizar" "$URL/ga4.php?periodo=7d")
+confere "$(tem 'Números do GA4 atualizados' "$r")" "Atualizar agora busca os três relatórios das duas propriedades"
+# shellcheck disable=SC2086
+ga4=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; $db = track_db();
+echo valor($db, "SELECT SUM(n) FROM ga4_eventos WHERE host = \"site.test\" AND evento = \"page_view\""), "|",
+    valor($db, "SELECT visualizacoes FROM ga4_paginas WHERE host = \"site.test\" AND pagina = \"/\""), "|",
+    valor($db, "SELECT valor FROM ga4_eventos WHERE host = \"app.site.test\" AND evento = \"purchase\""), "|",
+    valor($db, "SELECT sessoes FROM ga4_origens WHERE origem = \"metaads\""), "|", ajuste("ga4_api_token") ? "token" : "sem";')
+confere "$([ "$ga4" = "140|90|134|70|token" ]; echo $?)" "GA4 gravado: www. e /index.html juntam como no painel, valor da compra e origem em minúsculas ($ga4)"
+confere "$(tem '<th>site.test</th>' "$r")" "conferência por endereço mostra o site"
+confere "$(tem '<code>begin_checkout</code> × <code>CliqueCheckout</code>' "$r")" "conferência compara begin_checkout com o CliqueCheckout do painel"
+confere "$(tem '<code>baixar_arquivo</code></td><td><span class="selo alerta">Personalizado' "$r")" "mapa de eventos marca evento próprio do site como personalizado"
+confere "$(tem '<code>purchase</code></td><td><span class="selo neutro">Recomendado' "$r")" "mapa de eventos reconhece o purchase como recomendado"
+confere "$(tem 'R$ 134,00' "$r")" "compras do GA4 com o valor"
+confere "$(tem 'customEvent:formato' "$r")" "dimensões personalizadas da propriedade aparecem"
+confere "$(tem '<span class="selo alerta">sim</span>' "$r")" "limiar do Google (thresholding) aparece na propriedade do app"
+confere "$(tem 'Os números acabaram de ser buscados' "$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=atualizar" "$URL/ga4.php")")" "segundo Atualizar no mesmo minuto não chama o Google de novo"
+r=$(curl -s -b "$JAR" "$URL/integracoes.php?aba=rastreio")
+confere "$(tem 'data-integracao="ga4"><a href="ga4.php">' "$r")" "aba Rastreio de Integrações mostra o GA4"
+confere "$(tem 'Site 111111111 · App 222222222' "$r")" "cartão do GA4 conectado mostra as propriedades"
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" "$URL/ga4.php")
+confere "$(tem 'Conexão removida e números do GA4 apagados' "$r")" "remover desliga o GA4"
+# shellcheck disable=SC2086
+ga4=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; $db = track_db();
+echo (int)valor($db, "SELECT COUNT(*) FROM ga4_eventos") + (int)valor($db, "SELECT COUNT(*) FROM ga4_paginas"), "|", isset(track_config()["ga4"]) ? "chave" : "sem", "|", ajuste("ga4_api_token") ? "token" : "sem";')
+confere "$([ "$ga4" = "0|sem|sem" ]; echo $?)" "remover apaga a chave, o token e os números do GA4 ($ga4)"
 
 echo "Avisos do PHP"
 # Aviso escondido (variavel que nao existe, indice faltando) nao quebra a tela, mas na

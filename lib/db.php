@@ -360,6 +360,45 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 17;
             SQL);
     }
+    if ($versao < 18) {
+        // GA4 (lib/ga4_sync.php): so contagens por dia, para conferir com os eventos do painel.
+        // host sem "www." e pagina no formato de pagina_normal(), como os eventos.
+        track_migrar_para($pdo, 18, <<<'SQL'
+            CREATE TABLE IF NOT EXISTS ga4_eventos (
+                propriedade TEXT NOT NULL,
+                dia         TEXT NOT NULL,
+                host        TEXT NOT NULL,
+                evento      TEXT NOT NULL,
+                n           INTEGER NOT NULL,
+                usuarios    INTEGER NOT NULL,
+                valor       REAL NOT NULL DEFAULT 0,
+                chave       INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (propriedade, dia, host, evento)
+            );
+            CREATE TABLE IF NOT EXISTS ga4_paginas (
+                propriedade   TEXT NOT NULL,
+                dia           TEXT NOT NULL,
+                host          TEXT NOT NULL,
+                pagina        TEXT NOT NULL,
+                visualizacoes INTEGER NOT NULL,
+                usuarios      INTEGER NOT NULL,
+                PRIMARY KEY (propriedade, dia, host, pagina)
+            );
+            CREATE TABLE IF NOT EXISTS ga4_origens (
+                propriedade TEXT NOT NULL,
+                dia         TEXT NOT NULL,
+                host        TEXT NOT NULL,
+                origem      TEXT NOT NULL,
+                midia       TEXT NOT NULL,
+                campanha    TEXT NOT NULL,
+                sessoes     INTEGER NOT NULL,
+                usuarios    INTEGER NOT NULL,
+                chave       INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (propriedade, dia, host, origem, midia, campanha)
+            );
+            PRAGMA user_version = 18;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

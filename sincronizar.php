@@ -12,6 +12,7 @@ require __DIR__ . '/lib/util.php';
 require_once __DIR__ . '/lib/kiwify_sync.php';
 require_once __DIR__ . '/lib/meta_sync.php';
 require_once __DIR__ . '/lib/instagram_sync.php';
+require_once __DIR__ . '/lib/ga4_sync.php';
 require_once __DIR__ . '/lib/historico.php';
 
 header('Cache-Control: no-store');
@@ -49,6 +50,12 @@ if ($json) {
         $resposta['buscou'] = true;
         $resposta['ok'] = $resposta['ok'] && ($r['ok'] || !empty($r['ocupado']));
         $resposta['atualizadas'] += $r['ok'] ? 1 : 0;
+    }
+    // GA4 (conferencia em ga4.php): de hora em hora. Nao recarrega a tela nem vira erro nela: o
+    // GA4 so aparece em ga4.php, que mostra o erro da ultima busca
+    if (ga4_sync_vencida()) {
+        ga4_sincronizar();
+        $resposta['buscou'] = true;
     }
     // Historico (vendas e gasto de antes dos 89 dias): ate 25 s por rodada, com o tempo que sobrou
     if (historico_vencido()) {
