@@ -366,12 +366,16 @@ td.quebra{ white-space:normal; min-width:220px; }
   .painel-grade .pw-graf{ height:230px; min-height:0; }
   .painel-grade .vel-caixa{ height:210px; }
 }
-.pw{ container-type:inline-size; display:flex; flex-direction:column; gap:6px; height:100%; min-height:0; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); overflow:hidden; }
+.pw{ container-type:inline-size; container-name:pw; display:flex; flex-direction:column; gap:6px; height:100%; min-height:0; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); overflow:hidden; }
 .pw-cab{ display:flex; justify-content:space-between; align-items:flex-start; gap:8px; color:var(--suave); font-size:13px; font-weight:500; flex:none; }
 .pw-tit{ display:inline-flex; align-items:center; gap:6px; min-width:0; }
 .pw-tit > span:first-child{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.3; }
 .pw-corpo{ flex:1; min-height:0; overflow:auto; }
-.pw-numero .pw-corpo{ display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden; }
+/* Numero embaixo quando sobra altura; quando falta, o excesso vai para baixo, nunca para cima. Com
+   justify-content:flex-end o que passava da altura subia e o numero sumia por baixo do titulo (CPA no
+   print do celular, 04/11/2026). margin-top:auto empurra igual e nao fica negativa. Vale para todo numero. */
+.pw-numero .pw-corpo{ display:flex; flex-direction:column; justify-content:flex-start; overflow:hidden; }
+.pw-numero .pw-corpo > :first-child{ margin-top:auto; }
 .pw-num{ font-size:24px; font-weight:600; line-height:1.2; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pw-corpo > small{ color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* Cartao estreito (2 colunas): o numero diminui para caber inteiro */
@@ -405,7 +409,8 @@ td.quebra{ white-space:normal; min-width:220px; }
 .painel-novo.usado > .grid-stack-item-content{ opacity:.45; border-style:solid; }
 .painel-novo-usado{ margin-left:auto; color:var(--suave); font-size:11px; }
 .pw-aviso{ display:flex; align-items:center; gap:5px; margin-top:auto; color:var(--suave); font-size:12px; white-space:normal !important; }
-.pw-sem-fonte .pw-corpo{ display:flex; flex-direction:column; justify-content:flex-end; }
+.pw-sem-fonte .pw-corpo{ display:flex; flex-direction:column; justify-content:flex-start; }
+.pw-sem-fonte .pw-corpo > :first-child{ margin-top:auto; }
 .painel-moldura{ min-width:0; }
 .painel-moldura.celular{ width:390px; max-width:100%; margin:0 auto; padding:10px; border:1px solid var(--linha-forte); border-radius:24px; background:var(--fundo); }
 .painel-moldura .grid-stack{ min-height:400px; border:1px dashed var(--linha); border-radius:var(--r-md); }
@@ -540,6 +545,14 @@ td.quebra{ white-space:normal; min-width:220px; }
 @container (max-width:300px){
   .cpa-valor{ grid-template-areas:"num num" "sub regua"; column-gap:10px; align-items:start; }
   .cpa-sub-longo{ display:none; }
+}
+/* Cartao estreito (celular e print): a regua desce para baixo do numero, entao fica mais baixa para
+   o bloco caber na altura de um numero comum. Pelo tamanho do cartao (pw), nao da propria regua. */
+@container pw (max-width:300px){
+  .cpa-valor{ row-gap:1px; }
+  .cpa-regua{ gap:1px; }
+  .cpa-trilho{ margin-top:3px; height:7px; }
+  .cpa-escala{ height:11px; font-size:10px; line-height:11px; }
 }
 .cpa-regua{ container-type:inline-size; min-width:64px; display:flex; flex-direction:column; gap:3px; padding:0 6px; cursor:help; }
 .cpa-regua:focus{ outline:none; }
