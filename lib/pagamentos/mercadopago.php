@@ -37,12 +37,15 @@ function pag_mp_payload(array $order, array $buyer, array $payment, int $maxInst
         }
         $method = ['id' => $payment['bandeira'], 'type' => $payment['tipo'],
             'token' => $payment['token'], 'installments' => $payment['parcelas']];
+        // Nome na fatura do cartão: o site define PAG_MP_DESCRITOR (até 13 letras, números ou espaço)
+        $descritor = pag_mp_descritor();
+        if ($descritor !== '') $method['statement_descriptor'] = $descritor;
     } elseif (($payment['metodo'] ?? '') !== 'pix') {
         throw new InvalidArgumentException('Forma de pagamento inválida.');
     }
     $transaction = ['amount' => $amount, 'payment_method' => $method];
     if ($method['id'] === 'pix') $transaction['expiration_time'] = 'PT30M';
-    $payer = ['email' => $buyer['email']];
+    $payer = ['email' => $buyer['email']] + pag_mp_nome_pagador((string)($buyer['nome'] ?? ''));
     // Documento exigido pelo Brick só transita na API. Não entra no banco nem em logs.
     if (isset($payment['identificacao'])) {
         $doc = $payment['identificacao'];
@@ -52,9 +55,51 @@ function pag_mp_payload(array $order, array $buyer, array $payment, int $maxInst
         }
         $payer['identification'] = $doc;
     }
-    return ['type' => 'online', 'processing_mode' => 'automatic', 'total_amount' => $amount,
+    $body = ['type' => 'online', 'processing_mode' => 'automatic', 'total_amount' => $amount,
         'external_reference' => $order['id'], 'payer' => $payer,
         'transactions' => ['payments' => [$transaction]]];
+    $items = pag_mp_itens($order);
+    if ($items) $body['items'] = $items;
+    return $body;
+}
+
+// Medição de qualidade do Mercado Pago (05/11/2026): nome do comprador, itens e nome na fatura.
+// Mesma regra da Edge Function do EngDesk (_shared/mp.ts). Só campos do exemplo da referência com
+// valor seguro: um campo inválido devolve 400, que vira "recusada" para quem compra.
+function pag_mp_descritor(): string
+{
+    $d = defined('PAG_MP_DESCRITOR') ? (string)constant('PAG_MP_DESCRITOR') : '';
+    return preg_match('/^[A-Z0-9 ]{1,13}$/D', $d) ? $d : '';
+}
+
+// payer.first_name e last_name: o nome dividido no primeiro espaço. Sem nome, não manda nada.
+function pag_mp_nome_pagador(string $nome): array
+{
+    $partes = preg_split('/\s+/u', trim(str_replace(['<', '>', '"'], ' ', $nome)), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    if (!$partes) return [];
+    $out = ['first_name' => mb_substr($partes[0], 0, 60)];
+    if (count($partes) > 1) $out['last_name'] = mb_substr(implode(' ', array_slice($partes, 1)), 0, 100);
+    return $out;
+}
+
+// items[]: os arquivos congelados no pedido, com o preço do banco. A soma tem de bater com o total;
+// se não bater, não cobra (o pedido continua "novo" e a página mostra que não deu).
+function pag_mp_itens(array $order): array
+{
+    $itens = json_decode((string)($order['itens'] ?? '[]'), true);
+    if (!is_array($itens) || !$itens) return [];
+    if (array_sum(array_map(fn($i) => (int)($i['centavos'] ?? 0), $itens)) !== (int)$order['total']) {
+        throw new RuntimeException('Itens não somam o total do pedido.');
+    }
+    $projeto = (string)($order['projeto'] ?? '');
+    $plano = str_starts_with($projeto, 'plano-');
+    return array_map(fn($i) => [
+        'title' => mb_substr(($plano || $projeto === '') ? (string)$i['nome'] : $projeto . ' - ' . $i['nome'], 0, 120),
+        'description' => $plano ? 'Plano de acesso' : 'Arquivo digital',
+        'unit_price' => number_format((int)$i['centavos'] / 100, 2, '.', ''),
+        'quantity' => 1,
+        'external_code' => substr(preg_replace('/[^A-Za-z0-9_-]/', '-', (string)$i['id']), 0, 64),
+    ], $itens);
 }
 
 function pag_mp_normalizar(array $raw, array $order): array

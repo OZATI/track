@@ -19,6 +19,21 @@ $payload = pag_mp_payload($order,$buyer,['metodo'=>'pix']);
 check($payload['transactions']['payments'][0]['expiration_time']==='PT30M','Pix 30 minutos');
 check($payload['total_amount']==='29.90','Valor enviado como string');
 rejects(fn()=>pag_mp_payload($order,$buyer,['metodo'=>'cartao','token'=>'token','bandeira'=>'visa','tipo'=>'credit_card','parcelas'=>12]),'Parcelamento limitado');
+// Medição de qualidade (05/11/2026): nome do comprador, itens e nome na fatura
+$cartao = ['metodo'=>'cartao','token'=>'tok123','bandeira'=>'visa','tipo'=>'credit_card','parcelas'=>1];
+check($payload['payer']['first_name']==='Comprador' && $payload['payer']['last_name']==='teste','Nome do comprador dividido');
+check(pag_mp_nome_pagador('')===[] && pag_mp_nome_pagador('  Kenio ')===['first_name'=>'Kenio'],'Sem nome ou nome único');
+check(!preg_match('/[<>"]/', implode(' ', pag_mp_nome_pagador('<b>Ana</b> "Lima"'))),'Nome sem sinal de HTML');
+check($payload['items']===[['title'=>'PRJ-001 - RVT','description'=>'Arquivo digital','unit_price'=>'29.90','quantity'=>1,'external_code'=>'item-1']],'Itens com o preço do pedido');
+check(!isset(pag_mp_payload($order,$buyer,$cartao)['transactions']['payments'][0]['payment_method']['statement_descriptor']),'Sem descritor definido pelo site, não manda');
+define('PAG_MP_DESCRITOR', 'DRIVEPROJETOS');
+check(pag_mp_payload($order,$buyer,$cartao)['transactions']['payments'][0]['payment_method']['statement_descriptor']==='DRIVEPROJETOS','Nome na fatura no cartão');
+check(!isset($payload['transactions']['payments'][0]['payment_method']['statement_descriptor']) &&
+    !isset(pag_mp_payload($order,$buyer,['metodo'=>'pix'])['transactions']['payments'][0]['payment_method']['statement_descriptor']),'Pix sem nome na fatura');
+$plano = pag_mp_itens(['projeto'=>'plano-pdf-vitalicio','total'=>9700,'itens'=>json_encode([['id'=>'plano:pdf-vitalicio','nome'=>'Acesso vitalício aos PDFs','centavos'=>9700]])]);
+check($plano[0]['title']==='Acesso vitalício aos PDFs' && $plano[0]['external_code']==='plano-pdf-vitalicio','Plano sem código de projeto e sem ":"');
+rejects(fn()=>pag_mp_payload(array_replace($order,['total'=>1]),$buyer,['metodo'=>'pix']),'Itens que não somam o total não viram cobrança');
+check(!isset(pag_mp_payload(array_replace($order,['itens'=>'[]']),$buyer,['metodo'=>'pix'])['items']),'Pedido sem itens sai como antes');
 $raw = ['id'=>'ORD1234567890ABCDE','external_reference'=>$order['id'],'total_amount'=>'29.90',
     'status'=>'action_required','status_detail'=>'waiting_transfer','country_code'=>'BRA',
     'transactions'=>['payments'=>[['payment_method'=>['qr_code'=>'PIX_TESTE','qr_code_base64'=>'abc']]]]];
