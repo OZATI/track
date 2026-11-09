@@ -542,7 +542,8 @@ td.quebra{ white-space:normal; min-width:220px; }
    com a escala embaixo e a meta em verde. Cabe no bloco estreito sem empurrar o numero. */
 /* Bloco largo: numero e texto a esquerda e a regua a direita, alinhada embaixo (como a linha dos outros
    numeros). Estreito: a regua desce para a linha do texto, que fica so "72%". */
-.cpa-valor{ display:grid; grid-template-columns:auto minmax(0, 1fr); grid-template-areas:"num regua" "sub regua"; column-gap:24px; align-items:end; }
+/* O gap:10px de .pw-valor nao cabe entre as linhas do CPA no cartao de 110px. */
+.cpa-valor{ display:grid; grid-template-columns:auto minmax(0, 1fr); grid-template-areas:"num regua" "sub regua"; column-gap:24px; row-gap:0; align-items:end; }
 .cpa-valor > .pw-num{ grid-area:num; }
 .cpa-valor > small{ grid-area:sub; min-width:0; color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cpa-valor .delta{ font-size:12px; font-weight:600; }
@@ -550,14 +551,6 @@ td.quebra{ white-space:normal; min-width:220px; }
 @container (max-width:300px){
   .cpa-valor{ grid-template-areas:"num num" "sub regua"; column-gap:10px; align-items:start; }
   .cpa-sub-longo{ display:none; }
-}
-/* Cartao estreito (celular e print): a regua desce para baixo do numero, entao fica mais baixa para
-   o bloco caber na altura de um numero comum. Pelo tamanho do cartao (pw), nao da propria regua. */
-@container pw (max-width:300px){
-  .cpa-valor{ row-gap:1px; }
-  .cpa-regua{ gap:1px; }
-  .cpa-trilho{ margin-top:3px; height:7px; }
-  .cpa-escala{ height:11px; font-size:10px; line-height:11px; }
 }
 .cpa-regua{ container-type:inline-size; min-width:64px; display:flex; flex-direction:column; gap:3px; padding:0 6px; cursor:help; }
 .cpa-regua:focus{ outline:none; }
@@ -572,6 +565,14 @@ td.quebra{ white-space:normal; min-width:220px; }
 .cpa-escala span{ position:absolute; top:0; }
 .cpa-escala span:first-child{ left:0; } .cpa-escala span:last-child{ right:0; } /* as pontas por dentro do bloco */
 .cpa-escala .cpa-escala-meta{ left:var(--meta); transform:translateX(-50%); color:var(--ok); font-weight:600; }
+/* Depois das regras base para nao serem sobrescritas: no cartao estreito a regua
+   fica na segunda linha e precisa caber junto do valor, inclusive no print. */
+@container pw (max-width:300px){
+  .cpa-valor{ row-gap:1px; }
+  .cpa-regua{ gap:1px; }
+  .cpa-trilho{ margin-top:3px; height:7px; }
+  .cpa-escala{ height:11px; font-size:10px; line-height:11px; }
+}
 @container (max-width:110px){ .cpa-escala span:first-child, .cpa-escala span:last-child{ display:none; } } /* regua curta: so a meta */
 .pw-sub{ display:flex; align-items:center; gap:6px; margin:12px 0 4px; font-size:13px; font-weight:600; }
 .pw-sub:first-child{ margin-top:0; }
