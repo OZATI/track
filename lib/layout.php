@@ -200,10 +200,10 @@ main{ animation:entrar .32s cubic-bezier(.2,.7,.2,1) backwards; } /* backwards: 
 .abas a:focus-visible{ outline:2px solid var(--marca); outline-offset:-2px; border-radius:var(--r-sm); }
 .abas .ico{ display:none; flex:none; color:var(--apagado); }
 .abas a:hover .ico{ color:var(--suave); } .abas a.atual .ico{ color:var(--marca); }
-/* Icones como no menu do CMS a partir de 1280 px; o titulo ("UTM · Rastreio de vendas") so na tela bem
+/* Icones como no menu do CMS a partir de 1280 px; o titulo das abas do UTM so na tela bem
    larga, onde cabe junto (a barra lateral ja diz UTM) */
 @media (min-width:1280px){ .abas .ico{ display:inline-block; } }
-@media (max-width:1599px){ .abas-titulo{ display:none; } }
+@media (max-width:1599px){ .abas:not(.abas-nucleo) .abas-titulo{ display:none; } } /* DRE, BIO, Admin: poucas abas, o titulo cabe */
 .abas-espaco{ margin-left:auto; }
 /* Censura: no modo compartilhar e no print, o miolo do bloco marcado com o olho fica borrado (o titulo
    continua), sem clique nem dica (a dica do grafico mostraria o numero) */

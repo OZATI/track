@@ -61,11 +61,12 @@ $num = fn(float $v, int $c = 1) => number_format($v, $c, ',', '.');
 
 pagina_inicio('BIO');
 casca_inicio('bio');
-barra_periodo('bio.php', $periodo);
+// A navegacao vem antes do filtro, como no UTM e no CMS (10/11/2026, pedido do Kenio)
 echo '<nav class="abas abas-nucleo" aria-label="BIO"><span class="abas-titulo">BIO · Página de links</span>'
     . '<a href="bio.php" class="atual" aria-current="page">' . icone('link') . 'Links</a>'
     . ($cfg['endereco'] !== '' ? '<a href="' . e($cfg['endereco']) . '" target="_blank" rel="noopener">' . icone('externo') . 'Ver a página</a>' : '')
     . '</nav>';
+barra_periodo('bio.php', $periodo);
 ?>
 <main>
 <?php

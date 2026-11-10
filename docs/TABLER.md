@@ -37,7 +37,9 @@ Integrações 2 px menor.
 
 As abas do UTM (`abas_painel`) têm o desenho do navbar do Tabler e do menu do CMS do engdesk: 48 px,
 ícone apagado (a aberta na cor da marca) a partir de 1280 px, título "UTM · Rastreio de vendas" só a
-partir de 1600 px. A navegação vem **antes** do filtro (`barra_topo`), que continua preso no alto ao rolar.
+partir de 1600 px. A navegação vem **antes** do filtro em todas as telas (`barra_topo` no UTM, e no DRE e na BIO as abas antes
+do `barra_periodo`); o filtro continua preso no alto ao rolar. O título das abas some abaixo de 1600 px
+só no UTM (as abas do núcleo, DRE, BIO e Admin, têm poucas abas e o título cabe).
 
 ## Gráficos
 

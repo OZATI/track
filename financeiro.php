@@ -23,12 +23,13 @@ if ($aba !== 'despesas') {
     grade_lapis($aba === 'fluxo' ? 'fluxo' : 'financeiro'); // DRE e fluxo sao montaveis: o lapis na barra lateral
 }
 casca_inicio('financeiro');
-barra_periodo('financeiro.php', $periodo, ['aba' => $aba]);
+// A navegacao vem antes do filtro, como no UTM e no CMS (10/11/2026, pedido do Kenio)
 echo '<nav class="abas abas-nucleo" aria-label="DRE"><span class="abas-titulo">DRE · Resultado da empresa</span>';
 foreach (FIN_ABAS as $k => [$rot, $ico]) {
     echo '<a href="' . e('financeiro.php?' . http_build_query(['aba' => $k])) . '"' . ($k === $aba ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico) . e($rot) . '</a>';
 }
 echo '</nav>';
+barra_periodo('financeiro.php', $periodo, ['aba' => $aba]);
 echo '<main>';
 financeiro_render($db, $periodo, $aba);
 echo '</main>';
