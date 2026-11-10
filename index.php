@@ -254,7 +254,9 @@ if ($aba === 'geral' && grade_print_formato() !== null) {
     exit;
 }
 
-pagina_inicio('Painel');
+// O titulo da janela diz a tela aberta ("Resumo · UTM"), para o historico e as abas do navegador
+pagina_inicio(([ 'geral' => 'Resumo', 'trafego' => 'Tráfego', 'gestor' => 'Gestor de anúncios', 'campanha' => 'Gestor de anúncios', 'organico' => 'Orgânico',
+    'resumo' => 'Conferência', 'vendas' => 'Vendas', 'visitantes' => 'Visitantes', 'eventos' => 'Eventos'][$aba] ?? 'Resumo') . ' · UTM');
 if ($aba === 'geral') {
     grade_lapis('resumo'); // o Resumo e montavel: o lapis aparece na barra lateral
 }

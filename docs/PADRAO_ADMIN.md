@@ -31,6 +31,17 @@ admin/
 
 - **Barra lateral** (`admin_lateral`): os painéis (CMS, UTM, DRE, BIO, Integrações) em cima e a conta
   embaixo. Ícone com nome curto.
+- **Um lugar e um sentido para cada coisa** (10/11/2026, pedido do Kenio: botão repetido e o Guia levando
+  "para outro local ruim"):
+  - **Guia:** só o ícone de livro na barra lateral (aparece quando o site tem `admin/guia/`). Abre o guia
+    na parte sobre a tela atual (`?de=painel:aba`), com a parte marcada ("Esta tela") e a barra presa com
+    "← Voltar para <tela>" (`?volta=`). O guia é do admin inteiro: nenhum painel marcado, sem menu de módulo.
+    Nunca repetir o Guia nas abas, no menu do módulo ou no "Mais".
+  - **Engrenagem:** só no painel com configurações próprias (o UTM), levando a elas.
+  - **A foto:** sempre Minha conta (foto, senha, usuários e sair).
+  - **Abas, menu do módulo e "Mais":** só as seções do painel. Ferramentas da tela (Atualizar, Print,
+    Compartilhar, os (i), Montar a tela) ficam na barra lateral.
+  - **Título da janela:** "<tela> · <painel> · <app>" (ex.: "Resumo · UTM · Admin").
 - **Menu do módulo no alto, ACIMA dos filtros**, com ícones (a partir de 1280 px), em grupos, o mesmo em
   todas as telas do módulo e no mesmo lugar (fica preso no alto ao rolar). Uma função só desenha o menu
   (no EngDesk, `cms_nav`); tela nova entra na lista de seções, nunca com menu próprio.

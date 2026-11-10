@@ -160,13 +160,15 @@ confere "$(tem '<span>Direto / sem origem</span>' "$r")" "visita sem etiqueta ne
 confere "$(tem '<span>Direto / sem origem</span><span class="info"' "$r")" "Direto / sem origem tem o (i) explicando"
 confere "$(grep -q 'id="form-sair"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Sair saiu do topo (fica em Configurações)"
 confere "$(tem 'id="csrf-painel"' "$r")" "token do painel num campo próprio no topo (busca em segundo plano e notificações)"
-confere "$(tem 'class="conta-icone" href="conta.php" title="Configurações: minha conta' "$r")" "a engrenagem (Configurações) leva a Minha conta (núcleo do admin)"
+confere "$(tem 'class="conta-icone" href="configuracoes.php" title="Configurações do UTM' "$r")" "no UTM, a engrenagem leva às Configurações do UTM (um lugar só, 10/11/2026)"
+confere "$(tem 'class="conta-perfil" href="conta.php" title="Minha conta' "$r")" "a foto leva a Minha conta (núcleo do admin)"
+confere "$(tem '<title>Tráfego · UTM · ' "$r")" "o título da janela diz a aba aberta"
 confere "$(tem 'class="conta-perfil"' "$r")" "bolinha do perfil"
 confere "$(tem '<div class="lateral-conta">' "$r")" "a conta fica na barra lateral do admin (é do admin inteiro)"
 confere "$(tem 'data-lateral-alterna' "$r")" "no celular, a barra do admin recolhe numa linha (a seta abre)"
 confere "$(grep -q 'href="usuarios.php" title="Usuários' < <(printf '%s
 ' "$r"); [ $? -ne 0 ]; echo $?)" "Usuários saiu da barra lateral (fica nas Configurações, a engrenagem)"
-confere "$(tem '<a href="configuracoes.php" class="">.*Configurações</a></nav>' "$r")" "Configurações do UTM nas abas do painel"
+confere "$(grep -q '<a href="configuracoes.php" class="">' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Configurações do UTM saiu das abas (fica na engrenagem, sem repetir)"
 confere "$(grep -q 'class="topo-resumo\|data-recolher' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "os filtros não recolhem mais: ficam sempre à mostra"
 confere "$(tem 'data-periodo-campo' "$r")" "período com o seletor de calendário"
 confere "$(tem '<label class="multi-todos"><input type="checkbox" data-multi-todos checked>Todos (com order bump)</label>' "$r")" "Produto com Todos como a primeira caixa"
@@ -1185,7 +1187,7 @@ echo "Configurações, app e notificações"
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' "$URL/configuracoes.php")
 confere "$(tem 'entrar.php' "$destino")" "Configurações exige login"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
-confere "$(tem 'class="conta-icone" href="conta.php"' "$r")" "a engrenagem leva a Minha conta"
+confere "$(tem 'class="conta-perfil" href="conta.php"' "$r")" "a foto leva a Minha conta (a engrenagem, no UTM, leva às Configurações do UTM)"
 confere "$(tem '<link rel="manifest" href="manifest.php">' "$r")" "painel aponta o manifesto do app"
 r=$(curl -s -b "$JAR" "$URL/configuracoes.php")
 t=$(sem_tags "$r")

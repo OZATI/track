@@ -33,7 +33,7 @@ function pagina_inicio(string $titulo): void
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title><?= e($titulo) ?> · Rastreio</title>
+<title><?= e($titulo) ?> · <?= e((string)((track_config() ?? [])['app_nome'] ?? '') ?: 'Admin') ?></title>
 <link rel="manifest" href="<?= e(admin_base()) ?>manifest.php">
 <meta name="theme-color" content="<?= e(tema_atual()) ?>">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1696,43 +1696,25 @@ function abas_painel(string $aba, array $filtro = []): void
         $q = http_build_query(['aba' => $id] + abas_filtro($id, $filtro));
         echo '<a href="./?' . e($q) . '" class="' . ($aba === $id ? 'atual' : '') . '">' . icone($ico) . e($rotulo) . '</a>';
     }
-    echo '<span class="abas-espaco"></span>';
-    // Guia do admin (ex.: admin.engdesk.pro/guia): so quando o site que hospeda o painel tem um
-    if (is_file(__DIR__ . '/../../guia/index.php')) {
-        echo '<a href="../guia/">' . icone('guia') . 'Guia</a>';
-    }
-    // As chaves da Kiwify, da Meta e do Instagram moram em Integracoes (barra lateral), desde 07/10/2026
-    echo '<a href="configuracoes.php" class="' . ($aba === 'configuracoes' ? 'atual' : '') . '">' . icone('config') . 'Configurações</a></nav>';
+    // So as secoes do painel (10/11/2026): o Guia e as Configuracoes do UTM ficam na barra lateral, um lugar so
+    // (admin_lateral), em vez de repetidos aqui. As chaves da Kiwify, da Meta e do Instagram moram em Integracoes.
+    echo '</nav>';
 
     // Celular: barra fixa embaixo com as 4 telas mais usadas; o resto em "Mais"
     $link = fn(string $id) => './?' . http_build_query(['aba' => $id] + abas_filtro($id, $filtro));
     $item = fn(string $href, string $id, string $ico, string $rotulo) => '<a href="' . e($href) . '"' . ($aba === $id ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico, 20) . '<span>' . e($rotulo) . '</span></a>';
+    // "Mais" so com as outras secoes: Configuracoes, Integracoes, Usuarios, Guia, Print, Compartilhar e os (i)
+    // ficam no menu de cima (a barra lateral), sem repetir aqui
     $mais = [['organico', $link('organico'), 'folha', 'Orgânico'], ['resumo', $link('resumo'), 'conferencia', 'Conferência'],
         ['visitantes', $link('visitantes'), 'visitantes', 'Visitantes'], ['eventos', $link('eventos'), 'eventos', 'Eventos']];
-    $config = [['configuracoes', 'configuracoes.php', 'config', 'Configurações']];
-    if (usuario_pode('integracoes')) {
-        $config[] = ['integracoes', 'integracoes.php', 'clipe', 'Integrações'];
-    }
-    if (usuario_pode('usuarios')) {
-        $config[] = ['usuarios', admin_url('usuarios'), 'usuarios', 'Usuários'];
-    }
-    if (is_file(__DIR__ . '/../../guia/index.php')) {
-        $config[] = ['guia', '../guia/', 'guia', 'Guia'];
-    }
-    $noMais = in_array($aba, array_column(array_merge($mais, $config), 0), true);
+    $noMais = in_array($aba, array_column($mais, 0), true);
     echo '<nav class="nav-celular" aria-label="Navegação do painel">' . $item($link('geral'), 'geral', 'resumo', 'Resumo') . $item($link('trafego'), 'trafego', 'trafego', 'Tráfego')
         . $item($link('gestor'), 'gestor', 'meta', 'Gestor') . $item($link('vendas'), 'vendas', 'vendas', 'Vendas')
         . '<details class="nav-mais' . ($noMais ? ' atual' : '') . '"><summary>' . icone('mais', 20) . '<span>Mais</span></summary><div class="nav-mais-painel">';
     foreach ($mais as [$id, $href, $ico, $rot]) {
         echo $item($href, $id, $ico, $rot);
     }
-    echo '<hr>';
-    foreach ($config as [$id, $href, $ico, $rot]) {
-        echo $item($href, $id, $ico, $rot);
-    }
-    echo '<button type="button" data-print-abrir>' . icone('camera', 20) . '<span>Print</span></button>';
-    echo compartilhar_botao('', 20, true) . info_botao('', 20, true);
-    echo '</div></details></nav>' . print_dialogo();
+    echo '</div></details></nav>';
 }
 
 // As ferramentas da tela na barra lateral (admin_lateral), acima do lapis: Atualizar (busca agora

@@ -173,6 +173,7 @@ function admin_css_base(): string
 .lateral .conta-icone[data-info-alternar][aria-pressed="false"]{ opacity:.5; }
 .lateral .conta-perfil{ display:inline-flex; align-items:center; gap:8px; padding:3px; margin-top:4px; border-radius:999px; color:#fff; font-weight:500; }
 .lateral .conta-perfil:hover{ background:rgba(255,255,255,.08); text-decoration:none; }
+.lateral .conta-perfil.atual{ background:rgba(255,255,255,.1); }
 .lateral .conta-perfil > span:not(.avatar){ display:none; }
 .lateral .tema-painel{ left:calc(100% + 10px); right:auto; top:auto; bottom:0; color:var(--texto); }
 .tema-menu{ position:relative; }
@@ -231,6 +232,7 @@ function admin_css_base(): string
   .lateral .conta-icone[data-compartilhar][aria-pressed="true"]::after{ content:"Parar de compartilhar"; }
   /* Quem entrou, no alto da parte da conta */
   .lateral .conta-perfil{ order:-1; align-self:stretch; gap:12px; margin:0; padding:8px 12px; border-radius:10px; font-size:15px; }
+  .lateral .conta-perfil::after{ content:"Minha conta"; margin-left:auto; color:#8B93A1; font-size:13px; font-weight:400; }
   .lateral .conta-perfil > span:not(.avatar){ display:inline; }
   .lateral .tema-painel{ position:fixed; left:12px; right:12px; top:auto; bottom:calc(12px + env(safe-area-inset-bottom)); width:auto; z-index:60; }
 }
@@ -295,7 +297,9 @@ function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms =
     if (usuario_pode('integracoes')) {
         $paineis['integracoes'] = ['Integrações', $utm . 'integracoes.php', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg>'];
     }
-    $atual = $paineis[$aqui] ?? ['Admin', './', icone(['usuarios' => 'usuarios'][$aqui] ?? 'usuario', 20)];
+    // A barra de cima do celular diz onde voce esta: o painel, ou a tela do admin inteiro (Guia, Minha conta, Usuarios)
+    $telasNucleo = ['guia' => ['Guia', 'guia'], 'conta' => ['Minha conta', 'usuario'], 'usuarios' => ['Usuários', 'usuarios']];
+    $atual = $paineis[$aqui] ?? [($telasNucleo[$aqui] ?? ['Admin'])[0], './', icone(($telasNucleo[$aqui] ?? [null, 'usuario'])[1], 20)];
     $marca = fn(string $tela) => $aqui === $tela ? ' atual" aria-current="page' : '';
     $h = '<nav class="lateral" aria-label="Admin" data-lateral><input type="hidden" id="csrf-painel" value="' . e(token_csrf()) . '">'
         . '<button type="button" class="lateral-alterna" data-lateral-alterna aria-expanded="false" aria-controls="lateral-itens" aria-label="Abrir o menu do admin">'
@@ -311,10 +315,24 @@ function admin_lateral(string $aqui = 'utm', ?string $utm = null, ?string $cms =
     $h .= '</div><div class="lateral-conta">' . $ferramentas;
     // Lapis: monta a tela aberta, quando ela e montavel (lib/grade.php)
     $h .= function_exists('grade_lapis_html') ? grade_lapis_html() : '';
+    // Um lugar e um sentido para cada coisa (10/11/2026, pedido do Kenio: o botao repetido e o Guia que levava
+    // "para outro local ruim"):
+    // - Guia (quando o site tem um, ex.: admin.engdesk.pro/guia): abre o guia NA PARTE desta tela (?de=painel:aba)
+    //   e o guia mostra o Voltar para ela (?volta=). Saiu das abas do UTM e do menu do CMS;
+    // - a engrenagem so aparece no painel que tem configuracoes proprias (o UTM) e leva a elas;
+    // - a foto e sempre Minha conta (foto, senha, usuarios e sair).
+    if (is_file(dirname(__DIR__, 2) . '/guia/index.php')) {
+        $abaGuia = is_string($_GET['aba'] ?? null) && preg_match('/^[a-z_]{2,20}$/', $_GET['aba']) ? $_GET['aba'] : '';
+        $hrefGuia = admin_caminho($utm, 'guia', true) . '?' . http_build_query(['de' => $aqui . ($abaGuia !== '' ? ':' . $abaGuia : ''), 'volta' => $aquiUrl]);
+        $h .= '<a class="conta-icone' . $marca('guia') . '" href="' . e($hrefGuia) . '" data-guia-link title="Guia: como usar esta tela (abre na parte do guia sobre ela)" aria-label="Guia">' . icone('guia', 19) . '</a>';
+    }
     $h .= '<details class="tema-menu"><summary title="Aparência: claro, escuro ou outra cor de fundo" aria-label="Aparência">' . icone('paleta', 19) . '</summary>'
-        . '<div class="tema-painel"><h3>Aparência</h3>' . tema_form($aquiUrl === './' ? './' : $aquiUrl, $utm) . '</div></details>'
-        . '<a class="conta-icone' . $marca(in_array($aqui, ['conta', 'usuarios'], true) ? $aqui : 'conta') . '" href="' . e(admin_url('conta', $utm)) . '" title="Configurações: minha conta (foto, senha e sair)' . (usuario_pode('usuarios') ? ' e os usuários' : '') . '" aria-label="Configurações">' . icone('config', 19) . '</a>'
-        . '<a class="conta-perfil" href="' . e(admin_url('conta', $utm) . '#perfil') . '" title="' . e($u) . ': foto do perfil e sair">' . avatar_html($u, 32, $utm) . '<span>' . e($u) . '</span></a>'
+        . '<div class="tema-painel"><h3>Aparência</h3>' . tema_form($aquiUrl === './' ? './' : $aquiUrl, $utm) . '</div></details>';
+    if ($aqui === 'utm' && usuario_pode('utm')) {
+        $naCfg = basename((string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH)) === 'configuracoes.php';
+        $h .= '<a class="conta-icone' . ($naCfg ? ' atual" aria-current="page' : '') . '" href="' . e($utm . 'configuracoes.php') . '" title="Configurações do UTM: sites, produtos, metas, notificações e o app" aria-label="Configurações do UTM">' . icone('config', 19) . '</a>';
+    }
+    $h .= '<a class="conta-perfil' . (in_array($aqui, ['conta', 'usuarios'], true) ? ' atual" aria-current="page' : '') . '" href="' . e(admin_url('conta', $utm)) . '" title="Minha conta: foto, senha' . (usuario_pode('usuarios') ? ', usuários' : '') . ' e sair" aria-label="Minha conta">' . avatar_html($u, 32, $utm) . '<span>' . e($u) . '</span></a>'
         . '</div></div></nav>';
     return $h;
 }
