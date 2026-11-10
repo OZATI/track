@@ -1189,33 +1189,14 @@ th.marca, td.marca{ width:34px; text-align:center; }
 @media (max-width:640px){ .topo, .abas{ padding-left:16px; padding-right:16px; } main{ padding:16px; } select{ min-width:130px; }
   .grade{ grid-template-columns:1fr; } }
 /* ---------------------------------------------------------------- celular
-   Navegacao de app: barra fixa embaixo (Resumo, Trafego, Gestor, Vendas e Mais), topo
-   compacto e sem grudar, listas em cartoes e a primeira coluna das tabelas fixa. */
-.nav-celular{ display:none; }
+   Navegacao de app: barra fixa embaixo (Resumo, Trafego, Gestor, Vendas e Mais; o desenho e do nucleo,
+   admin_css_base), topo compacto e sem grudar, listas em cartoes e a primeira coluna das tabelas fixa. */
 @media (max-width:760px){
-  body{ padding-bottom:calc(64px + env(safe-area-inset-bottom)); }
-  .abas{ display:none; }
+  .abas:not(.abas-nucleo){ display:none; }
   .topo{ position:static; padding:10px 16px; gap:8px; }
   .filtros{ display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); width:100%; gap:8px; }
   .filtros select{ width:100%; min-width:0; }
   .filtros .campo, .multi > summary{ width:100%; min-width:0; max-width:none; }
-  .nav-celular{ display:flex; position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--cartao); border-top:1px solid var(--linha);
-    padding:4px 4px env(safe-area-inset-bottom); box-shadow:0 -4px 16px rgba(17,24,39,.06); }
-  .nav-celular > a, .nav-mais > summary{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:52px;
-    color:var(--suave); font-size:12px; font-weight:500; text-decoration:none; border-radius:var(--r-md); list-style:none; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-  .nav-mais{ flex:1; display:flex; }
-  .nav-mais > summary::-webkit-details-marker{ display:none; }
-  .nav-celular > a.atual, .nav-mais.atual > summary, .nav-mais[open] > summary{ color:var(--marca); }
-  .nav-celular > a.atual .ico, .nav-mais.atual > summary .ico{ stroke-width:2.2; }
-  .nav-mais-painel{ position:fixed; left:8px; right:8px; bottom:calc(68px + env(safe-area-inset-bottom)); background:var(--cartao); border:1px solid var(--linha);
-    border-radius:12px; box-shadow:0 12px 32px var(--sombra); padding:6px; display:grid; grid-template-columns:1fr 1fr; gap:2px; max-height:70vh; overflow:auto; }
-  .nav-mais-painel a{ display:flex; align-items:center; gap:10px; padding:12px; border-radius:var(--r-md); color:var(--texto); font-weight:500; text-decoration:none; }
-  .nav-mais-painel a:hover, .nav-mais-painel a:active{ background:var(--hover); }
-  .nav-mais-painel a.atual{ color:var(--marca); background:var(--realce); }
-  .nav-mais-painel button{ display:flex; align-items:center; justify-content:flex-start; gap:10px; min-height:0; padding:12px; border:0; border-radius:var(--r-md); background:none; color:var(--texto); font-size:inherit; font-weight:500; }
-  .nav-mais-painel button:hover, .nav-mais-painel button:active{ background:var(--hover); }
-  .nav-mais-painel .ico{ color:var(--suave); } .nav-mais-painel a.atual .ico{ color:var(--marca); }
-  .nav-mais-painel hr{ grid-column:1 / -1; border:0; border-top:1px solid var(--linha); margin:4px 0; }
   /* Primeira coluna fixa ao rolar a tabela para o lado */
   .tabela:not(.lista) tr > :first-child{ position:sticky; left:0; z-index:1; }
   .tabela:not(.lista) td:first-child{ background:var(--cartao); box-shadow:1px 0 0 var(--linha); }
@@ -1258,7 +1239,7 @@ th.marca, td.marca{ width:34px; text-align:center; }
   input[type=checkbox], input[type=radio]{ font-size:inherit; }
 }
 /* Telas do nucleo (Minha conta, Usuarios): as abas do nucleo continuam a mostra no celular */
-@media (max-width:760px){ .abas.abas-nucleo{ display:flex; padding-left:16px; padding-right:16px; } }
+@media (max-width:760px){ .abas.abas-nucleo{ display:flex; padding-left:16px; padding-right:16px; } .abas.abas-nucleo .abas-titulo{ display:none; } } /* no celular a barra de cima ja diz o painel */
 </style>
 </head>
 <body>

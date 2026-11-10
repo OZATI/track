@@ -1745,7 +1745,7 @@
       });
     }
     ouvir(document, 'click', function (e) {
-      if (lateral.classList.contains('aberta') && !lateral.contains(e.target)) { lateral.classList.remove('aberta'); if (alterna) { alterna.setAttribute('aria-expanded', 'false'); } }
+      if (lateral.classList.contains('aberta') && (!lateral.contains(e.target) || e.target === lateral)) { lateral.classList.remove('aberta'); if (alterna) { alterna.setAttribute('aria-expanded', 'false'); } }
     });
   }
 

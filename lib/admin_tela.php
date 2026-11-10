@@ -192,23 +192,72 @@ function admin_css_base(): string
 .tema-livre{ display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--suave); }
 .tema-livre > span:last-child{ display:flex; align-items:center; gap:8px; }
 .tema-livre input[type=color]{ width:44px; min-width:0; height:32px; padding:2px; cursor:pointer; }
+/* Celular (10/11/2026, pedido do Kenio: "isso fica muito confuso", o menu aberto com tres fileiras de
+   icones e nomes cortados). O padrao do admin no celular, para qualquer projeto:
+   - em cima, uma barra fixa so com o painel aberto (icone e nome) e a foto; tocar abre o menu;
+   - o menu aberto e uma lista em duas partes, "Painéis" e "Conta e ferramentas", cada item com o icone
+     e o NOME escrito (o aria-label do botao), por cima da tela escurecida (tocar fora fecha);
+   - as secoes do painel aberto ficam embaixo, na barra do polegar (.nav-celular, abaixo). */
 @media (max-width:760px){
   .casca{ flex-direction:column; }
-  .lateral{ width:auto; height:auto; position:relative; flex-direction:column; align-items:stretch; padding:0; }
-  .lateral-alterna{ display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:max(6px, env(safe-area-inset-top)) 16px 6px; background:none; border:0; border-radius:0; color:#E5E7EB; font-size:14px; }
+  .lateral{ width:auto; height:auto; position:sticky; top:0; z-index:45; flex-direction:column; align-items:stretch; padding:0; }
+  .lateral-alterna{ display:flex; align-items:center; gap:10px; width:100%; min-height:52px; padding:max(6px, env(safe-area-inset-top)) 12px 6px 16px; background:none; border:0; border-radius:0; color:#F3F4F6; font-size:15px; }
   .lateral-alterna:hover{ background:rgba(255,255,255,.04); }
-  .lateral-alterna > svg:first-child{ width:18px; height:18px; color:#9CA3AF; }
+  .lateral-alterna > svg:first-child{ width:20px; height:20px; color:#9CA3AF; }
   .lateral-alterna .avatar{ margin-left:auto; }
   .lateral-alterna .seta{ width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; transition:transform .2s; }
   .lateral.aberta .lateral-alterna .seta{ transform:rotate(180deg); }
   .lateral-itens{ display:none; }
-  .lateral.aberta .lateral-itens{ display:flex; flex-direction:row; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; padding:2px 12px 12px; }
-  .lateral-paineis, .lateral-conta{ flex-direction:row; }
-  .lateral-paineis a{ flex-direction:row; width:auto; padding:8px 14px; gap:6px; font-size:13px; }
-  .lateral-paineis svg{ width:18px; height:18px; }
-  .lateral .conta-perfil{ margin:0; padding-right:12px; }
+  /* A tela por baixo escurece; o toque nela fecha o menu (lateral.js e painel.js: alvo = a propria .lateral) */
+  .lateral.aberta::after{ content:""; position:fixed; inset:0; z-index:-1; background:rgba(0,0,0,.45); }
+  .lateral.aberta .lateral-itens{ position:absolute; top:100%; left:0; right:0; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:6px;
+    max-height:calc(100vh - 64px); max-height:calc(100dvh - 64px); overflow:auto; padding:6px 12px 16px; background:var(--lateral); border-top:1px solid rgba(255,255,255,.08);
+    border-radius:0 0 16px 16px; box-shadow:0 18px 40px rgba(0,0,0,.35); }
+  .lateral-paineis, .lateral-conta{ flex-direction:column; align-items:stretch; gap:2px; }
+  .lateral-paineis::before, .lateral-conta::before{ content:"Painéis"; order:-2; padding:10px 12px 4px; color:#8B93A1; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; }
+  .lateral-conta::before{ content:"Conta e ferramentas"; }
+  .lateral-conta{ margin-top:4px; padding-top:4px; border-top:1px solid rgba(255,255,255,.08); }
+  .lateral-paineis a, .lateral .lateral-conta .conta-icone, .lateral .tema-menu > summary{ flex-direction:row; justify-content:flex-start; width:auto; height:auto; min-height:48px; padding:0 12px; gap:14px;
+    border-radius:10px; color:#E5E7EB; font-size:15px; font-weight:500; letter-spacing:0; text-transform:none; text-decoration:none; }
+  .lateral-paineis a.atual{ background:rgba(255,255,255,.12); color:#fff; }
+  .lateral-paineis svg, .lateral .conta-icone svg, .lateral .tema-menu > summary svg{ flex:none; width:20px; height:20px; color:#9CA3AF; }
+  .lateral-paineis a.atual svg{ color:#fff; }
+  /* O nome de cada ferramenta: o mesmo aria-label que o leitor de tela le */
+  .lateral .conta-icone::after, .lateral .tema-menu > summary::after{ content:attr(aria-label); }
+  .lateral .form-atualizar{ display:flex; flex-direction:column; margin:0; }
+  .lateral .conta-icone[data-info-alternar][aria-pressed="false"]{ opacity:1; }
+  .lateral .conta-icone[data-info-alternar][aria-pressed="false"]::after{ content:"Mostrar os ícones (i)"; }
+  .lateral .conta-icone[data-info-alternar][aria-pressed="true"]::after{ content:"Esconder os ícones (i)"; }
+  .lateral .conta-icone[data-compartilhar][aria-pressed="true"]::after{ content:"Parar de compartilhar"; }
+  /* Quem entrou, no alto da parte da conta */
+  .lateral .conta-perfil{ order:-1; align-self:stretch; gap:12px; margin:0; padding:8px 12px; border-radius:10px; font-size:15px; }
   .lateral .conta-perfil > span:not(.avatar){ display:inline; }
-  .lateral .tema-painel{ position:fixed; left:12px; right:12px; top:auto; bottom:calc(76px + env(safe-area-inset-bottom)); width:auto; }
+  .lateral .tema-painel{ position:fixed; left:12px; right:12px; top:auto; bottom:calc(12px + env(safe-area-inset-bottom)); width:auto; z-index:60; }
+}
+@media (max-width:760px) and (pointer:coarse){ .lateral-paineis a, .lateral .lateral-conta .conta-icone, .lateral .tema-menu > summary{ min-height:52px; } }
+/* Barra do polegar no celular (componente do nucleo desde 10/11/2026): as secoes do painel aberto, 4 e
+   "Mais". O UTM (abas_painel) e o CMS do site (cms_nav no engdesk) usam a mesma. */
+.nav-celular{ display:none; }
+@media (max-width:760px){
+  body:has(.nav-celular){ padding-bottom:calc(66px + env(safe-area-inset-bottom)); }
+  .nav-celular{ display:flex; position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--cartao); border-top:1px solid var(--linha);
+    padding:4px 4px env(safe-area-inset-bottom); box-shadow:0 -4px 16px rgba(17,24,39,.06); }
+  .nav-celular > a, .nav-mais > summary{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-height:56px;
+    color:var(--suave); font-size:11.5px; font-weight:500; text-decoration:none; border-radius:var(--r-md); list-style:none; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .nav-celular > a > span, .nav-mais > summary > span{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .nav-mais{ flex:1; display:flex; min-width:0; }
+  .nav-mais > summary::-webkit-details-marker{ display:none; }
+  .nav-celular > a.atual, .nav-celular > a.ativo, .nav-mais.atual > summary, .nav-mais[open] > summary{ color:var(--marca); }
+  .nav-celular > a.atual .ico, .nav-celular > a.ativo svg, .nav-mais.atual > summary .ico{ stroke-width:2.2; }
+  .nav-mais-painel{ position:fixed; left:8px; right:8px; bottom:calc(70px + env(safe-area-inset-bottom)); background:var(--cartao); border:1px solid var(--linha);
+    border-radius:14px; box-shadow:0 12px 32px var(--sombra); padding:6px; display:grid; grid-template-columns:1fr 1fr; gap:2px; max-height:70vh; overflow:auto; }
+  .nav-mais-painel a{ display:flex; align-items:center; gap:10px; min-height:48px; padding:0 12px; border-radius:var(--r-md); color:var(--texto); font-weight:500; text-decoration:none; }
+  .nav-mais-painel a:hover, .nav-mais-painel a:active{ background:var(--hover); }
+  .nav-mais-painel a.atual, .nav-mais-painel a.ativo{ color:var(--marca); background:var(--realce); }
+  .nav-mais-painel button{ display:flex; align-items:center; justify-content:flex-start; gap:10px; min-height:48px; padding:0 12px; border:0; border-radius:var(--r-md); background:none; color:var(--texto); font-size:inherit; font-weight:500; }
+  .nav-mais-painel button:hover, .nav-mais-painel button:active{ background:var(--hover); }
+  .nav-mais-painel .ico, .nav-mais-painel svg{ flex:none; color:var(--suave); } .nav-mais-painel a.atual .ico, .nav-mais-painel a.ativo svg{ color:var(--marca); }
+  .nav-mais-painel hr{ grid-column:1 / -1; border:0; border-top:1px solid var(--linha); margin:4px 0; }
 }
 @media (display-mode:standalone) and (min-width:761px){ .lateral{ padding-top:max(12px, env(safe-area-inset-top)); } }
 CSS;
