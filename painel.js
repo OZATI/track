@@ -341,6 +341,7 @@
       raiz.style.setProperty('--base', this.value);
       raiz.setAttribute('data-base', '');
       raiz.setAttribute('data-tema', luminosidade(this.value) < 0.4 ? 'escuro' : 'claro');
+      raiz.setAttribute('data-bs-theme', luminosidade(this.value) < 0.4 ? 'dark' : 'light');
       var hex = this.closest('form').querySelector('[data-tema-hex]');
       if (hex) { hex.textContent = this.value.toUpperCase(); }
     });
@@ -1841,7 +1842,8 @@
   }
   function trocar(doc) {
     var raiz = document.documentElement, nova = doc.documentElement;
-    ['class', 'data-tema', 'data-base', 'style'].forEach(function (a) {
+    // data-bs-theme: o modo do Tabler (claro ou escuro) acompanha o tema escolhido
+    ['class', 'data-tema', 'data-base', 'data-bs-theme', 'style'].forEach(function (a) {
       var v = nova.getAttribute(a);
       if (v === null) { raiz.removeAttribute(a); } else { raiz.setAttribute(a, v); }
     });

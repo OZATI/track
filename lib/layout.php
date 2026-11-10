@@ -28,7 +28,7 @@ function pagina_inicio(string $titulo): void
     header('X-Robots-Tag: noindex, nofollow');
     header('Cache-Control: no-store');
     ?><!doctype html>
-<html lang="pt-BR"<?= tema_atributos() ?><?= html_classe() ?>>
+<html lang="pt-BR"<?= tema_atributos() ?><?= html_classe() ?> data-bs-theme="<?= tema_escuro(tema_atual()) ? 'dark' : 'light' ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -44,6 +44,9 @@ function pagina_inicio(string $titulo): void
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<?php // Tabler (MIT, vendor/tabler): a base de componentes do admin. Antes do CSS do painel, que manda;
+// as cores do Tabler seguem as do tema (admin_css_base). Ver docs/TABLER.md. ?>
+<link rel="stylesheet" href="<?= e(admin_base()) ?><?= TABLER_CSS ?>">
 <style>
 <?= admin_css_base() ?>
 /* Visual de ferramenta de trabalho: neutro, denso e sem enfeite. Azul da marca so no que
@@ -53,6 +56,13 @@ function pagina_inicio(string $titulo): void
 body{ margin:0; font:13px/1.5 var(--f-texto); background:var(--fundo); color:var(--texto); font-feature-settings:"tnum" 1; }
 a{ color:var(--marca); text-decoration:none; } a:hover{ text-decoration:underline; }
 code, pre{ font-family:var(--f-mono); font-size:12px; }
+/* Reboot do Tabler (TABLER_CSS): o paragrafo volta a margem de 1em e o code fica sem fundo, como era antes
+   do Tabler (:where, especificidade baixa: as regras do painel continuam mandando) */
+:where([data-bs-theme]) p{ margin:1em 0; }
+:where([data-bs-theme]) code{ padding:0; border-radius:0; background:none; color:inherit; }
+:where([data-bs-theme]) :is(ul, ol){ margin:1em 0; padding-left:40px; }
+:where([data-bs-theme]) input:where([type=checkbox], [type=radio]){ margin:3px 3px 3px 4px; }
+:where([data-bs-theme]) legend{ float:none; width:auto; margin-bottom:0; padding:0 2px; font-size:inherit; }
 pre{ background:var(--cartao-2); border:1px solid var(--linha); padding:10px 12px; border-radius:var(--r-sm); overflow-x:auto; white-space:pre-wrap; word-break:break-all; }
 select, input, textarea, button{ font:inherit; color:inherit; }
 select, input, textarea{ background:var(--cartao); border:1px solid var(--linha-forte); border-radius:var(--r-sm); padding:6px 9px; min-width:160px; }
@@ -178,14 +188,22 @@ main{ animation:entrar .32s cubic-bezier(.2,.7,.2,1) backwards; } /* backwards: 
 .conta form{ margin:0; }
 .conta-nome{ color:var(--texto); font-weight:500; }
 
-/* Abas: texto, com traco embaixo da aberta */
-.abas{ display:flex; align-items:stretch; gap:20px; padding:0 24px; background:var(--cartao); border-bottom:1px solid var(--linha); overflow-x:auto; scrollbar-width:none; }
+/* Abas: o desenho do navbar do Tabler e do menu do CMS (engdesk, admin/lib/cms_tela.php), para o admin
+   ter uma navegacao so (10/11/2026): 48 px, texto, traco embaixo da aberta, o titulo separado por uma
+   linha. O icone so aparece quando cabe, e apagado (a aberta, na cor da marca). */
+.abas{ display:flex; align-items:stretch; gap:2px; min-height:48px; padding:0 24px; background:var(--cartao); border-bottom:1px solid var(--linha); overflow-x:auto; scrollbar-width:none; }
 .abas::-webkit-scrollbar{ display:none; }
-.abas-titulo{ font-weight:600; padding:11px 8px 11px 0; margin-right:4px; white-space:nowrap; align-self:center; }
-.abas a{ display:inline-flex; align-items:center; padding:11px 0; border-bottom:2px solid transparent; color:var(--suave); font-weight:500; white-space:nowrap; }
+.abas-titulo{ align-self:center; margin-right:8px; padding:0 16px 0 0; border-right:1px solid var(--linha); font-weight:600; line-height:20px; white-space:nowrap; }
+.abas a{ display:inline-flex; align-items:center; gap:8px; margin-bottom:-1px; padding:0 10px; border-bottom:2px solid transparent; color:var(--suave); font-weight:500; white-space:nowrap; }
 .abas a:hover{ color:var(--texto); text-decoration:none; }
 .abas a.atual{ color:var(--texto); border-bottom-color:var(--marca); }
-.abas .ico{ display:none; }
+.abas a:focus-visible{ outline:2px solid var(--marca); outline-offset:-2px; border-radius:var(--r-sm); }
+.abas .ico{ display:none; flex:none; color:var(--apagado); }
+.abas a:hover .ico{ color:var(--suave); } .abas a.atual .ico{ color:var(--marca); }
+/* Icones como no menu do CMS a partir de 1280 px; o titulo ("UTM · Rastreio de vendas") so na tela bem
+   larga, onde cabe junto (a barra lateral ja diz UTM) */
+@media (min-width:1280px){ .abas .ico{ display:inline-block; } }
+@media (max-width:1599px){ .abas-titulo{ display:none; } }
 .abas-espaco{ margin-left:auto; }
 /* Censura: no modo compartilhar e no print, o miolo do bloco marcado com o olho fica borrado (o titulo
    continua), sem clique nem dica (a dica do grafico mostraria o numero) */
@@ -597,16 +615,39 @@ td.quebra{ white-space:normal; min-width:220px; }
 .graf-colunas .col{ display:flex; flex-direction:column; min-width:0; min-height:0; border-radius:6px; cursor:help; }
 .graf-colunas .col:hover, .graf-colunas .col:focus{ background:var(--hover); outline:none; }
 .graf-colunas .trilho{ flex:1; min-height:0; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:3px; }
-.graf-colunas i{ display:block; width:min(70%, 34px); height:calc((100% - 20px) * var(--p) / 100); min-height:2px; border-radius:4px 4px 2px 2px; background:linear-gradient(180deg, var(--grad-b), var(--grad-a)); }
+/* Coluna no padrao do Tabler (ApexCharts): cor solida da marca, no maximo 24 px, ponta de 4 px redonda e
+   base reta; cresce da base ao abrir a tela */
+.graf-colunas i{ display:block; width:min(70%, 24px); height:calc((100% - 20px) * var(--p) / 100); min-height:2px; border-radius:4px 4px 0 0; background:var(--marca);
+  transform-origin:50% 100%; animation:barra-cresce .5s cubic-bezier(.2,.8,.2,1) backwards; }
+.graf-colunas .col:hover i, .graf-colunas .col:focus i{ background:var(--marca-hover); }
 .graf-colunas b{ font-size:12px; font-weight:600; color:var(--suave); white-space:nowrap; font-variant-numeric:tabular-nums; }
 .graf-colunas .rot{ flex:none; height:20px; padding-top:4px; font-size:12px; line-height:14px; color:var(--suave); text-align:center; white-space:nowrap; overflow:visible; }
-.graf-plot polygon, .graf-plot polyline{ pointer-events:none; }
-.graf-plot .graf-linha{ fill:none; stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
+.graf-plot polygon, .graf-plot polyline, .graf-plot .graf-area, .graf-plot .graf-linha{ pointer-events:none; }
+/* Linha de 2 px em curva suave (lib/graficos.php, grafico_curva), area em degrade leve; entram suaves */
+.graf-plot .graf-linha{ fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.graf-plot .graf-area, .graf-plot .graf-linha{ animation:graf-entra .5s ease-out backwards; }
 .graf-plot .grade-l{ stroke:var(--linha); stroke-width:1; }
-.graf-plot .grade-zero{ stroke:var(--linha-forte); stroke-width:1.2; }
+.graf-plot .grade-zero{ stroke:var(--linha-forte); stroke-width:1; }
 .graf-plot .vela-alvo{ fill:transparent; cursor:help; }
-.graf-plot .vela-alvo:hover, .graf-plot .vela-alvo:focus, .graf-plot .dia-graf:hover .vela-alvo, .graf-plot .dia-graf:focus .vela-alvo{ fill:var(--hover); }
+.graf-plot .dia-graf:hover .vela-alvo, .graf-plot .dia-graf:focus .vela-alvo{ fill:var(--hover); }
 .graf-plot .vela-alvo:focus, .graf-plot .dia-graf:focus{ outline:none; }
+/* Mira do grafico de linhas (como no ApexCharts): ao passar o mouse ou no foco, a linha vertical do dia e
+   o marcador de cada serie (8 px, com o anel da cor do cartao para destacar de cima da linha) */
+.graf-plot .graf-mira, .graf-plot .graf-marca, .graf-plot .graf-marca-anel{ opacity:0; pointer-events:none; transition:opacity .12s; }
+.graf-plot .graf-mira{ stroke:var(--linha-forte); stroke-width:1; }
+.graf-plot .graf-marca-anel{ fill:none; stroke:var(--cartao); stroke-width:12; stroke-linecap:round; }
+.graf-plot .graf-marca{ fill:none; stroke-width:8; stroke-linecap:round; }
+.graf-plot .graf-ponto:hover > *, .graf-plot .graf-ponto:focus-within > *{ opacity:1; }
+/* Barras do lucro por dia (grafico_barras): em HTML por cima da grade, para a ponta redonda sair certa */
+.graf-barras{ position:absolute; top:0; left:0; right:0; height:calc(100% - 20px); pointer-events:none; }
+.graf-barras i{ position:absolute; width:min(24px, var(--larg)); min-height:2px; transform:translateX(-50%); border-radius:4px 4px 0 0; background:var(--ok);
+  transform-origin:50% 100%; animation:barra-sobe .5s cubic-bezier(.2,.8,.2,1) backwards; }
+.graf-barras i.desce{ border-radius:0 0 4px 4px; background:var(--erro); transform-origin:50% 0; }
+@keyframes graf-entra{ from{ opacity:0; } }
+@keyframes barra-cresce{ from{ transform:scaleY(0); } }
+@keyframes barra-sobe{ from{ transform:translateX(-50%) scaleY(0); } }
+.fica .graf-plot .graf-area, .fica .graf-plot .graf-linha, .fica .graf-barras i, .fica .graf-colunas i{ animation:none; }
+@media (prefers-reduced-motion:reduce){ .graf-plot .graf-area, .graf-plot .graf-linha, .graf-barras i, .graf-colunas i{ animation:none; } .graf-plot .graf-ponto > *{ transition:none; } }
 /* Mapa de calor: dia da semana x hora em casas. Nada passa do bloco (sem barra de rolagem dentro): o
    rotulo das horas cabe na linha de 16 px e o destaque da casa e por dentro dela */
 .mapa-calor{ display:grid; grid-template-columns:34px repeat(24, minmax(0, 1fr)); grid-template-rows:repeat(7, minmax(0, 1fr)) 16px; gap:3px; overflow:hidden; }
@@ -1086,6 +1127,8 @@ th.marca, td.marca{ width:34px; text-align:center; }
 .rosca-caixa{ display:flex; flex-direction:column; align-items:center; gap:14px; flex:1; justify-content:center; }
 .rosca{ width:min(200px,70%); height:auto; }
 .rosca-fundo{ fill:none; stroke:var(--cartao-2); stroke-width:6; }
+.rosca circle[data-dica]{ cursor:help; transition:opacity .12s; }
+.rosca:hover circle[data-dica]:not(:hover){ opacity:.55; } .rosca circle[data-dica]:focus{ outline:none; }
 .rosca-rot{ font:4px var(--f-texto); fill:var(--suave); text-anchor:middle; }
 .rosca-num{ font:600 7px var(--f-texto); fill:var(--texto); text-anchor:middle; }
 .rosca-leg{ display:flex; flex-wrap:wrap; justify-content:center; gap:6px 14px; margin:0; padding:0; list-style:none; font-size:13px; }
@@ -1553,6 +1596,9 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
     $soPeriodo = in_array($aba, ['gestor', 'campanha', 'geral', 'organico', 'financeiro'], true); // nessas telas, site e pagina nao se aplicam
     $comProduto = !in_array($aba, ['visitantes', 'eventos', 'financeiro'], true); // telas sem venda (e o Financeiro, que e a empresa toda)
     $marcados = $filtro['produto'] ?? [];
+    // A navegacao vem antes do filtro (10/11/2026, pedido do Kenio): as abas no alto, como o menu do CMS,
+    // e os filtros logo abaixo, que continuam presos no alto ao rolar a tela
+    abas_painel($aba, $filtro);
     ?>
 <header class="topo">
 <span hidden data-produtos="<?= e((string)json_encode(produtos_apelidos($produtos), JSON_UNESCAPED_UNICODE)) ?>"></span>
@@ -1596,7 +1642,6 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
 </form>
 </header>
 <?php
-    abas_painel($aba, $filtro);
 }
 
 // O campo do periodo (prontos ou de uma data a outra), o mesmo em todas as telas: o painel.js troca

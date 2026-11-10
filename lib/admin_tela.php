@@ -7,6 +7,12 @@
 require_once __DIR__ . '/tema.php';
 require_once __DIR__ . '/perfil.php';
 
+// Tabler (tabler.io, MIT), a base de componentes do admin desde 10/11/2026 (pedido do Kenio: "instale
+// tambem no painel UTM e demais em todo o nosso painel"). Caminho a partir da pasta do painel
+// (admin_base()); a copia leva a pasta vendor/ (scripts/copiar-para.sh). Versao fixa: atualizar e
+// outra pasta, nunca sobrescrever. So o CSS: o painel nao usa o JavaScript do Tabler.
+const TABLER_CSS = 'vendor/tabler/1.7.4/dist/css/tabler.min.css?v=1.7.4';
+
 // CSS do admin inteiro, que o painel UTM e o CMS usam iguais: as cores do tema (claro, escuro,
 // pretao ou a cor escolhida, lib/tema.php), a altura dos botoes e campos, as barras de rolagem,
 // a barra lateral (paineis e conta), a aparencia e a foto. O CMS (admin/index.php no engdesk)
@@ -16,6 +22,30 @@ function admin_css_base(): string
     return <<<'CSS'
 /* hidden sempre esconde: o display:inline-flex dos botoes e o flex dos rotulos passavam por cima */
 [hidden]{ display:none !important; }
+/* Tabler (TABLER_CSS, carregado antes deste CSS): as cores, fontes e raios dele saem do tema escolhido
+   (claro, escuro, pretao ou outra cor), entao card, form-control, btn, table, badge do Tabler ja nascem
+   com a cara do painel. data-bs-theme no <html> acompanha o tema. */
+:root[data-bs-theme]{
+  --tblr-font-sans-serif:var(--f-texto); --tblr-font-monospace:var(--f-mono); --tblr-body-font-family:var(--f-texto);
+  --tblr-body-font-size:.8125rem; --tblr-body-bg:var(--fundo); --tblr-body-color:var(--texto);
+  --tblr-btn-input-bg:var(--cartao); --tblr-btn-input-fg:var(--texto); --tblr-heading-color:var(--texto);
+  --tblr-secondary-color:var(--suave); --tblr-tertiary-color:var(--apagado); --tblr-secondary:var(--suave);
+  --tblr-bg-surface:var(--cartao); --tblr-bg-surface-secondary:var(--cartao-2); --tblr-bg-surface-tertiary:var(--hover);
+  --tblr-secondary-bg:var(--cartao-2); --tblr-tertiary-bg:var(--hover);
+  --tblr-border-color:var(--linha); --tblr-border-color-translucent:var(--linha); --tblr-border-active-color:var(--marca);
+  --tblr-primary:var(--marca-fundo); --tblr-primary-darken:var(--marca-fundo-hover); --tblr-primary-text-emphasis:var(--marca);
+  --tblr-primary-bg-subtle:var(--realce); --tblr-link-color:var(--marca); --tblr-link-hover-color:var(--marca-hover);
+  --tblr-success:var(--ok); --tblr-warning:var(--alerta); --tblr-danger:var(--erro);
+  --tblr-border-radius:var(--r-sm); --tblr-border-radius-lg:var(--r-md);
+}
+/* O reboot do Tabler mudou o que o painel herdava do navegador (medido em 10/11/2026 com o Tabler
+   ligado e desligado): titulos com a altura de linha dele, campos sem classe com a fonte do pai, o
+   code com fundo e a borda interna no avatar. Volta ao que era, com especificidade baixa (:where):
+   qualquer regra do painel, que vem depois, continua mandando. */
+:where([data-bs-theme]) :is(h1, h2, h3, h4, h5, h6){ line-height:1.5; font-weight:700; }
+:where([data-bs-theme]) :is(input, select, textarea, button){ font-size:13px; }
+:where([data-bs-theme]) :is(b, strong){ font-weight:700; }
+.avatar{ box-shadow:none; }
 /* Cartao de numero com o icone no canto (lib/componentes.php, cartao_kpi) */
 .kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin:0 0 16px; }
 .kpi{ display:flex; flex-direction:column; gap:4px; min-width:0; padding:14px 16px; background:var(--cartao); border:1px solid var(--linha); border-radius:var(--r-md); }

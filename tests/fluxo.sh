@@ -1318,13 +1318,16 @@ confere "$(tem 'O webhook não está chegando' "$r")" "vendas recentes só pela 
 
 echo "Aparência (claro, escuro, pretão ou outra cor)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
-confere "$(tem '<html lang="pt-BR" data-tema="claro">' "$r")" "começa no tema claro de sempre"
+confere "$(tem '<html lang="pt-BR" data-tema="claro" data-bs-theme="light">' "$r")" "começa no tema claro de sempre"
+# Tabler (lib/admin_tela.php, TABLER_CSS): o CSS carrega antes do do painel e o arquivo existe
+confere "$(tem 'vendor/tabler/1.7.4/dist/css/tabler.min.css' "$r")" "o Tabler carrega em toda tela do painel"
+confere "$([ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/vendor/tabler/1.7.4/dist/css/tabler.min.css")" = "200" ]; echo $?)" "o CSS do Tabler é servido"
 confere "$(tem 'class="tema-menu"' "$r")" "paleta da aparência no topo"
 tema() { curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$1" "${@:2}" --data-urlencode "volta=./?aba=geral" "$URL/tema.php"; curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo"; }
 r=$(tema "" --data-urlencode "pronto=pretao")
-confere "$(tem 'data-tema="claro">' "$r")" "trocar a aparência sem o token do formulário não muda nada"
+confere "$(tem 'data-tema="claro" data-bs-theme="light">' "$r")" "trocar a aparência sem o token do formulário não muda nada"
 r=$(tema "$csrf" --data-urlencode "pronto=pretao")
-confere "$(tem '<html lang="pt-BR" data-tema="escuro" data-base style="--base:#000000">' "$r")" "Pretão: painel todo em #000000, com texto claro"
+confere "$(tem '<html lang="pt-BR" data-tema="escuro" data-base style="--base:#000000" data-bs-theme="dark">' "$r")" "Pretão: painel todo em #000000, com texto claro"
 confere "$(tem 'class="tema-pronto atual" aria-pressed="true"><span class="tema-previa" style="--p:#000000"' "$r")" "o tema escolhido aparece marcado"
 r=$(tema "$csrf" --data-urlencode "cor=#ffe9c7")
 confere "$(tem 'data-tema="claro" data-base style="--base:#FFE9C7"' "$r")" "outra cor clara: fundo nela e texto escuro"
@@ -1335,7 +1338,7 @@ confere "$(tem 'Cor inválida' "$r")" "cor que não é #RRGGBB é recusada"
 r=$(curl -s -b "$JAR" "$URL/conta.php")
 confere "$(tem 'Aparência' "$(sem_tags "$r")")" "aparência também em Minha conta"
 r=$(tema "$csrf" --data-urlencode "pronto=claro")
-confere "$(tem '<html lang="pt-BR" data-tema="claro">' "$r")" "voltar ao claro"
+confere "$(tem '<html lang="pt-BR" data-tema="claro" data-bs-theme="light">' "$r")" "voltar ao claro"
 
 echo "Minha conta: foto, senha e Sair (núcleo do admin)"
 r=$(curl -s -b "$JAR" "$URL/conta.php")
@@ -1378,7 +1381,9 @@ confere "$(tem 'data-tipo="NetRevenue"' "$r")" "Resumo padrão com o faturamento
 confere "$(tem 'data-tipo="RevenueInvestmentProfitByHour"' "$r")" "Resumo padrão com faturamento, investimento e lucro por hora"
 confere "$(tem 'style="--c:1;--r:1;--w:3;--h:1;--mc:1;--mr:1;--mw:1;--mh:1;--mo:0;"' "$r")" "cada bloco com a posição no computador e no celular (e a ordem no celular)"
 confere "$(tem 'data-tipo="RevenueByDay".*class="graf-legenda"' "$r")" "gráfico novo: faturamento × investimento por dia"
-confere "$(tem 'data-tipo="ProfitByDay".*class="barra-ok"' "$r")" "gráfico novo: lucro por dia, em barras"
+confere "$(tem 'data-tipo="ProfitByDay".*class="graf-barras".*class="sobe"' "$r")" "gráfico novo: lucro por dia, em barras (ponta redonda, em HTML)"
+confere "$(tem 'data-tipo="RevenueByDay".*class="graf-linha"[^>]* d="M[0-9.]*,[0-9.]* C' "$r")" "linhas do gráfico em curva suave (grafico_curva)"
+confere "$(tem 'data-tipo="RevenueByDay".*class="graf-ponto"><line class="graf-mira"' "$r")" "mira com marcadores ao passar o mouse no gráfico de linhas"
 confere "$(tem 'class="pw-graf mapa-calor"' "$r")" "gráfico novo: mapa de calor das vendas (dia da semana × hora)"
 confere "$(tem 'class="velocimetro".*class="vel-valor [a-z]*">[0-9],[0-9][0-9]<' "$r")" "gráfico novo: ROI no mostrador"
 confere "$(tem 'data-tipo="NetRevenue".*class="pw-mini"' "$r")" "linhazinha do período no cartão do faturamento"
@@ -1461,13 +1466,13 @@ JAR2="$DADOS/cookies-compartilhar.txt"
 cp "$JAR" "$JAR2"
 printf '127.0.0.1\tFALSE\t/\tFALSE\t0\ttrack_compartilhar\t1\n' >> "$JAR2"
 r=$(curl -s -b "$JAR2" "$URL/index.php?aba=geral&periodo=tudo")
-confere "$(tem '<html lang="pt-BR"[^>]*class="compartilhando">' "$r")" "modo compartilhar ligado sai do servidor (bloco censurado chega borrado)"
+confere "$(tem '<html lang="pt-BR"[^>]*class="compartilhando" data-bs-theme="[a-z]*">' "$r")" "modo compartilhar ligado sai do servidor (bloco censurado chega borrado)"
 confere "$(tem 'data-compartilhar aria-pressed="true"' "$r")" "olho da barra aceso no modo compartilhar"
 JAR3="$DADOS/cookies-sem-info.txt"
 cp "$JAR" "$JAR3"
 printf '127.0.0.1	FALSE	/	FALSE	0	track_sem_info	1
 ' >> "$JAR3"
-confere "$(tem '<html lang="pt-BR"[^>]*class="sem-info">' "$(curl -s -b "$JAR3" "$URL/index.php?aba=geral&periodo=tudo")")" "Ctrl+Shift+E: os (i) escondidos já saem do servidor"
+confere "$(tem '<html lang="pt-BR"[^>]*class="sem-info" data-bs-theme="[a-z]*">' "$(curl -s -b "$JAR3" "$URL/index.php?aba=geral&periodo=tudo")")" "Ctrl+Shift+E: os (i) escondidos já saem do servidor"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo&print=post")
 confere "$(tem 'class="print-item" style="[^"]*" data-censura><div class="pw pw-numero[^"]*" data-tipo="Profit"' "$r")" "bloco censurado sai borrado no print"
 curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$cp" --data-urlencode "tela=resumo" --data-urlencode "aparelho=post" --data-urlencode "volta=./?aba=geral" \

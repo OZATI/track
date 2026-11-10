@@ -141,13 +141,16 @@ function resumo_rosca(array $partes, array $cores, string $centro): string
     $total = array_sum($partes);
     $svg = '<svg class="rosca" viewBox="0 0 42 42" role="img" aria-label="' . e($centro . ': ' . $total) . '"><circle cx="21" cy="21" r="15.915" class="rosca-fundo"></circle>';
     $ini = 25.0;
+    // Vao de 2 px na cor do cartao entre as fatias (como a rosca do ApexCharts): cada fatia perde meio vao
+    // de cada lado. Com uma fatia so, o anel fica inteiro.
+    $vao = count(array_filter($partes)) > 1 ? 0.7 : 0.0;
     foreach ($partes as $rot => $n) {
         if (!$n || !$total) {
             continue;
         }
         $p = $n * 100 / $total;
-        $svg .= '<circle cx="21" cy="21" r="15.915" fill="none" stroke="' . e($cores[$rot] ?? '#9CA3AF') . '" stroke-width="6" stroke-dasharray="' . round($p, 3) . ' ' . round(100 - $p, 3)
-            . '" stroke-dashoffset="' . round($ini, 3) . '"' . dica_attr((string)$rot, [$n . ' · ' . number_format($p, 0) . '%']) . '></circle>';
+        $svg .= '<circle cx="21" cy="21" r="15.915" fill="none" stroke="' . e($cores[$rot] ?? '#9CA3AF') . '" stroke-width="6" stroke-dasharray="' . round(max(0.05, $p - $vao), 3) . ' ' . round(100 - max(0.05, $p - $vao), 3)
+            . '" stroke-dashoffset="' . round($ini - $vao / 2, 3) . '"' . dica_attr((string)$rot, [$n . ' · ' . number_format($p, 0) . '%']) . '></circle>';
         $ini -= $p;
     }
     $svg .= '<text x="21" y="19.5" class="rosca-rot">' . e($centro) . '</text><text x="21" y="26" class="rosca-num">' . $total . '</text></svg>';
