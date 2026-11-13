@@ -332,6 +332,13 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor .linha-acoes .menu-linha{ opacity:0; transition:opacity .12s; }
 .tabela.gestor tr:hover .linha-acoes .menu-linha, .tabela.gestor .linha-acoes .menu-linha[open], .tabela.gestor .linha-acoes .menu-linha:focus-within{ opacity:1; }
 @media (hover:none){ .tabela.gestor .linha-acoes .menu-linha{ opacity:1; } }
+/* O "..." da linha (13/11/2026, Kenio: "olha essa complicacao de visualizacao"). O menu morava dentro da celula fixa do
+   nome (sticky, z-index 1): as celulas do nome das linhas de baixo pintavam por cima dele, e a area que rola cortava o
+   fim. Agora a celula da linha com o menu aberto sobe de camada (acima das outras celulas fixas, do cabecalho e da barra
+   do painel) e, com o JavaScript, o menu vira position: fixed (sai do corte), posto pelo painel.js embaixo da linha, ou
+   em cima se nao couber, sempre dentro da tela. */
+.tabela.gestor tr > td.nome:has(.menu-linha[open]){ z-index:16; }
+.menu-linha.flutua > .menu-linha-painel{ position:fixed; top:0; right:auto; left:0; z-index:60; }
 .tabela.gestor tr.marcada > td{ background:var(--realce); }
 .tabela.gestor tr.fixada > td.nome{ box-shadow:inset 3px 0 0 var(--marca); }
 /* Gestor e analise diaria: o nome (ou o dia) fica parado ao rolar as colunas, e a borda direita
@@ -348,6 +355,21 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor tbody tr:not(.marcada, .ao-vivo-linha):hover > td{ background:var(--zebra-hover); }
 .tabela.gestor{ background:linear-gradient(270deg, var(--cartao) 40%, transparent) right / 48px 100% no-repeat local,
   radial-gradient(farthest-side at 100% 50%, var(--sombra-rolagem), transparent) right / 14px 100% no-repeat scroll, var(--cartao); }
+/* Sombra de "tem mais colunas", de novo (13/11/2026, Kenio: "uma sombra estranha quando scrollamos na horizontal").
+   O truque acima e o FUNDO da area que rola: fica embaixo das celulas. Nas linhas sem fundo proprio a sombra aparecia
+   por baixo dos valores; nas listradas, no hover e no total ela sumia, e no escuro a cobertura de 48 px virava uma faixa.
+   Agora o painel.js poe a tabela numa caixa (.rolagem-gestor) e marca nela tem-mais-direita e tem-mais-esquerda, no
+   scroll e quando o tamanho muda. A sombra da direita e um pseudo-elemento na borda da caixa: por cima de tudo, sem
+   pegar clique e so enquanto houver colunas escondidas. A da esquerda sai da coluna fixa do nome, so depois de rolar.
+   Sem o JavaScript, fica o truque antigo. */
+.rolagem-gestor{ position:relative; }
+.rolagem-gestor > .tabela.gestor{ background:var(--cartao); }
+.rolagem-gestor::after{ content:""; position:absolute; top:0; right:0; bottom:0; z-index:4; width:16px; pointer-events:none;
+  background:linear-gradient(270deg, var(--sombra-rolagem), transparent); opacity:0; transition:opacity .15s; }
+.rolagem-gestor.tem-mais-direita::after{ opacity:1; }
+.rolagem-gestor.tem-mais-esquerda .tabela.gestor tr > :is(th, td).nome{ box-shadow:1px 0 0 var(--linha), 12px 0 12px -12px var(--sombra-rolagem); }
+.rolagem-gestor.tem-mais-esquerda .tabela.gestor tr.fixada > td.nome{ box-shadow:inset 3px 0 0 var(--marca), 1px 0 0 var(--linha), 12px 0 12px -12px var(--sombra-rolagem); }
+@media (prefers-reduced-motion:reduce){ .rolagem-gestor::after{ transition:none; } }
 .tcard-corpo tfoot td{ position:sticky; bottom:0; z-index:2; }
 /* Grafico comparativo das marcadas */
 .gestor-grafico{ padding:12px 16px 14px; border-bottom:1px solid var(--linha); }

@@ -141,6 +141,9 @@
   function mostrar(alvo) {
     var texto = alvo.getAttribute('data-dica');
     if (!texto) { return; }
+    // Uma camada flutuante por vez (13/11/2026): com o menu "..." aberto, a dica nao abre por cima
+    var menuAberto = document.querySelector('details.menu-linha[open]');
+    if (menuAberto && !menuAberto.contains(alvo)) { return; }
     if (!caixa) { caixa = document.createElement('div'); caixa.className = 'dica'; caixa.id = 'dica-painel'; caixa.setAttribute('role', 'tooltip'); document.body.appendChild(caixa); }
     caixa.textContent = '';
     var titulo = alvo.getAttribute('data-dica-titulo');
@@ -178,6 +181,72 @@
   ouvir(document, 'keydown', function (e) { if (e.key === 'Escape' && alvoDica) { esconder(); } });
   ouvir(window, 'scroll', function () { if (fixa) { posicionar(); } else { esconder(); } }, true);
   ouvir(window, 'resize', function () { if (fixa) { posicionar(); } });
+
+  // O "..." da linha (13/11/2026, pedido do Kenio). Uma camada flutuante por vez: abrir um menu fecha a dica e os
+  // outros menus (e a dica nao abre com ele aberto, no mostrar() acima). Aberto, o menu vira position: fixed (classe
+  // flutua): sai do corte da area que rola e de baixo das celulas fixas. Fica embaixo da linha, alinhado ao "...";
+  // se nao couber, em cima da linha; sempre dentro da tela. Esc fecha (o ouvinte de Esc la embaixo), clicar fora
+  // fecha, e rolar ou mudar o tamanho da tela reposiciona (ou fecha, se a linha saiu da tela).
+  function posMenu(d) {
+    var p = d.querySelector('.menu-linha-painel'), s = d.querySelector('summary');
+    if (!p || !s) { return; }
+    var linha = (d.closest('tr') || d).getBoundingClientRect(), rs = s.getBoundingClientRect(), m = 8;
+    // A area livre: no celular, sem a barra do polegar (embaixo) e a barra do menu (em cima), que ficam por cima
+    var cima = m, baixo = window.innerHeight - m;
+    var barra = document.querySelector('.nav-celular'), topo = document.querySelector('.lateral');
+    if (barra && getComputedStyle(barra).position === 'fixed') { var rb = barra.getBoundingClientRect(); if (rb.height && rb.top < baixo + m) { baixo = rb.top - m; } }
+    if (topo && /sticky|fixed/.test(getComputedStyle(topo).position)) { var rt = topo.getBoundingClientRect(); if (rt.width >= window.innerWidth - 1 && rt.top <= 0 && rt.bottom > 0) { cima = rt.bottom + m; } }
+    if (rs.bottom < cima || rs.top > baixo) { d.open = false; return; }
+    var larg = p.offsetWidth, alt = p.offsetHeight;
+    var x = Math.min(Math.max(m, rs.right - larg), window.innerWidth - larg - m);
+    var y = linha.bottom + 4;
+    if (y + alt > baixo) { y = linha.top - alt - 4; }
+    if (y < cima) { y = Math.max(cima, baixo - alt); }
+    p.style.left = Math.round(x) + 'px';
+    p.style.top = Math.round(y) + 'px';
+    // Um pai com transform (a entrada animada do <main>, por exemplo) vira a referencia do position: fixed e desloca o
+    // menu. Mede onde ele ficou e corrige a diferenca: o menu cai no lugar mesmo com a animacao parada no meio.
+    var real = p.getBoundingClientRect(), dx = real.left - x, dy = real.top - y;
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) { p.style.left = Math.round(x - dx) + 'px'; p.style.top = Math.round(y - dy) + 'px'; }
+  }
+  ouvir(document, 'toggle', function (e) {
+    var d = e.target;
+    if (!d.matches || !d.matches('details.menu-linha')) { return; }
+    var p = d.querySelector('.menu-linha-painel');
+    if (d.open) {
+      esconder();
+      Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (o) { if (o !== d) { o.open = false; } });
+      d.classList.add('flutua');
+      posMenu(d);
+    } else {
+      d.classList.remove('flutua');
+      if (p) { p.style.left = ''; p.style.top = ''; }
+    }
+  }, true);
+  ouvir(document, 'click', function (e) {
+    var d = document.querySelector('details.menu-linha[open]');
+    if (d && !d.contains(e.target)) { d.open = false; }
+  });
+  ouvir(window, 'scroll', function () { var d = document.querySelector('details.menu-linha[open].flutua'); if (d) { posMenu(d); } }, true);
+  ouvir(window, 'resize', function () { var d = document.querySelector('details.menu-linha[open].flutua'); if (d) { posMenu(d); } });
+
+  // Sombra de "tem mais colunas" (13/11/2026, pedido do Kenio): a tabela vai para uma caixa (.rolagem-gestor), e a
+  // caixa ganha tem-mais-direita e tem-mais-esquerda conforme a rolagem. O CSS poe a sombra na borda da caixa, por
+  // cima de tudo e sem pegar clique (lib/layout.php). Atualiza no scroll, no resize e quando a tabela muda de largura
+  // (colunas ligadas ou desligadas).
+  Array.prototype.forEach.call(document.querySelectorAll('.tabela.gestor'), function (s) {
+    var caixa = s.parentElement && s.parentElement.classList.contains('rolagem-gestor') ? s.parentElement : null;
+    if (!caixa) { caixa = document.createElement('div'); caixa.className = 'rolagem-gestor'; s.parentNode.insertBefore(caixa, s); caixa.appendChild(s); }
+    var marcar = function () {
+      var fim = s.scrollWidth - s.clientWidth;
+      caixa.classList.toggle('tem-mais-direita', fim > 1 && s.scrollLeft < fim - 1);
+      caixa.classList.toggle('tem-mais-esquerda', s.scrollLeft > 1);
+    };
+    ouvir(s, 'scroll', marcar, { passive: true });
+    ouvir(window, 'resize', marcar);
+    if (window.ResizeObserver) { var t = s.querySelector('table'); var ro = new ResizeObserver(marcar); ro.observe(s); if (t) { ro.observe(t); } }
+    marcar();
+  });
 
   // Instalar como app (o service worker e registrado uma vez, la em cima)
   var instalavel = null;
