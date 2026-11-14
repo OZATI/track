@@ -341,7 +341,7 @@ function resumo_render(PDO $db, string $periodo, string $de, string $ate): void
     // Sem cabecalho (desde 23/10/2026): a fonte de trafego foi para o filtro do topo e o Atualizar,
     // com a hora da ultima busca, para a barra lateral. Fica o gatilho da busca em segundo plano
     // (painel.js) e o aviso do filtro ligado.
-    if (meta_sync_vencida() || kiwify_sync_vencida() || historico_vencido()) {
+    if (sync_em_segundo_plano(meta_sync_vencida() || kiwify_sync_vencida() || historico_vencido())) {
         echo '<span id="sync" data-sync="1" hidden><span data-sync-texto></span></span>';
     }
     if ($fProduto !== '' || $fCanais) {

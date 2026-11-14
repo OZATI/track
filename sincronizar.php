@@ -28,6 +28,18 @@ if (!csrf_valido()) {
     $json ? responder_json(403, ['ok' => false]) : header('Location: ./');
     exit;
 }
+// A busca usa as chaves de Integracoes (Kiwify, Meta, Instagram e GA4): so quem tem esse acesso a dispara,
+// como em ga4.php e integracoes.php. Nao usa exigir_login(): ele devolve uma pagina HTML, e aqui a resposta
+// e JSON (painel.js) ou o aviso na tela (botao).
+track_acessos_migrar();
+if (!usuario_pode('integracoes')) {
+    if ($json) {
+        responder_json(403, ['ok' => false, 'erro' => 'sem_acesso']);
+    }
+    aviso_definir('O seu usuário não tem acesso a Integrações, então não pode buscar dados nas APIs.', 'erro');
+    header('Location: ' . destino_seguro((string)($_POST['volta'] ?? '')));
+    exit;
+}
 session_write_close(); // a busca pode demorar: nao prende as outras abas do painel
 @set_time_limit(120);  // Kiwify, Meta e Instagram em sequencia podem passar de 30 s
 ignore_user_abort(true); // sair da pagina no meio nao interrompe a busca

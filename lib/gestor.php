@@ -546,7 +546,7 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
     }
     echo '</nav>';
     $meta = meta_sync_estado();
-    $vencida = meta_sync_vencida() || kiwify_sync_vencida() || historico_vencido();
+    $vencida = sync_em_segundo_plano(meta_sync_vencida() || kiwify_sync_vencida() || historico_vencido());
     echo '<div class="barra-vendas" id="sync"' . ($vencida ? ' data-sync="1"' : '') . '>';
     if ($fora) {
         $detalhe = [];
