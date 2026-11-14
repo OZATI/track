@@ -383,7 +383,10 @@ button.criativo-mini:focus-visible{ outline:2px solid var(--marca); outline-offs
 .ap-formatos button{ min-height:32px; padding:0 14px; border:1px solid var(--linha-forte); border-radius:999px; background:var(--cartao); color:var(--texto); font-size:12.5px; font-weight:500; }
 .ap-formatos button[aria-pressed="true"]{ border-color:var(--marca); background:var(--realce); color:var(--marca); }
 .ap-corpo{ flex:1 1 auto; min-height:260px; overflow:auto; display:flex; flex-direction:column; align-items:center; gap:12px; padding:16px 18px; }
-.ap-corpo iframe{ display:block; max-width:100%; border:0; border-radius:8px; background:#fff; }
+/* A previa da Meta tem tamanho fixo (540 de largura no Feed): numa tela estreita ela encolhe inteira, na proporcao,
+   dentro de uma moldura do tamanho que sobra (o painel.js poe a escala), em vez de cortar o anuncio. */
+.ap-moldura{ flex:none; overflow:hidden; border-radius:8px; background:#fff; }
+.ap-moldura iframe{ display:block; max-width:none; border:0; transform-origin:0 0; }
 .ap-carregando, .ap-erro{ margin:0; color:var(--suave); font-size:13px; text-align:center; }
 .ap-aviso{ align-self:stretch; margin:0; padding:8px 12px; border-radius:8px; background:var(--fundo-alerta); color:var(--texto); font-size:12.5px; }
 .ap-reserva{ display:grid; gap:8px; width:min(420px, 100%); }
