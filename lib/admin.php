@@ -61,6 +61,13 @@ function usuario_pode(string $acesso, ?string $u = null): bool
     return !is_array($lista) || in_array($acesso, $lista, true);
 }
 
+// A busca em segundo plano (sincronizar.php) pede o acesso Integracoes. Sem ele a tela nem pede a busca
+// (data-sync), para o painel.js nao receber 403 a cada carga.
+function sync_em_segundo_plano(bool $vencida): bool
+{
+    return $vencida && usuario_pode('integracoes');
+}
+
 // Caminho da tela atual ate a pasta do painel: '' dentro dele, '../utm/' nas telas do nucleo
 // que moram na raiz do admin
 function admin_base(): string

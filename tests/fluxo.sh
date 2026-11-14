@@ -1806,6 +1806,41 @@ confere "$(tem 'R$ 134,00' "$r")" "compras do GA4 com o valor"
 confere "$(tem 'customEvent:formato' "$r")" "dimensões personalizadas da propriedade aparecem"
 confere "$(tem '<span class="selo alerta">sim</span>' "$r")" "limiar do Google (thresholding) aparece na propriedade do app"
 confere "$(tem 'Os números acabaram de ser buscados' "$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=atualizar" "$URL/ga4.php")")" "segundo Atualizar no mesmo minuto não chama o Google de novo"
+# M1: a busca em segundo plano (sincronizar.php) usa as chaves de Integrações (GA4, Kiwify, Meta, Instagram).
+# Quem só tem o UTM não pode disparar essas chamadas; quem tem Integrações pode.
+rr=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=adicionar" --data-urlencode "usuario=restrito" --data-urlencode "senha=senha-restrita-1" --data-urlencode "senha2=senha-restrita-1" --data-urlencode "acessos[]=utm" "$URL/usuarios.php")
+confere "$(tem 'Acesso criado para restrito' "$rr")" "M1: conta de teste só com o acesso UTM criada"
+JR="$DADOS/jr"
+# Os testes de login errado acima esgotaram o limite de erros desta conexão: zera para a conta de teste entrar
+# shellcheck disable=SC2086
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; track_db()->exec("DELETE FROM limites WHERE chave LIKE \"login%\"");')
+rr=$(curl -s -c "$JR" -b "$JR" "$URL/entrar.php")
+cr=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$rr") | head -1 | grep -o '[a-f0-9]\{32\}')
+curl -s -o /dev/null -c "$JR" -b "$JR" --data-urlencode "csrf=$cr" --data-urlencode "usuario=restrito" --data-urlencode "senha=senha-restrita-1" "$URL/entrar.php"
+cr=$(curl -s -b "$JR" "$URL/conta.php" | grep -o 'name="csrf" value="[a-f0-9]*"' | head -1 | grep -o '[a-f0-9]\{32\}')
+confere "$([ -n "$cr" ]; echo $?)" "M1: a conta restrita entrou e tem o token do formulário"
+# shellcheck disable=SC2086
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; definir_ajuste("ga4_sync_tentativa", null); definir_ajuste("ga4_sync_rodando", null); definir_ajuste("kiwify_sync_tentativa", null);')
+pa=$(curl -s -b "$JAR" "$URL/index.php?aba=vendas&periodo=tudo")
+pr=$(curl -s -b "$JR" "$URL/index.php?aba=vendas&periodo=tudo")
+confere "$(tem 'data-sync="1"' "$pa")" "M1: com a busca vencida, a tela de quem tem Integrações pede a busca em segundo plano"
+confere "$(grep -q 'data-sync="1"' < <(printf '%s\n' "$pr"); [ $? -ne 0 ]; echo $?)" "M1: a tela de quem não tem Integrações não pede a busca (sem 403 a cada carga)"
+cod=$(curl -s -o /dev/null -w '%{http_code}' -b "$JR" -X POST -H "X-CSRF: $cr" "$URL/sincronizar.php")
+confere "$([ "$cod" = "403" ]; echo $?)" "M1: a busca em segundo plano é recusada para quem não tem Integrações ($cod)"
+cod=$(curl -s -o /dev/null -w '%{http_code}' -b "$JR" --data-urlencode "csrf=$cr" --data-urlencode "volta=./" "$URL/sincronizar.php")
+# shellcheck disable=SC2086
+kw=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; echo ajuste("kiwify_sync_tentativa") ? "buscou" : "nao-buscou";')
+confere "$([ "$cod" = "302" ] && [ "$kw" = "nao-buscou" ]; echo $?)" "M1: o botão Atualizar vendas volta sem buscar na Kiwify para quem não tem Integrações ($cod, $kw)"
+# shellcheck disable=SC2086
+m1=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; echo ajuste("ga4_sync_tentativa") ? "chamou" : "nao-chamou";')
+confere "$([ "$m1" = "nao-chamou" ]; echo $?)" "M1: a conta restrita não chamou o GA4 ($m1)"
+rr=$(curl -s -b "$JAR" -X POST -H "X-CSRF: $csrf" "$URL/sincronizar.php")
+confere "$(tem '"buscou":true' "$rr")" "M1: a conta com Integrações busca ($rr)"
+# shellcheck disable=SC2086
+m1=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; echo ajuste("ga4_sync_tentativa") ? "chamou" : "nao-chamou";')
+confere "$([ "$m1" = "chamou" ]; echo $?)" "M1: a conta autorizada chamou o GA4 ($m1)"
+rr=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" --data-urlencode "usuario=restrito" "$URL/usuarios.php")
+confere "$(tem 'Acesso de restrito removido' "$rr")" "M1: conta de teste removida"
 r=$(curl -s -b "$JAR" "$URL/integracoes.php?aba=rastreio")
 confere "$(tem 'data-integracao="ga4"><a href="ga4.php">' "$r")" "aba Rastreio de Integrações mostra o GA4"
 confere "$(tem 'Site 111111111 · App 222222222' "$r")" "cartão do GA4 conectado mostra as propriedades"
