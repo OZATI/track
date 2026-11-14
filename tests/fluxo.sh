@@ -245,6 +245,7 @@ confere "$(tem 'Bate' "$r")" "detalhe do visitante mostra a venda conferida"
 echo "Usuários e login do admin"
 r=$(curl -s -b "$JAR" "$URL/usuarios.php")
 confere "$(tem 'kenio <span class="suave">(você)' "$r")" "tela de usuários lista quem entra"
+confere "$(tem '>(sem lista)</span>' "$r")" "quem não tem lista de acessos gravada aparece como (sem lista)"
 confere "$(tem 'data-tabela="usuarios" data-por-pagina="25">' "$r")" "Usuários na tabela inteligente"
 confere "$(tem 'Acesso a tudo</span><span class="kpi-ico"' "$r")" "Usuários: dois cartões (quantos entram e quantos têm acesso a tudo)"
 csrf=$(grep -o 'name="csrf" value="[a-f0-9]*"' < <(printf '%s\n' "$r") | head -1 | grep -o '[a-f0-9]\{32\}')
@@ -275,7 +276,17 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/index.php")
 confere "$([ "$code" = "200" ]; echo $?)" "allan abre o UTM ($code)"
 r=$(curl -s -b "$J3" "$URL/index.php")
 confere "$(grep -q 'title="CMS"' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem acesso ao CMS, a barra lateral não mostra o CMS"
+# Tudo marcado grava a lista inteira de acessos
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" --data-urlencode "acessos[]=cms" --data-urlencode "acessos[]=utm" --data-urlencode "acessos[]=usuarios" --data-urlencode "acessos[]=bio" --data-urlencode "acessos[]=financeiro" --data-urlencode "acessos[]=integracoes" "$URL/usuarios.php")
+# shellcheck disable=SC2086
+lista=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; $l = (track_config() ?? [])["acessos"]["allan"] ?? null; echo is_array($l) ? implode(",", $l) : "sem lista";')
+confere "$([ "$lista" = "cms,utm,usuarios,bio,financeiro,integracoes" ]; echo $?)" "tudo marcado grava a lista inteira de acessos ($lista)"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" --data-urlencode "acessos[]=cms" "$URL/usuarios.php")
+# Sem o acesso UTM, nada de notificacoes de venda (trazem valor e lucro): inscrever e testar recusados
+r=$(curl -s -b "$J3" -H "X-CSRF: $c" -H 'Content-Type: application/json' --data '{}' "$URL/notificacoes.php?acao=inscrever")
+confere "$(tem 'para quem tem o acesso UTM' "$r")" "sem o acesso UTM, não inscreve aparelho nas notificações de venda"
+r=$(curl -s -b "$J3" -H "X-CSRF: $c" -H 'Content-Type: application/json' --data '{}' "$URL/notificacoes.php?acao=testar")
+confere "$(tem 'para quem tem o acesso UTM' "$r")" "sem o acesso UTM, não manda notificação de teste"
 destino=$(curl -s -D - -o /dev/null -b "$J3" "$URL/index.php" | grep -i '^location:' | tr -d '
 ')
 confere "$(tem 'ocation: \.\./$' "$destino")" "usuário só do CMS que abre o UTM vai para o CMS ($destino)"
@@ -298,10 +309,24 @@ confere "$([ "$code" = "403" ]; echo $?)" "o token da Meta (dentro de Integraç�
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=acessos" --data-urlencode "usuario=allan" "$URL/usuarios.php")
 code=$(curl -s -o /dev/null -w '%{http_code}' -b "$J3" "$URL/index.php")
 confere "$([ "$code" = "403" ]; echo $?)" "usuário sem nenhum painel não abre o UTM ($code)"
+# Um aparelho do allan (direto no banco: sem o UTM, a tela nao deixa inscrever), para ver que sair apaga os aparelhos
+# shellcheck disable=SC2086
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; track_db()->prepare("INSERT INTO push_inscricoes (usuario, endpoint, p256dh, auth, criado_em) VALUES (?, ?, ?, ?, ?)")->execute(["allan", "http://127.0.0.1/push/allan-1", "x", "y", agora_utc()]);')
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" --data-urlencode "usuario=allan" "$URL/usuarios.php")
 confere "$(tem 'Acesso de allan removido' "$r")" "kenio tira o acesso do allan"
+# shellcheck disable=SC2086
+n=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; echo track_db()->query("SELECT COUNT(*) FROM push_inscricoes WHERE usuario = '"'"'allan'"'"'")->fetchColumn();')
+confere "$([ "$n" = "0" ]; echo $?)" "quem sai perde os aparelhos inscritos nas notificações ($n)"
 destino=$(curl -s -o /dev/null -w '%{redirect_url}' -b "$J3" "$URL/index.php")
 confere "$(tem 'entrar.php' "$destino")" "sessão de quem perdeu o acesso cai na hora"
+# Sobra de aparelho com o nome de quem saiu: recriar o usuario com o mesmo nome apaga, e a pessoa nova nao herda os avisos
+# shellcheck disable=SC2086
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; track_db()->prepare("INSERT INTO push_inscricoes (usuario, endpoint, p256dh, auth, criado_em) VALUES (?, ?, ?, ?, ?)")->execute(["allan", "http://127.0.0.1/push/allan-2", "x", "y", agora_utc()]);')
+r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=adicionar" --data-urlencode "usuario=allan" --data-urlencode "senha=outra-senha" --data-urlencode "senha2=outra-senha" --data-urlencode "acessos[]=utm" "$URL/usuarios.php")
+# shellcheck disable=SC2086
+n=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; echo track_db()->query("SELECT COUNT(*) FROM push_inscricoes WHERE usuario = '"'"'allan'"'"'")->fetchColumn();')
+confere "$([ "$(tem 'Acesso criado para allan' "$r")" = "0" ] && [ "$n" = "0" ]; echo $?)" "recriar um usuário com o mesmo nome não herda os aparelhos de antes ($n)"
+curl -s -o /dev/null -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=remover" --data-urlencode "usuario=allan" "$URL/usuarios.php"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=trocar_senha" --data-urlencode "atual=errada" --data-urlencode "nova=x" --data-urlencode "nova2=x" "$URL/conta.php")
 confere "$(tem 'senha atual não confere' "$r")" "trocar a senha (Minha conta) exige a senha atual"
 r=$(curl -s -b "$JAR" --data-urlencode "csrf=$csrf" --data-urlencode "acao=trocar_senha" --data-urlencode "atual=senha-de-teste-123" --data-urlencode "nova=curta" --data-urlencode "nova2=curta" "$URL/conta.php")
@@ -1243,6 +1268,13 @@ confere "$(tem '"caminho":"/push/aparelho-1","vapid":true,"cifra":"aes128gcm"' "
 confere "$(tem '"titulo":"Notificações ligadas"' "$L")" "o aparelho decifra a notificação de teste"
 
 : > "$DADOS/push.log"
+# Aparelhos de quem saiu (fantasma) e de quem nao tem o acesso UTM (semutm): os avisos de venda e o relatorio nao vao para eles
+# shellcheck disable=SC2086
+(cd "$RAIZ" && PORTA_PUSH="$PORTA_PUSH" "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; $cfg = track_config();
+  $cfg["usuarios"]["semutm"] = password_hash("semutm-nao-entra-1", PASSWORD_DEFAULT); $cfg["acessos"]["semutm"] = ["cms"]; track_salvar_config($cfg);
+  $db = track_db(); $k = $db->query("SELECT p256dh, auth FROM push_inscricoes WHERE usuario = '"'"'kenio'"'"' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+  foreach (["fantasma", "semutm"] as $u) { $db->prepare("INSERT INTO push_inscricoes (usuario, endpoint, p256dh, auth, criado_em) VALUES (?, ?, ?, ?, ?)")
+    ->execute([$u, "http://127.0.0.1:" . getenv("PORTA_PUSH") . "/push/" . $u, $k["p256dh"], $k["auth"], agora_utc()]); }')
 PIX='{"order_id":"pedido-push","order_status":"waiting_payment","webhook_event_type":"pix_created","payment_method":"pix","Product":{"product_name":"Drive de Projetos 2.0"},"Commissions":{"charge_amount":6700},"TrackingParameters":{"utm_source":"MetaAds","utm_medium":"conjunto 5|111111","utm_campaign":"TL 1|120120","utm_term":"Instagram_Reels"}}'
 PAGO=${PIX/waiting_payment/paid}
 PAGO=${PAGO/pix_created/order_approved}
@@ -1251,6 +1283,7 @@ L=$(cat "$DADOS/push.log")
 confere "$(tem '"titulo":"Pix gerado | Drive de Projetos 2.0","corpo":"R$ 67,00 · Instagram · anúncio · TL 1"' "$L")" "Pix gerado avisa com valor, canal e campanha"
 confere "$(tem '"titulo":"Venda aprovada! | Drive de Projetos 2.0"' "$L")" "venda aprovada avisa na hora do webhook"
 confere "$([ "$(wc -l < "$DADOS/push.log")" -eq 2 ]; echo $?)" "reenvio do webhook não repete o aviso ($(wc -l < "$DADOS/push.log") avisos em 4 webhooks)"
+confere "$(grep -q '/push/fantasma\|/push/semutm' "$DADOS/push.log"; [ $? -ne 0 ]; echo $?)" "aviso de venda não vai para aparelho de quem saiu nem de quem não tem o UTM"
 # shellcheck disable=SC2086
 saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; require "lib/push.php"; $db = track_db();
   $db->prepare("UPDATE vendas SET notificado = NULL, pedido_pai = ? WHERE pedido = ?")->execute(["pedido-1", "pedido-push"]);
@@ -1270,6 +1303,10 @@ confere "$(tem 'relatorio: 0' "$saida")" "relatório das 12h sai uma vez por dia
 saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS cron.php --hora=18)
 confere "$(tem 'relatorio: 0' "$saida")" "horário não escolhido não manda relatório"
 confere "$(tem '"titulo":"Parcial das 12h","corpo":"Faturamento R$ ' "$(cat "$DADOS/push.log")")" "relatório detalhado chega decifrado"
+confere "$(grep -q '/push/fantasma\|/push/semutm' "$DADOS/push.log"; [ $? -ne 0 ]; echo $?)" "relatório de lucro também não vai para eles"
+# shellcheck disable=SC2086
+(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; $cfg = track_config(); unset($cfg["usuarios"]["semutm"], $cfg["acessos"]["semutm"]); track_salvar_config($cfg);
+  track_db()->exec("DELETE FROM push_inscricoes WHERE usuario IN ('"'"'fantasma'"'"', '"'"'semutm'"'"')");')
 # shellcheck disable=SC2086
 saida=$(cd "$RAIZ" && "$PHP" $PHP_FLAGS -r 'require "lib/util.php"; require "lib/push.php";
   $t = ["fat" => 20000, "vendas" => 3, "gasto" => 6000, "imposto" => 729, "lucro" => 13271, "roi" => 2.97];

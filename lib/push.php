@@ -188,7 +188,12 @@ function push_para_usuarios(callable $montar): int
     foreach (push_aparelhos() as $a) {
         $porUsuario[$a['usuario']][] = $a;
     }
+    $existentes = track_usuarios();
     foreach ($porUsuario as $usuario => $aparelhos) {
+        // Os avisos de venda e de lucro so vao para quem existe e tem o acesso UTM
+        if (!isset($existentes[(string)$usuario]) || !usuario_pode('utm', (string)$usuario)) {
+            continue;
+        }
         $msg = $montar(push_prefs((string)$usuario));
         if ($msg === null) {
             continue;

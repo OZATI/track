@@ -23,6 +23,11 @@ if (!dentro_do_limite('notificacoes:' . ip_conexao(), 30, 600)) {
     responder_json(429, ['ok' => false, 'erro' => 'Muitas tentativas. Espere alguns minutos.']);
 }
 $usuario = (string)usuario_atual();
+// As notificacoes trazem venda com valor e o relatorio de lucro: inscrever e testar pedem o acesso UTM.
+// Cancelar vale sempre.
+if (in_array((string)($_GET['acao'] ?? ''), ['inscrever', 'testar'], true) && !usuario_pode('utm')) {
+    responder_json(403, ['ok' => false, 'erro' => 'As notificações de venda são para quem tem o acesso UTM.']);
+}
 $e = json_decode(file_get_contents('php://input', false, null, 0, 16384) ?: '{}', true);
 $e = is_array($e) ? $e : [];
 $db = track_db();

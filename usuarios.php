@@ -22,13 +22,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $usuarios = track_usuarios();
     $acessos = is_array($cfg['acessos'] ?? null) ? $cfg['acessos'] : [];
     $acao = (string)($_POST['acao'] ?? '');
-    // Guarda a lista; com tudo marcado, tira a lista (pode tudo, inclusive o que vier depois)
-    $definir = function (string $u, array $lista) use (&$acessos, $todosAcessos) {
-        if (count($lista) === count($todosAcessos)) {
-            unset($acessos[$u]);
-        } else {
-            $acessos[$u] = $lista;
-        }
+    // Grava sempre a lista explicita de cada usuario, mesmo com tudo marcado. Acesso criado depois entra para
+    // quem ja tem lista por track_acessos_migrar() (lib/admin.php), como o Integracoes entrou.
+    $definir = function (string $u, array $lista) use (&$acessos) {
+        $acessos[$u] = array_values($lista);
     };
 
     if (!csrf_valido()) {
@@ -46,6 +43,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $erros[] = $problema;
         } else {
             $usuarios[$novo] = password_hash($senha, PASSWORD_DEFAULT);
+            // Usuario novo comeca sem aparelho inscrito nas notificacoes (apaga o que houver com o mesmo nome)
+            try {
+                track_db()->prepare('DELETE FROM push_inscricoes WHERE usuario = ?')->execute([$novo]);
+            } catch (Throwable $e) {
+                error_log('usuarios adicionar push: ' . $e->getCode());
+            }
             $lista = $lerAcessos($_POST['acessos'] ?? []);
             $definir($novo, $lista);
             $aviso = 'Acesso criado para ' . $novo . ($lista ? ' (' . implode(', ', array_map(fn($a) => $todosAcessos[$a], $lista)) . ')' : ', ainda sem nenhum painel') . '. Passe a senha para a pessoa; ela troca em Minha conta depois de entrar.';
@@ -70,6 +73,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $erros[] = 'Usuário não encontrado.';
         } else {
             unset($usuarios[$alvo], $acessos[$alvo]);
+            // Remover apaga tambem os aparelhos do usuario inscritos nas notificacoes
+            try {
+                track_db()->prepare('DELETE FROM push_inscricoes WHERE usuario = ?')->execute([$alvo]);
+            } catch (Throwable $e) {
+                error_log('usuarios remover push: ' . $e->getCode());
+            }
             $aviso = 'Acesso de ' . $alvo . ' removido.';
         }
     } else {
@@ -123,7 +132,9 @@ admin_cabecalho('usuarios');
     <table>
       <thead><tr><th class="nome">Usuário</th><th>Pode abrir</th><th class="acoes"></th></tr></thead><tbody>
       <?php foreach ($nomes as $u): ?>
-        <tr><td class="usuario-nome"><?= avatar_html($u, 24, admin_base()) ?> <?= e($u) ?><?= $u === $eu ? ' <span class="suave">(você)</span>' : '' ?></td>
+        <tr><td class="usuario-nome"><?= avatar_html($u, 24, admin_base()) ?> <?= e($u) ?><?= $u === $eu ? ' <span class="suave">(você)</span>' : '' ?>
+          <?php // Sem lista gravada: a tela marca, e salvar grava a lista ?>
+          <?= !is_array((track_config() ?? [])['acessos'][$u] ?? null) ? ' <span class="suave" title="Sem lista de acessos gravada. Confira o que esta pessoa pode abrir: marcar ou desmarcar um acesso grava a lista.">(sem lista)</span>' : '' ?></td>
           <td><form method="post" action="" class="acessos" data-auto>
               <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="acessos"><input type="hidden" name="usuario" value="<?= e($u) ?>">
               <?= $caixas($u, usuario_acessos($u)) ?>

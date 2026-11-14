@@ -185,7 +185,7 @@ if (!logado()) {
 // usuario_atual() diz quem entrou; token_csrf() vai no cabeçalho X-CSRF das chamadas fetch
 ```
 
-O `?volta=` só aceita caminho do próprio site. Quem entra e sai do admin se controla em **Usuários** (a engrenagem da barra lateral, aba Usuários): dar acesso, marcar o que cada um abre (CMS, UTM, Usuários; marcar já salva) e tirar acesso (o de outra pessoa). A própria senha se troca em **Minha conta**, com limite de 5 tentativas em 15 minutos. Toda senha (instalar, criar acesso, trocar) tem pelo menos 10 caracteres e não pode ser igual ao usuário. Ninguém tira o próprio acesso nem o próprio Usuários. Quem não tinha a lista (os de antes) abre tudo. O CMS do admin confere o mesmo acesso (`cms_exigir_acesso` no engdesk).
+O `?volta=` só aceita caminho do próprio site. Quem entra e sai do admin se controla em **Usuários** (a engrenagem da barra lateral, aba Usuários): dar acesso, marcar o que cada um abre (CMS, UTM, Usuários; marcar já salva) e tirar acesso (o de outra pessoa). A própria senha se troca em **Minha conta**, com limite de 5 tentativas em 15 minutos. Toda senha (instalar, criar acesso, trocar) tem pelo menos 10 caracteres e não pode ser igual ao usuário. Ninguém tira o próprio acesso nem o próprio Usuários. A lista de cada usuário fica sempre gravada, mesmo com tudo marcado, e as notificações de venda e de lucro vão só para quem tem o acesso UTM. O CMS do admin confere o mesmo acesso (`cms_exigir_acesso` no engdesk).
 
 **Onde ficam os dados:** `.../track-dados/` (config.php e track.sqlite), ao lado do `public_html`, fora de qualquer site e do deploy. Em outro servidor, defina a variável `TRACK_DADOS`.
 
