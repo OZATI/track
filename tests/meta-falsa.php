@@ -13,12 +13,72 @@
 // longo (TokenGerenciaLongo...); com ele, /me traz a Pessoa Teste com e-mail ficticio e
 // /me/adaccounts duas contas. Nome e foto de quem mandou mensagem (webhook): o token da pagina
 // (TokenPagina..., em /me/accounts) le a pessoa 7000000000000001; a 7000000000000002 da erro.
+//
+// Criativo e previa do gestor (lib/meta_criativo.php): na listagem de anuncios, o cv free (333333) vem com
+// uma imagem (miniatura no CDN falso, /cdn/<nome>.jpg, servido por este mesmo arquivo) e o cv 05 (222222)
+// so com o tipo, video, sem miniatura. /<anuncio> traz o status, os textos e as previas (iframe); e
+// /<anuncio>/previews, cada formato. O CDN falso so vale no painel com TRACK_META_MIDIA_HOST.
+// META_FALSA_CENARIO (arquivo) liga casos do tests/criativo.sh, uma palavra por linha:
+//   criativos       -> anuncios a mais: EXIF, arquivo que nao e imagem, 9 MB, CDN de fora, PNG e 3 comuns
+//   troca           -> o cv free troca de criativo
+//   recusa_criativo -> a listagem com os campos do criativo da erro (a busca refaz sem eles)
+//   sem_junto       -> o pedido com as previas juntas da erro (modo separado)
+//   iframe_mau      -> a previa do feed volta com endereco que nao e o da Meta
+//   bomba           -> um anuncio a mais (444009) cuja imagem e um PNG que diz ter 6320 x 6320 (40 MP) em poucos bytes
+// META_FALSA_LOG (arquivo): uma linha por pedido, para o teste contar as chamadas.
 
 const FALSA_APP_ID = '1234567890';
 const FALSA_APP_SEGREDO = '0123456789abcdef0123456789abcdef';
 
-header('Content-Type: application/json');
 $rota = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if ($log = getenv('META_FALSA_LOG')) {
+    @file_put_contents($log, $rota . '?' . (string)parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY) . "\n", FILE_APPEND | LOCK_EX);
+}
+$cenario = ($arqCenario = getenv('META_FALSA_CENARIO')) && is_file($arqCenario) ? array_values(array_filter(array_map('trim', file($arqCenario)))) : [];
+// CDN falso das miniaturas dos criativos
+if (preg_match('~^/cdn/([a-z0-9]+)\.jpg$~', $rota, $m)) {
+    $jpeg = function (int $w, int $h, int $cor): string {
+        if (!function_exists('imagecreatetruecolor')) {
+            return base64_decode('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=');
+        }
+        $im = imagecreatetruecolor($w, $h);
+        imagefill($im, 0, 0, $cor);
+        ob_start();
+        imagejpeg($im, null, 80);
+        imagedestroy($im);
+        return (string)ob_get_clean();
+    };
+    header('Content-Type: image/jpeg');
+    if ($m[1] === 'bomba') {
+        // So o cabecalho do PNG (IHDR com CRC certo) e o fim: o tamanho se le sem abrir a imagem
+        header('Content-Type: image/png');
+        $pedaco = fn(string $tipo, string $dado) => pack('N', strlen($dado)) . $tipo . $dado . pack('N', crc32($tipo . $dado));
+        echo "\x89PNG\r\n\x1a\n" . $pedaco('IHDR', pack('NNCCCCC', 6320, 6320, 8, 2, 0, 0, 0))
+            . $pedaco('IDAT', (string)gzcompress(str_repeat("\0", 6320 * 3 + 1), 9)) . $pedaco('IEND', '');
+        exit;
+    }
+    if ($m[1] === 'texto') {
+        echo '<html><body>isto nao e uma imagem</body></html>';
+    } elseif ($m[1] === 'grande') {
+        header('Content-Length: ' . (9 * 1024 * 1024));
+        echo str_repeat("\xFF", 9 * 1024 * 1024);
+    } elseif ($m[1] === 'png' && function_exists('imagepng')) {
+        header('Content-Type: image/png');
+        $im = imagecreatetruecolor(300, 150);
+        imagefill($im, 0, 0, 0x2E7D32);
+        imagepng($im);
+        imagedestroy($im);
+    } elseif ($m[1] === 'exif') {
+        // JPEG com um bloco EXIF (APP1) com um texto que nao pode sobrar depois de regravar
+        $bin = $jpeg(640, 480, 0x8E24AA);
+        $dado = "Exif\0\0MM\0*\0\0\0\x08\0\0GPS-SEGREDO-DO-TESTE";
+        echo substr($bin, 0, 2) . "\xFF\xE1" . pack('n', strlen($dado) + 2) . $dado . substr($bin, 2);
+    } else {
+        echo $jpeg(600, 600, 0x1D6FF2);
+    }
+    exit;
+}
+header('Content-Type: application/json');
 $token = preg_replace('/^Bearer\s+/i', '', $_SERVER['HTTP_AUTHORIZATION'] ?? '');
 $erro = function (int $http, int $codigo, string $msg) {
     http_response_code($http);
@@ -130,6 +190,73 @@ if ($rota === '/graph/act_587364236934346') {
     echo json_encode(['name' => 'DRIVE DE PROJETOS', 'currency' => 'BRL', 'account_status' => 1, 'id' => 'act_587364236934346']);
     exit;
 }
+// Criativo e previa do gestor (lib/meta_criativo.php)
+$cdn = 'http://' . $_SERVER['HTTP_HOST'] . '/cdn/';
+$criativos = [
+    '222222' => ['id' => '900222', 'object_type' => 'VIDEO', 'video_id' => '800222'],
+    '333333' => in_array('troca', $cenario, true)
+        ? ['id' => '900334', 'object_type' => 'SHARE', 'thumbnail_url' => $cdn . 'b333333.jpg']
+        : ['id' => '900333', 'object_type' => 'SHARE', 'thumbnail_url' => $cdn . 'a333333.jpg', 'image_url' => $cdn . 'a333333.jpg'],
+];
+$extras = [];
+if (in_array('criativos', $cenario, true)) {
+    foreach (['444001' => 'exif', '444002' => 'texto', '444003' => 'grande', '444005' => 'png', '444006' => 'c444006', '444007' => 'c444007', '444008' => 'c444008'] as $ad => $arq) {
+        $criativos[$ad] = ['id' => '9' . $ad, 'object_type' => 'PHOTO', 'thumbnail_url' => $cdn . $arq . '.jpg'];
+    }
+    $criativos['444004'] = ['id' => '9444004', 'object_type' => 'PHOTO', 'thumbnail_url' => 'https://example.com/fora.jpg'];
+    if (in_array('bomba', $cenario, true)) {
+        $criativos['444009'] = ['id' => '9444009', 'object_type' => 'PHOTO', 'thumbnail_url' => $cdn . 'bomba.jpg'];
+    }
+    ksort($criativos);
+    foreach (array_keys($criativos) as $ad) {
+        if (strpos((string)$ad, '444') === 0) {
+            $extras[] = ['id' => (string)$ad, 'name' => 'teste ' . $ad, 'status' => 'ACTIVE', 'effective_status' => 'ACTIVE', 'adset_id' => '111111', 'campaign_id' => '120120'];
+        }
+    }
+}
+$iframe = function (string $ad, string $formato) use ($cenario): string {
+    $feed = $formato === 'INSTAGRAM_STANDARD';
+    $src = $feed && in_array('iframe_mau', $cenario, true)
+        ? 'https://example.com/ads/api/preview_iframe.php?d=' . $ad
+        : 'https://www.facebook.com/ads/api/preview_iframe.php?d=AQ' . $ad . '-' . strtolower($formato) . '&amp;t=AQteste';
+    return '<iframe src="' . $src . '" width="' . ($feed ? 540 : 320) . '" height="' . ($feed ? 690 : 570) . '" scrolling="yes" style="border: none;"></iframe>';
+};
+// Que formatos cada anuncio tem: o cv 05 (video) feed e reels; o cv free feed e stories
+$formatosDe = ['222222' => ['INSTAGRAM_STANDARD', 'INSTAGRAM_REELS'], '333333' => ['INSTAGRAM_STANDARD', 'INSTAGRAM_STORY']];
+if (preg_match('~^/graph/(\d{6})/previews$~', $rota, $m)) {
+    $f = (string)($_GET['ad_format'] ?? '');
+    if (!in_array($f, $formatosDe[$m[1]] ?? ['INSTAGRAM_STANDARD'], true)) {
+        $erro(400, 100, 'Invalid parameter: ad format not supported for this ad');
+    }
+    echo json_encode(['data' => [['body' => $iframe($m[1], $f)]]]);
+    exit;
+}
+if (preg_match('~^/graph/(\d{6})$~', $rota, $m) && isset($criativos[$m[1]])) {
+    $campos = (string)($_GET['fields'] ?? '');
+    if (strpos($campos, 'previews.') !== false && in_array('sem_junto', $cenario, true)) {
+        $erro(400, 100, '(#100) Unknown path components');
+    }
+    $c = $criativos[$m[1]] + ['thumbnail_url' => $cdn . 'g' . $m[1] . '.jpg'];
+    if ($m[1] === '333333') {
+        // Carrossel de 3 cartoes, com texto que traz HTML (tem de chegar como texto puro)
+        $c['object_story_spec'] = ['page_id' => '300300', 'link_data' => [
+            'message' => "<script>alert(1)</script> Projeto pronto\nem duas linhas", 'name' => 'Casa térrea 10x20',
+            'description' => 'Plantas e 3D', 'call_to_action' => ['type' => 'LEARN_MORE'],
+            'child_attachments' => [['name' => 'a'], ['name' => 'b'], ['name' => 'c']]]];
+    } else {
+        $c['object_story_spec'] = ['page_id' => '300300', 'video_data' => ['message' => 'Veja o projeto', 'title' => 'cv 05', 'call_to_action' => ['type' => 'SHOP_NOW']]];
+    }
+    $r = ['id' => $m[1], 'effective_status' => $m[1] === '333333' ? 'CAMPAIGN_PAUSED' : 'ACTIVE', 'creative' => $c];
+    if (preg_match_all('~previews\.ad_format\((\w+)\)\.as\((\w+)\)~', $campos, $pp, PREG_SET_ORDER)) {
+        foreach ($pp as [, $f, $apelido]) {
+            if (in_array($f, $formatosDe[$m[1]] ?? ['INSTAGRAM_STANDARD'], true)) {
+                $r[$apelido] = ['data' => [['body' => $iframe($m[1], $f)]]];
+            }
+        }
+    }
+    echo json_encode($r);
+    exit;
+}
 // Gestor de anuncios: TL 1 ativa (conjunto 5 / cv 05) e FREE pausada
 $listas = [
     '/graph/act_587364236934346/campaigns' => [
@@ -145,6 +272,20 @@ $listas = [
         ['id' => '333333', 'name' => 'cv free', 'status' => 'PAUSED', 'effective_status' => 'CAMPAIGN_PAUSED', 'adset_id' => '444444', 'campaign_id' => '555555'],
     ],
 ];
+if ($rota === '/graph/act_587364236934346/ads') {
+    $listas[$rota] = array_merge($listas[$rota], $extras);
+    if (strpos((string)($_GET['fields'] ?? ''), 'creative') !== false) {
+        if (in_array('recusa_criativo', $cenario, true)) {
+            $erro(400, 100, '(#100) Tried accessing nonexisting field (creative)');
+        }
+        foreach ($listas[$rota] as &$ad) {
+            if (isset($criativos[$ad['id']])) {
+                $ad['creative'] = $criativos[$ad['id']];
+            }
+        }
+        unset($ad);
+    }
+}
 if (isset($listas[$rota])) {
     echo json_encode(['data' => $listas[$rota], 'paging' => ['cursors' => ['before' => 'a', 'after' => 'b']]]);
     exit;
