@@ -339,6 +339,76 @@ td.quebra{ white-space:normal; min-width:220px; }
    em cima se nao couber, sempre dentro da tela. */
 .tabela.gestor tr > td.nome:has(.menu-linha[open]){ z-index:16; }
 .menu-linha.flutua > .menu-linha-painel{ position:fixed; top:0; right:auto; left:0; z-index:60; }
+/* "Ver o anuncio" e a miniatura do criativo (13/11/2026, pedidos do Kenio no Gestor, nivel Anuncios).
+   O olho fica entre o grafico (analise diaria) e o "...", do mesmo jeito: aparece ao passar o mouse na linha e, no
+   toque, fica sempre. No toque, o alvo tem 44 px (a area cresce em volta do desenho, e as acoes se afastam). */
+.tabela.gestor .ver-anuncio{ position:relative; display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; padding:0;
+  border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); color:var(--suave); opacity:0; transition:opacity .12s; }
+.tabela.gestor .ver-anuncio:hover{ color:var(--marca); border-color:var(--marca); }
+.tabela.gestor tr:hover .ver-anuncio, .tabela.gestor .ver-anuncio:focus-visible{ opacity:1; }
+@media (hover:none){ .tabela.gestor .ver-anuncio{ opacity:1; } }
+@media (pointer:coarse){
+  .tabela.gestor .linha-acoes:has(.ver-anuncio){ gap:12px; }
+  .tabela.gestor .ver-anuncio::after{ content:""; position:absolute; inset:-11px -10px; }
+}
+/* A miniatura: 40 px a esquerda do nome, cantos arredondados; com imagem, um botao (alvo de 44 px) que mostra a
+   previa de 192 px; sem imagem, o quadrado neutro com o tipo */
+.tabela.gestor .nome-mini{ display:flex; align-items:center; gap:10px; min-width:0; }
+.tabela.gestor .nome-txt{ min-width:0; }
+.criativo-mini{ position:relative; flex:none; display:grid; place-items:center; width:40px; height:40px; padding:0; border:1px solid var(--linha);
+  border-radius:8px; background:var(--cartao-2); color:var(--suave); }
+.criativo-mini img{ display:block; width:100%; height:100%; object-fit:cover; border-radius:7px; }
+.criativo-mini small{ font-size:9.5px; font-weight:600; letter-spacing:.02em; text-transform:uppercase; }
+button.criativo-mini{ cursor:zoom-in; }
+button.criativo-mini::after{ content:""; position:absolute; inset:-3px; }
+button.criativo-mini:focus-visible{ outline:2px solid var(--marca); outline-offset:2px; }
+.criativo-previa{ position:fixed; left:0; top:0; z-index:60; padding:6px; border:1px solid var(--linha-forte); border-radius:12px; background:var(--cartao);
+  box-shadow:0 12px 32px var(--sombra); pointer-events:none; }
+.criativo-previa[hidden]{ display:none; }
+.criativo-previa img{ display:block; width:192px; height:192px; object-fit:contain; border-radius:8px; background:var(--cartao-2); }
+/* O popup do anuncio: um <dialog> modal. No celular, a tela inteira, com as setas e o fechar embaixo, no polegar. */
+.anuncio-pop{ width:min(760px, calc(100vw - 32px)); max-width:none; max-height:calc(100vh - 32px); padding:0; overflow:hidden; color:var(--texto);
+  background:var(--cartao); border:1px solid var(--linha-forte); border-radius:12px; box-shadow:0 24px 64px var(--sombra); }
+.anuncio-pop::backdrop{ background:rgba(15,23,42,.55); }
+.ap-caixa{ display:flex; flex-direction:column; max-height:calc(100vh - 34px); }
+.ap-topo{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:14px 14px 12px 18px; border-bottom:1px solid var(--linha); }
+.ap-tit{ flex:1 1 240px; min-width:0; }
+.ap-nome{ margin:0; font-size:16px; font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
+.ap-conj{ margin:2px 0 0; color:var(--suave); font-size:12.5px; overflow-wrap:anywhere; }
+.ap-conj:empty{ display:none; }
+.ap-nav{ display:flex; align-items:center; gap:4px; }
+.ap-pos{ min-width:64px; color:var(--suave); font-size:12.5px; text-align:center; font-variant-numeric:tabular-nums; }
+.ap-nav .botao-icone:disabled{ opacity:.4; cursor:default; }
+.ap-formatos{ display:flex; flex-wrap:wrap; gap:6px; padding:12px 18px 0; }
+.ap-formatos button{ min-height:32px; padding:0 14px; border:1px solid var(--linha-forte); border-radius:999px; background:var(--cartao); color:var(--texto); font-size:12.5px; font-weight:500; }
+.ap-formatos button[aria-pressed="true"]{ border-color:var(--marca); background:var(--realce); color:var(--marca); }
+.ap-corpo{ flex:1 1 auto; min-height:260px; overflow:auto; display:flex; flex-direction:column; align-items:center; gap:12px; padding:16px 18px; }
+.ap-corpo iframe{ display:block; max-width:100%; border:0; border-radius:8px; background:#fff; }
+.ap-carregando, .ap-erro{ margin:0; color:var(--suave); font-size:13px; text-align:center; }
+.ap-aviso{ align-self:stretch; margin:0; padding:8px 12px; border-radius:8px; background:var(--fundo-alerta); color:var(--texto); font-size:12.5px; }
+.ap-reserva{ display:grid; gap:8px; width:min(420px, 100%); }
+.ap-mini-grande{ display:block; width:100%; max-width:420px; height:auto; border-radius:8px; background:var(--cartao-2); }
+.ap-r-titulo{ margin:0; font-size:14px; font-weight:600; }
+.ap-r-texto{ margin:0; font-size:13px; line-height:1.5; white-space:pre-line; overflow-wrap:anywhere; }
+.ap-r-desc{ margin:0; color:var(--suave); font-size:12.5px; }
+.ap-r-botao{ justify-self:start; padding:4px 12px; border:1px solid var(--linha-forte); border-radius:999px; font-size:12.5px; font-weight:500; }
+.ap-ger{ display:inline-flex; align-items:center; min-height:36px; font-size:13px; font-weight:500; }
+.ap-num{ display:flex; flex-wrap:wrap; gap:4px 16px; margin:0; padding:10px 18px 14px; border-top:1px solid var(--linha); color:var(--suave); font-size:12.5px; }
+.ap-num:empty{ display:none; }
+.ap-num b{ color:var(--texto); font-weight:600; font-variant-numeric:tabular-nums; }
+@media (max-width:640px){
+  .anuncio-pop{ width:100vw; height:100dvh; max-width:100vw; max-height:100dvh; margin:0; border:0; border-radius:0; }
+  .ap-caixa{ height:100%; max-height:none; padding-bottom:calc(72px + env(safe-area-inset-bottom)); }
+  .ap-topo{ padding:14px 16px 12px; }
+  .ap-nav, .ap-fechar{ position:fixed; z-index:1; bottom:calc(12px + env(safe-area-inset-bottom)); }
+  .ap-nav{ left:12px; right:68px; justify-content:space-between; padding:2px; border:1px solid var(--linha-forte); border-radius:999px; background:var(--cartao); box-shadow:0 8px 24px var(--sombra); }
+  .ap-nav .botao-icone{ width:44px; height:44px; border:0; border-radius:50%; }
+  .anuncio-pop .ap-fechar{ right:12px; width:48px; height:48px; border-radius:50%; box-shadow:0 8px 24px var(--sombra); }
+  .ap-formatos{ padding:10px 16px 0; }
+  .ap-formatos button{ min-height:44px; }
+  .ap-corpo{ padding:14px 16px; }
+  .ap-num{ padding:10px 16px 12px; }
+}
 .tabela.gestor tr.marcada > td{ background:var(--realce); }
 .tabela.gestor tr.fixada > td.nome{ box-shadow:inset 3px 0 0 var(--marca); }
 /* Gestor e analise diaria: o nome (ou o dia) fica parado ao rolar as colunas, e a borda direita
