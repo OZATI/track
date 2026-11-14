@@ -348,13 +348,31 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor tr:hover .ver-anuncio, .tabela.gestor .ver-anuncio:focus-visible{ opacity:1; }
 @media (hover:none){ .tabela.gestor .ver-anuncio{ opacity:1; } }
 @media (pointer:coarse){
-  .tabela.gestor .linha-acoes:has(.ver-anuncio){ gap:12px; }
+  .tabela.gestor .linha-acoes{ gap:12px; }
+  .tabela.gestor .linha-acoes:has(.ver-anuncio){ gap:20px; } /* o olho e o "..." crescem 10 px para cada lado: 20 de vao, sem dividir o toque */
   .tabela.gestor .ver-anuncio::after{ content:""; position:absolute; inset:-11px -10px; }
+  /* O "..." da linha (14/11/2026, Maestro: e o menu de que o Kenio reclamou): a area do toque cresce para 44 x 44 em
+     volta do desenho, que continua 24 x 22 */
+  .tabela.gestor .linha-acoes .menu-linha > summary{ position:relative; }
+  .tabela.gestor .linha-acoes .menu-linha > summary::after{ content:""; position:absolute; inset:-11px -10px; }
 }
 /* A miniatura: 40 px a esquerda do nome, cantos arredondados; com imagem, um botao (alvo de 44 px) que mostra a
    previa de 192 px; sem imagem, o quadrado neutro com o tipo */
 .tabela.gestor .nome-mini{ display:flex; align-items:center; gap:10px; min-width:0; }
 .tabela.gestor .nome-txt{ min-width:0; }
+/* As acoes da linha do anuncio (grafico, olho e "..."): no computador, a direita do nome; no toque, numa linha propria
+   embaixo do nome e do conjunto, na largura toda da celula. Cada uma tem 44 px de alvo e as areas nao se tocam: na
+   linha do nome (84 px ao lado da miniatura) nao cabiam as tres, e elas passavam da borda da coluna fixa. */
+.tabela.gestor .nome-mini > .linha-acoes{ flex:none; margin-left:auto; }
+/* No computador, a celula do anuncio com a miniatura e as acoes do lado ganha largura para o nome (com 200 px, o texto
+   ficava com uns 50 e quebrava em varias linhas) */
+@media (min-width:768px){ .tabela.gestor td.quebra:has(.nome-mini){ min-width:260px; } }
+@media (pointer:coarse){
+  .tabela.gestor .nome-mini{ flex-wrap:wrap; row-gap:14px; }
+  .tabela.gestor .nome-mini > .linha-acoes{ flex-basis:100%; margin:0 0 6px; padding:0 10px; }
+  .tabela.gestor .nome-mini > .linha-acoes a.analise{ position:relative; }
+  .tabela.gestor .nome-mini > .linha-acoes a.analise::after{ content:""; position:absolute; inset:-11px -10px; }
+}
 .criativo-mini{ position:relative; flex:none; display:grid; place-items:center; width:40px; height:40px; padding:0; border:1px solid var(--linha);
   border-radius:8px; background:var(--cartao-2); color:var(--suave); }
 .criativo-mini img{ display:block; width:100%; height:100%; object-fit:cover; border-radius:7px; }
@@ -382,6 +400,9 @@ button.criativo-mini:focus-visible{ outline:2px solid var(--marca); outline-offs
 .ap-formatos{ display:flex; flex-wrap:wrap; gap:6px; padding:12px 18px 0; }
 .ap-formatos button{ min-height:32px; padding:0 14px; border:1px solid var(--linha-forte); border-radius:999px; background:var(--cartao); color:var(--texto); font-size:12.5px; font-weight:500; }
 .ap-formatos button[aria-pressed="true"]{ border-color:var(--marca); background:var(--realce); color:var(--marca); }
+/* QA do Prumo (14/11/2026): no escuro, o azul sobre o realce dava 4,43:1 a 12,5 px. 20% mais claro so no escuro,
+   como o .jseg da C1: 5,4:1. No claro passa (4,73) e nao muda. */
+:root[data-tema="escuro"] .ap-formatos button[aria-pressed="true"]{ color:color-mix(in srgb, var(--marca) 80%, #fff); }
 .ap-corpo{ flex:1 1 auto; min-height:260px; overflow:auto; display:flex; flex-direction:column; align-items:center; gap:12px; padding:16px 18px; }
 /* A previa da Meta tem tamanho fixo (540 de largura no Feed): numa tela estreita ela encolhe inteira, na proporcao,
    dentro de uma moldura do tamanho que sobra (o painel.js poe a escala), em vez de cortar o anuncio. */
