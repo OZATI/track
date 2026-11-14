@@ -290,7 +290,9 @@
   // entra com textContent; o iframe so com o endereco da Meta (www.facebook.com), com sandbox e sem referrer. Se a Meta
   // falhar, a reserva (a nossa imagem, os textos e o Gerenciador): o anuncio nunca deixa de aparecer.
   var pop = document.getElementById('anuncio-pop');
-  var apOlho = null, apDados = {}, apPedido = 0;
+  var apOlho = null, apDados = {}, apPedido = 0, apUltimo = null;
+  // So a previa oficial da Meta, pelo caminho inteiro (o mesmo que o servidor e a CSP aceitam; seguranca, N3)
+  var PREVIA_META = /^https:\/\/www\.facebook\.com\/ads\/api\/preview_iframe\.php\?/;
   var SELO_CLASSE = { ativo: 'ok', pausado: 'neutro', arquivado: 'neutro', conjunto_pausado: 'alerta', campanha_pausada: 'alerta', em_analise: 'alerta', reprovado: 'erro', com_problema: 'erro' };
   var SELO_TEXTO = { ativo: 'Ativo', pausado: 'Pausado', arquivado: 'Arquivado', conjunto_pausado: 'Conjunto pausado', campanha_pausada: 'Campanha pausada', em_analise: 'Em análise', reprovado: 'Reprovado', com_problema: 'Com problema' };
   var STATUS_META = { ACTIVE: 'ativo', PAUSED: 'pausado', ADSET_PAUSED: 'conjunto_pausado', CAMPAIGN_PAUSED: 'campanha_pausada', IN_PROCESS: 'em_analise', PENDING_REVIEW: 'em_analise', PREAPPROVED: 'em_analise',
@@ -341,26 +343,40 @@
     return box;
   }
   function apMostrar(j) {
+    apUltimo = j;
     if (j.status && SELO_CLASSE[j.status.selo]) { pintarSelo(j.status.selo, j.status.texto); }
     apFormatos(j.formatos, j.formato);
     var nos = [];
     if (j.aviso) { nos.push(novo('p', 'ap-aviso', j.aviso)); }
-    if (typeof j.iframe_src === 'string' && /^https:\/\/www\.facebook\.com\//.test(j.iframe_src)) {
+    if (typeof j.iframe_src === 'string' && PREVIA_META.test(j.iframe_src)) {
       var f = document.createElement('iframe');
       f.title = 'Prévia do anúncio';
       f.setAttribute('referrerpolicy', 'no-referrer');
-      f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
+      f.setAttribute('sandbox', 'allow-scripts allow-same-origin'); // sem allow-popups (seguranca, N1): o clique dentro da previa nao abre a pagina de venda
       if (Array.isArray(j.iframe_tam) && j.iframe_tam.length === 2) {
         f.width = String(Math.max(200, Math.min(1000, Number(j.iframe_tam[0]) || 0)));
         f.height = String(Math.max(200, Math.min(1400, Number(j.iframe_tam[1]) || 0)));
       }
       f.src = j.iframe_src;
-      nos.push(f);
+      var moldura = novo('div', 'ap-moldura'); moldura.appendChild(f);
+      nos.push(moldura);
     } else {
       nos.push(apReserva(j.reserva || {}));
     }
     nos.push(linkGer(j.reserva && j.reserva.gerenciador) || linkGer(apDados.ger)); // o da Meta, se valer; senao, o da linha
     apCorpo(nos);
+    apEscala();
+  }
+  // A previa da Meta cabe na largura que sobra: encolhe na proporcao (nunca aumenta)
+  function apEscala() {
+    var m = pop && pop.querySelector('.ap-moldura'), f = m && m.querySelector('iframe');
+    if (!f) { return; }
+    var c = apEl('[data-ap-corpo]'), cs = getComputedStyle(c);
+    var livre = c.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    var w = Number(f.width) || 540, h = Number(f.height) || 690, k = Math.min(1, livre / w);
+    f.style.transform = k < 1 ? 'scale(' + k.toFixed(4) + ')' : '';
+    m.style.width = Math.floor(w * k) + 'px';
+    m.style.height = Math.floor(h * k) + 'px';
   }
   function apErro(st) {
     var msg = st === 403 ? 'Você não tem acesso a este anúncio.' : st === 404 ? 'Este anúncio não existe mais na Meta.' : 'Não deu para carregar a prévia agora.';
@@ -413,6 +429,15 @@
         Array.prototype.forEach.call(pop.querySelectorAll('[data-ap-formato]'), function (x) { x.setAttribute('aria-pressed', String(x === t)); });
         apCarregar(t.getAttribute('data-ap-formato'));
       }
+    });
+    ouvir(window, 'resize', function () { if (pop.open) { apEscala(); } });
+    ouvir(document, 'securitypolicyviolation', function (e) {
+      if (!pop.open || (e.effectiveDirective || e.violatedDirective || '').indexOf('frame-src') !== 0) { return; }
+      var m = pop.querySelector('.ap-moldura');
+      if (!m) { return; }
+      var aviso = novo('p', 'ap-aviso', 'A prévia da Meta não abriu aqui. Abaixo, a imagem e os textos do anúncio.');
+      m.parentNode.insertBefore(aviso, m);
+      m.parentNode.replaceChild(apReserva((apUltimo && apUltimo.reserva) || {}), m);
     });
     pop.addEventListener('keydown', function (e) {
       if (e.target.closest && e.target.closest('input, select, textarea')) { return; }

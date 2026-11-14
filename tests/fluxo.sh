@@ -494,8 +494,11 @@ r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=conjuntos")
 confere "$(tem '<strong>conjunto 5</strong></a><span class="linha-acoes"><a class="analise"[^>]*><svg.*</details></span><br><span class="suave">TL 1</span>' "$r")" "conjunto mostra a campanha dele"
 confere "$(tem 'class="analise" href="./?aba=campanha&amp;nivel=conjunto&amp;id=111111&amp;periodo=tudo"' "$r")" "conjunto tem o botão da análise diária (público)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios")
-confere "$(tem '<strong>cv 05</strong><span class="linha-acoes"><a class="analise"[^>]*><svg.*</details></span><br><span class="suave">conjunto 5</span></td><td><span class="suave">—</span></td><td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "anúncio com as vendas que têm o ID dele (a API completou a do webhook)"
+confere "$(tem '<strong>cv 05</strong><span class="linha-acoes"><a class="analise"[^>]*><svg.*</details></span><br><span class="suave">conjunto 5</span></div></div></td><td><span class="suave">—</span></td><td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "anúncio com as vendas que têm o ID dele (a API completou a do webhook)"
 confere "$(tem 'class="analise" href="./?aba=campanha&amp;nivel=anuncio&amp;id=222222&amp;periodo=tudo"' "$r")" "anúncio tem o botão da análise diária (criativo)"
+confere "$(tem '<td class="quebra nome"><div class="nome-mini"><span class="criativo-mini vazio" role="img" aria-label="[^"]*">.*<div class="nome-txt"><strong>cv 05</strong>' "$r")" "anúncio sem a imagem do criativo mostra o quadrado neutro à esquerda do nome"
+confere "$(tem '<a class="analise"[^>]*><svg[^<]*<[^>]*>.*</a><button type="button" class="ver-anuncio" data-ver-anuncio data-anuncio="{&quot;id&quot;:&quot;222222&quot;' "$r")" "anúncio tem o olho Ver o anúncio entre o gráfico e o ..."
+confere "$(tem '<dialog class="anuncio-pop" id="anuncio-pop" aria-labelledby="ap-nome">' "$r")" "nível Anúncios tem o popup do anúncio (um só, embaixo da tabela)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&nivel=anuncios&cols[]=gasto&cols[]=hook&cols[]=hold&cols[]=ret25&cols[]=ret100")
 confere "$(tem '<td>R$ 50,00</td><td>25,0%</td><td>25,0%</td><td>60,0%</td><td>15,0%</td>' "$r")" "colunas do vídeo no gestor: hook rate (3 s ÷ impressões), hold rate (ThruPlay ÷ 3 s) e retenção (÷ play)"
 confere "$(tem '<td>R$ 10,00</td><td>N/A</td><td>N/A</td><td>N/A</td><td>N/A</td>' "$r")" "anúncio sem vídeo fica N/A, não 0%"
