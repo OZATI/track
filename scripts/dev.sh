@@ -24,6 +24,8 @@ if [ -z "${PHP_FLAGS:-}" ]; then
   PHP_FLAGS=""
   if [ -d "$EXT" ]; then
     PHP_FLAGS="-d extension_dir=$(cygpath -w "$EXT" 2>/dev/null || echo "$EXT") -d extension=pdo_sqlite -d extension=mbstring -d extension=curl -d extension=openssl"
+    # GD: as miniaturas dos criativos do gestor sao regravadas por ela (lib/meta_criativo.php)
+    if ! "$PHP" -m 2>/dev/null | grep -qix gd && { [ -f "$EXT/php_gd.dll" ] || [ -f "$EXT/gd.so" ]; }; then PHP_FLAGS="$PHP_FLAGS -d extension=gd"; fi
   fi
 fi
 
@@ -33,6 +35,8 @@ export TRACK_KIWIFY_API="http://127.0.0.1:$((PORTA + 1))/v1"
 export TRACK_META_API="http://127.0.0.1:$((PORTA + 2))/graph"
 export TRACK_IG_API="http://127.0.0.1:$((PORTA + 3))/ig"
 export TRACK_IG_MIDIA_HOST="127.0.0.1:$((PORTA + 3))"
+# CDN falso das miniaturas dos criativos do gestor (servido pela Meta falsa)
+export TRACK_META_MIDIA_HOST="127.0.0.1:$((PORTA + 2))"
 export TRACK_META_LIMITE_MINUTO=200
 export TRACK_IG_LIMITE_MINUTO=200
 

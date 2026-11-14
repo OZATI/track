@@ -7,6 +7,7 @@
 // Atualizar. Toda consulta passa pela protecao contra bloqueio de lib/meta_api.php.
 
 require_once __DIR__ . '/meta_api.php';
+require_once __DIR__ . '/meta_criativo.php';
 
 const META_SYNC_INTERVALO = 900;
 const META_SYNC_PAGINAS = 20;
@@ -61,19 +62,26 @@ function meta_sincronizar(bool $completa = false): array
         definir_ajuste('meta_sync_erro', $r['erro']);
         definir_ajuste('meta_sync_adiada', null);
     }
+    // Miniaturas dos criativos novos ou trocados, no maximo META_CRIATIVOS_POR_BUSCA e dentro do prazo (o resto
+    // vem na proxima busca). Depois de gravar a busca: uma falha aqui nunca desfaz o que a busca trouxe. Nao e
+    // chamada a API da Meta: e o CDN das imagens.
+    if (!empty($r['fila'])) {
+        $r['criativos'] = meta_criativos_baixar(track_db(), $r['fila']);
+    }
+    unset($r['fila']);
     return $r;
 }
 
 // Todas as paginas de uma lista da Graph API, pelo cursor "after"
-function meta_listar(string $rota, array $consulta, string $token): array
+function meta_listar(string $rota, array $consulta, string $token, int $paginas = META_SYNC_PAGINAS): array
 {
     $itens = [];
     $depois = null;
-    for ($i = 0; $i < META_SYNC_PAGINAS; $i++) {
+    for ($i = 0; $i < $paginas; $i++) {
         [$st, $c] = meta_api_get($rota, $consulta + ($depois ? ['after' => $depois] : []), $token);
         if ($st !== 200) {
             $m = meta_api_mensagem($c);
-            return ['ok' => false, 'adiada' => $st === META_ADIADA,
+            return ['ok' => false, 'adiada' => $st === META_ADIADA, 'status' => $st,
                 'erro' => $st === 0 ? 'Sem conexão com a API da Meta.' : ($m ?: 'A Meta respondeu HTTP ' . $st . '.')];
         }
         foreach ((array)($c['data'] ?? []) as $x) {
@@ -216,8 +224,22 @@ function meta_sync_buscar(array $k, bool $completa): array
     $hoje = (new DateTime('today', fuso()))->format('Y-m-d');
     $gravarOrc = $db->prepare('INSERT OR REPLACE INTO meta_orcamento_dia (dia, objeto_id, orcamento_diario, orcamento_total) VALUES (?, ?, ?, ?)');
     $objetos = 0;
+    $fila = []; // miniaturas dos criativos a baixar (lib/meta_criativo.php)
     foreach ($niveis as $nivel => [$rota, $campos]) {
-        $r = meta_listar($conta . $rota, ['fields' => $campos, 'limit' => '200'], $k['token']);
+        // Anuncios: o criativo vem na mesma listagem (id, tipo e a miniatura de 192 px), sem chamada a mais.
+        // Se a Meta recusar esses campos, a listagem sai como antes e o gestor segue sem as miniaturas.
+        $comCriativo = $nivel === 'ad';
+        // (100 por pagina e ate 40 paginas: o mesmo teto de 4000 anuncios de antes)
+        $r = $comCriativo
+            ? meta_listar($conta . $rota, ['fields' => $campos . ',' . META_CRIATIVO_CAMPOS, 'limit' => '100'], $k['token'], 2 * META_SYNC_PAGINAS)
+            : meta_listar($conta . $rota, ['fields' => $campos, 'limit' => '200'], $k['token']);
+        if (!$r['ok'] && $comCriativo && ($r['status'] ?? 0) === 400) {
+            $sem = meta_listar($conta . $rota, ['fields' => $campos, 'limit' => '200'], $k['token']);
+            if ($sem['ok']) {
+                definir_ajuste('meta_criativo_erro', 'A Meta recusou os campos do criativo (' . $r['erro'] . '); o gestor segue sem as miniaturas.');
+            }
+            $r = $sem;
+        }
         if (!$r['ok']) {
             return $r;
         }
@@ -234,6 +256,9 @@ function meta_sync_buscar(array $k, bool $completa): array
                 $orcDia ?: null, $orcTotal ?: null, agora_utc()]);
             if ($orcDia || $orcTotal) {
                 $gravarOrc->execute([$hoje, $id, $orcDia ?: null, $orcTotal ?: null]);
+            }
+            if ($comCriativo && ($url = meta_criativo_registrar($db, $id, $o['creative'] ?? null)) !== null) {
+                $fila[$id] = $url;
             }
             $objetos++;
         }
@@ -273,7 +298,9 @@ function meta_sync_buscar(array $k, bool $completa): array
         }
         $db->commit();
     }
-    return ['ok' => true, 'inicio' => $inicio, 'completa' => $completa, 'objetos' => $objetos, 'linhas' => $linhas];
+
+    // 5. As miniaturas a baixar vao na resposta: meta_sincronizar() baixa depois de gravar o resultado da busca
+    return ['ok' => true, 'inicio' => $inicio, 'completa' => $completa, 'objetos' => $objetos, 'linhas' => $linhas, 'fila' => $fila];
 }
 
 // ---------------------------------------------------------------- historico
