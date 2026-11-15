@@ -342,15 +342,20 @@ td.quebra{ white-space:normal; min-width:220px; }
 /* "Ver o anuncio" e a miniatura do criativo (13/11/2026, pedidos do Kenio no Gestor, nivel Anuncios).
    O olho fica entre o grafico (analise diaria) e o "...", do mesmo jeito: aparece ao passar o mouse na linha e, no
    toque, fica sempre. No toque, o alvo tem 44 px (a area cresce em volta do desenho, e as acoes se afastam). */
-.tabela.gestor .ver-anuncio{ position:relative; display:inline-flex; align-items:center; justify-content:center; width:24px; height:22px; padding:0;
-  border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); color:var(--suave); opacity:0; transition:opacity .12s; }
-.tabela.gestor .ver-anuncio:hover{ color:var(--marca); border-color:var(--marca); }
+/* Revisao de tela (14/11/2026, QA da Conferencia): o botao mede 44 x 44 de verdade (a auditoria mede o elemento, nao um
+   ::after); o desenho de 24 x 22 (borda, fundo e olho) fica no centro, num ::before. */
+.tabela.gestor .ver-anuncio{ position:relative; display:inline-grid; place-items:center; width:44px; height:44px; padding:0;
+  border:0; background:none; color:var(--suave); opacity:0; transition:opacity .12s; }
+.tabela.gestor .ver-anuncio::before{ content:""; position:absolute; top:50%; left:50%; box-sizing:border-box; width:24px; height:22px; margin:-11px 0 0 -12px;
+  border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); }
+.tabela.gestor .ver-anuncio .ico{ position:relative; }
+.tabela.gestor .ver-anuncio:hover{ color:var(--marca); }
+.tabela.gestor .ver-anuncio:hover::before{ border-color:var(--marca); }
 .tabela.gestor tr:hover .ver-anuncio, .tabela.gestor .ver-anuncio:focus-visible{ opacity:1; }
-@media (hover:none){ .tabela.gestor .ver-anuncio{ opacity:1; } }
+@media (hover:none), (max-width:767px){ .tabela.gestor .ver-anuncio{ opacity:1; } } /* sem mouse, ou numa tela de celular: sempre a vista */
 @media (pointer:coarse){
   .tabela.gestor .linha-acoes{ gap:12px; }
-  .tabela.gestor .linha-acoes:has(.ver-anuncio){ gap:20px; } /* o olho e o "..." crescem 10 px para cada lado: 20 de vao, sem dividir o toque */
-  .tabela.gestor .ver-anuncio::after{ content:""; position:absolute; inset:-11px -10px; }
+  .tabela.gestor .linha-acoes:has(.ver-anuncio){ gap:20px; } /* o "..." e a analise crescem 10 px para cada lado: 20 de vao, sem dividir o toque */
   /* O "..." da linha (14/11/2026, Maestro: e o menu de que o Kenio reclamou): a area do toque cresce para 44 x 44 em
      volta do desenho, que continua 24 x 22 */
   .tabela.gestor .linha-acoes .menu-linha > summary{ position:relative; }
@@ -367,13 +372,13 @@ td.quebra{ white-space:normal; min-width:220px; }
 /* No computador, a celula do anuncio com a miniatura e as acoes do lado ganha largura para o nome (com 200 px, o texto
    ficava com uns 50 e quebrava em varias linhas) */
 @media (min-width:768px){ .tabela.gestor td.quebra:has(.nome-mini){ min-width:260px; } }
-@media (pointer:coarse){
+@media (pointer:coarse), (max-width:767px){
   .tabela.gestor .nome-mini{ flex-wrap:wrap; row-gap:14px; }
   .tabela.gestor .nome-mini > .linha-acoes{ flex-basis:100%; margin:0 0 6px; padding:0 10px; }
   .tabela.gestor .nome-mini > .linha-acoes a.analise{ position:relative; }
   .tabela.gestor .nome-mini > .linha-acoes a.analise::after{ content:""; position:absolute; inset:-11px -10px; }
 }
-.criativo-mini{ position:relative; flex:none; display:grid; place-items:center; width:40px; height:40px; padding:0; border:1px solid var(--linha);
+.criativo-mini{ position:relative; flex:none; display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid var(--linha);
   border-radius:8px; background:var(--cartao-2); color:var(--suave); }
 .criativo-mini img{ display:block; width:100%; height:100%; object-fit:cover; border-radius:7px; }
 .criativo-mini small{ font-size:9.5px; font-weight:600; letter-spacing:.02em; text-transform:uppercase; }
@@ -396,9 +401,10 @@ button.criativo-mini:focus-visible{ outline:2px solid var(--marca); outline-offs
 .ap-conj:empty{ display:none; }
 .ap-nav{ display:flex; align-items:center; gap:4px; }
 .ap-pos{ min-width:64px; color:var(--suave); font-size:12.5px; text-align:center; font-variant-numeric:tabular-nums; }
+.ap-nav .botao-icone, .anuncio-pop .ap-fechar{ width:44px; height:44px; }
 .ap-nav .botao-icone:disabled{ opacity:.4; cursor:default; }
 .ap-formatos{ display:flex; flex-wrap:wrap; gap:6px; padding:12px 18px 0; }
-.ap-formatos button{ min-height:32px; padding:0 14px; border:1px solid var(--linha-forte); border-radius:999px; background:var(--cartao); color:var(--texto); font-size:12.5px; font-weight:500; }
+.ap-formatos button{ min-height:44px; padding:0 14px; border:1px solid var(--linha-forte); border-radius:999px; background:var(--cartao); color:var(--texto); font-size:12.5px; font-weight:500; }
 .ap-formatos button[aria-pressed="true"]{ border-color:var(--marca); background:var(--realce); color:var(--marca); }
 /* QA do Prumo (14/11/2026): no escuro, o azul sobre o realce dava 4,43:1 a 12,5 px. 20% mais claro so no escuro,
    como o .jseg da C1: 5,4:1. No claro passa (4,73) e nao muda. */
@@ -414,9 +420,18 @@ button.criativo-mini:focus-visible{ outline:2px solid var(--marca); outline-offs
 .ap-mini-grande{ display:block; width:100%; max-width:420px; height:auto; border-radius:8px; background:var(--cartao-2); }
 .ap-r-titulo{ margin:0; font-size:14px; font-weight:600; }
 .ap-r-texto{ margin:0; font-size:13px; line-height:1.5; white-space:pre-line; overflow-wrap:anywhere; }
+/* A previa da Meta e um iframe de outro dominio: se o Facebook mostrar a pagina de previa expirada, o painel nao ve. A
+   reserva (imagem maior, textos do criativo) fica sempre ao alcance, e abre sozinha se o iframe demorar mais de 8 s. */
+.ap-alt{ align-self:stretch; width:min(420px, 100%); margin:0 auto; border:1px solid var(--linha-forte); border-radius:10px; background:var(--cartao-2); }
+.ap-alt > summary{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px; padding:6px 14px; cursor:pointer; list-style:none; color:var(--texto); font-size:13px; font-weight:500; }
+.ap-alt > summary::-webkit-details-marker{ display:none; }
+.ap-alt > summary::after{ content:"▸"; color:var(--suave); }
+.ap-alt[open] > summary::after{ content:"▾"; }
+.ap-alt > summary:focus-visible{ outline:2px solid var(--marca); outline-offset:2px; }
+.ap-alt .ap-reserva{ width:auto; padding:0 14px 14px; }
 .ap-r-desc{ margin:0; color:var(--suave); font-size:12.5px; }
 .ap-r-botao{ justify-self:start; padding:4px 12px; border:1px solid var(--linha-forte); border-radius:999px; font-size:12.5px; font-weight:500; }
-.ap-ger{ display:inline-flex; align-items:center; min-height:36px; font-size:13px; font-weight:500; }
+.ap-ger{ display:inline-flex; align-items:center; min-height:44px; font-size:13px; font-weight:500; }
 .ap-num{ display:flex; flex-wrap:wrap; gap:4px 16px; margin:0; padding:10px 18px 14px; border-top:1px solid var(--linha); color:var(--suave); font-size:12.5px; }
 .ap-num:empty{ display:none; }
 .ap-num b{ color:var(--texto); font-weight:600; font-variant-numeric:tabular-nums; }

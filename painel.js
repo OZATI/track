@@ -342,6 +342,18 @@
     if (!box.firstChild) { box.appendChild(novo('p', 'ap-carregando', 'A Meta não mandou a prévia deste anúncio.')); }
     return box;
   }
+  // A previa da Meta e um iframe de outro dominio: se o Facebook devolver a pagina de "previa expirada" (ou nao
+  // responder), o painel nao enxerga isso. Por isso a reserva (imagem maior, textos do criativo) fica sempre ao alcance,
+  // num "Ver imagem e textos", e abre sozinha se o iframe nao terminar de carregar em 8 s ou der erro.
+  function apAlternativa(rv, iframe) {
+    var d = novo('details', 'ap-alt'), s = novo('summary', null, 'Prévia em branco ou expirada? Ver imagem e textos do anúncio');
+    d.appendChild(s); d.appendChild(apReserva(rv || {}));
+    var abrir = function () { d.open = true; };
+    var tempo = setTimeout(abrir, 8000);
+    iframe.addEventListener('load', function () { clearTimeout(tempo); });
+    iframe.addEventListener('error', function () { clearTimeout(tempo); abrir(); });
+    return d;
+  }
   function apMostrar(j) {
     apUltimo = j;
     if (j.status && SELO_CLASSE[j.status.selo]) { pintarSelo(j.status.selo, j.status.texto); }
@@ -359,6 +371,7 @@
       }
       f.src = j.iframe_src;
       var moldura = novo('div', 'ap-moldura'); moldura.appendChild(f);
+      nos.push(apAlternativa(j.reserva, f)); // em cima da previa (que tem uns 690 px): fora da vista, ninguem acharia
       nos.push(moldura);
     } else {
       nos.push(apReserva(j.reserva || {}));
@@ -438,6 +451,7 @@
       var aviso = novo('p', 'ap-aviso', 'A prévia da Meta não abriu aqui. Abaixo, a imagem e os textos do anúncio.');
       m.parentNode.insertBefore(aviso, m);
       m.parentNode.replaceChild(apReserva((apUltimo && apUltimo.reserva) || {}), m);
+      var alt = pop.querySelector('.ap-alt'); if (alt) { alt.parentNode.removeChild(alt); }
     });
     pop.addEventListener('keydown', function (e) {
       if (e.target.closest && e.target.closest('input, select, textarea')) { return; }
