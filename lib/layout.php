@@ -326,6 +326,14 @@ td.quebra{ white-space:normal; min-width:220px; }
    geral do menu (admin_tela.php) e de 34 px e serve as outras telas; aqui a especificidade maior vale so no gestor. */
 .gestor-acoes .menu-linha-painel a, .gestor-acoes .menu-linha-painel button, .tabela.gestor .menu-linha-painel a, .tabela.gestor .menu-linha-painel button{ min-height:44px; }
 @media (pointer:coarse), (max-width:767px){ .gestor-menu .menu-linha-painel a, .gestor-menu .menu-linha-painel button{ min-height:44px; } }
+/* Com itens de 44 px o Ordenar tem 627 px: numa tela baixa o menu passa a rolar por dentro, sem item fora do alcance */
+.gestor-menu .menu-linha-painel, .tabela.gestor .menu-linha-painel{ max-height:calc(100vh - 110px); overflow-y:auto; overscroll-behavior:contain; }
+/* No toque e no celular, os botoes da barra do gestor (Colunas, Ordenar, grafico, Acoes, modo foco) e o "..." da linha tem a caixa
+   de 44 x 44 (no computador seguem com 34 px, a altura --alt do painel) */
+@media (pointer:coarse), (max-width:767px){
+  .gestor-ferr{ --alt:44px; }
+  .tabela.gestor .linha-acoes details.menu-linha > summary{ width:44px; height:44px; }
+}
 .orc-massa{ display:flex; flex-direction:column; gap:7px; padding:6px 10px 8px; }
 .orc-massa-modo{ display:flex; gap:14px; }
 .orc-massa-modo label{ display:inline-flex; align-items:center; gap:5px; margin:0; color:var(--texto); font-size:12px; }
