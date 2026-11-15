@@ -161,6 +161,9 @@ button.discreto.neutro{ color:var(--texto); }
 body.com-folha{ overflow:hidden; }
 /* Topo: conta, foto e a seta que recolhe a barra de cima (lembrado num cookie) */
 section[id], .cartao[id]{ scroll-margin-top:84px; }
+/* A barra do polegar (.nav-celular, fixa embaixo a partir de 760 px, admin_tela.php) nao pode esconder o que recebe o foco ou e levado
+   a vista: sem isto, o olho da ultima linha parava inteiro embaixo dela (WCAG 2.4.11, foco nao obscurecido). */
+@media (max-width:760px){ html:has(.nav-celular){ scroll-padding-bottom:calc(76px + env(safe-area-inset-bottom)); } }
 /* Usuarios: o que cada um pode abrir */
 form.acessos, fieldset.acessos{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin:0; }
 fieldset.acessos{ border:1px solid var(--linha); border-radius:var(--r-sm); padding:8px 12px; }
@@ -318,6 +321,19 @@ td.quebra{ white-space:normal; min-width:220px; }
 .menu-linha-painel hr{ margin:5px 0; border:0; border-top:1px solid var(--linha); }
 .menu-linha-painel button:disabled, .menu-linha-painel [aria-disabled=true]{ opacity:.45; cursor:not-allowed; background:none; }
 .menu-linha-painel a.atual{ font-weight:600; } .menu-linha-painel a.atual .ico{ color:var(--marca); }
+/* Os itens dos menus do gestor: 44 px de alvo. As acoes das marcadas e o "..." da linha (com o "Abrir no Gerenciador")
+   sempre; o Ordenar, que tem 14 itens, so no celular e no toque (no computador ficaria com 627 px de altura). A regra
+   geral do menu (admin_tela.php) e de 34 px e serve as outras telas; aqui a especificidade maior vale so no gestor. */
+.gestor-acoes .menu-linha-painel a, .gestor-acoes .menu-linha-painel button, .tabela.gestor .menu-linha-painel a, .tabela.gestor .menu-linha-painel button{ min-height:44px; }
+@media (pointer:coarse), (max-width:767px){ .gestor-menu .menu-linha-painel a, .gestor-menu .menu-linha-painel button{ min-height:44px; } }
+/* Com itens de 44 px o Ordenar tem 627 px: numa tela baixa o menu passa a rolar por dentro, sem item fora do alcance */
+.gestor-menu .menu-linha-painel, .tabela.gestor .menu-linha-painel{ max-height:calc(100vh - 110px); overflow-y:auto; overscroll-behavior:contain; }
+/* No toque e no celular, os botoes da barra do gestor (Colunas, Ordenar, grafico, Acoes, modo foco) e o "..." da linha tem a caixa
+   de 44 x 44 (no computador seguem com 34 px, a altura --alt do painel) */
+@media (pointer:coarse), (max-width:767px){
+  .gestor-ferr{ --alt:44px; }
+  .tabela.gestor .linha-acoes details.menu-linha > summary{ width:44px; height:44px; }
+}
 .orc-massa{ display:flex; flex-direction:column; gap:7px; padding:6px 10px 8px; }
 .orc-massa-modo{ display:flex; gap:14px; }
 .orc-massa-modo label{ display:inline-flex; align-items:center; gap:5px; margin:0; color:var(--texto); font-size:12px; }
@@ -332,6 +348,131 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor .linha-acoes .menu-linha{ opacity:0; transition:opacity .12s; }
 .tabela.gestor tr:hover .linha-acoes .menu-linha, .tabela.gestor .linha-acoes .menu-linha[open], .tabela.gestor .linha-acoes .menu-linha:focus-within{ opacity:1; }
 @media (hover:none){ .tabela.gestor .linha-acoes .menu-linha{ opacity:1; } }
+/* O "..." da linha (13/11/2026, Kenio: "olha essa complicacao de visualizacao"). O menu morava dentro da celula fixa do
+   nome (sticky, z-index 1): as celulas do nome das linhas de baixo pintavam por cima dele, e a area que rola cortava o
+   fim. Agora a celula da linha com o menu aberto sobe de camada (acima das outras celulas fixas, do cabecalho e da barra
+   do painel) e, com o JavaScript, o menu vira position: fixed (sai do corte), posto pelo painel.js embaixo da linha, ou
+   em cima se nao couber, sempre dentro da tela. */
+.tabela.gestor tr > td.nome:has(.menu-linha[open]){ z-index:16; }
+.menu-linha.flutua > .menu-linha-painel{ position:fixed; top:0; right:auto; left:0; z-index:60; }
+/* "Ver o anuncio" e a miniatura do criativo (13/11/2026, pedidos do Kenio no Gestor, nivel Anuncios).
+   O olho fica entre o grafico (analise diaria) e o "...", do mesmo jeito: aparece ao passar o mouse na linha e, no
+   toque, fica sempre. No toque, o alvo tem 44 px (a area cresce em volta do desenho, e as acoes se afastam). */
+/* Revisao de tela (14/11/2026, QA da Conferencia): o botao mede 44 x 44 de verdade (a auditoria mede o elemento, nao um
+   ::after); o desenho de 24 x 22 (borda, fundo e olho) fica no centro, num ::before. */
+.tabela.gestor .ver-anuncio{ position:relative; display:inline-grid; place-items:center; width:44px; height:44px; padding:0;
+  border:0; background:none; color:var(--suave); opacity:0; transition:opacity .12s; }
+.tabela.gestor .ver-anuncio::before{ content:""; position:absolute; top:50%; left:50%; box-sizing:border-box; width:24px; height:22px; margin:-11px 0 0 -12px;
+  border:1px solid var(--linha-forte); border-radius:var(--r-sm); background:var(--cartao); }
+.tabela.gestor .ver-anuncio .ico{ position:relative; }
+.tabela.gestor .ver-anuncio:hover{ color:var(--marca); }
+.tabela.gestor .ver-anuncio:hover::before{ border-color:var(--marca); }
+.tabela.gestor tr:hover .ver-anuncio, .tabela.gestor .ver-anuncio:focus-visible{ opacity:1; }
+@media (hover:none), (max-width:767px){ .tabela.gestor .ver-anuncio{ opacity:1; } } /* sem mouse, ou numa tela de celular: sempre a vista */
+@media (pointer:coarse){
+  .tabela.gestor .linha-acoes{ gap:12px; }
+  .tabela.gestor .linha-acoes:has(.ver-anuncio){ gap:20px; } /* o "..." e a analise crescem 10 px para cada lado: 20 de vao, sem dividir o toque */
+  /* O "..." da linha (14/11/2026, Maestro: e o menu de que o Kenio reclamou): a area do toque cresce para 44 x 44 em
+     volta do desenho, que continua 24 x 22 */
+  .tabela.gestor .linha-acoes .menu-linha > summary{ position:relative; }
+  .tabela.gestor .linha-acoes .menu-linha > summary::after{ content:""; position:absolute; inset:-11px -10px; }
+}
+/* A miniatura: 40 px a esquerda do nome, cantos arredondados; com imagem, um botao (alvo de 44 px) que mostra a
+   previa de 192 px; sem imagem, o quadrado neutro com o tipo */
+.tabela.gestor .nome-mini{ display:flex; align-items:center; gap:10px; min-width:0; }
+.tabela.gestor .nome-txt{ min-width:0; }
+/* As acoes da linha do anuncio (grafico, olho e "..."): no computador, a direita do nome; no toque, numa linha propria
+   embaixo do nome e do conjunto, na largura toda da celula. Cada uma tem 44 px de alvo e as areas nao se tocam: na
+   linha do nome (84 px ao lado da miniatura) nao cabiam as tres, e elas passavam da borda da coluna fixa. */
+.tabela.gestor .nome-mini > .linha-acoes{ flex:none; margin-left:auto; }
+/* No computador, a celula do anuncio com a miniatura e as acoes do lado ganha largura para o nome (com 200 px, o texto
+   ficava com uns 50 e quebrava em varias linhas) */
+@media (min-width:768px){ .tabela.gestor td.quebra:has(.nome-mini){ min-width:260px; } }
+@media (pointer:coarse), (max-width:767px){
+  .tabela.gestor .nome-mini{ flex-wrap:wrap; row-gap:14px; }
+  .tabela.gestor .nome-mini > .linha-acoes{ flex-basis:100%; margin:0 0 6px; padding:0 10px; }
+  .tabela.gestor .nome-mini > .linha-acoes a.analise{ position:relative; }
+  .tabela.gestor .nome-mini > .linha-acoes a.analise::after{ content:""; position:absolute; inset:-11px -10px; }
+}
+.criativo-mini{ position:relative; flex:none; display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid var(--linha);
+  border-radius:8px; background:var(--cartao-2); color:var(--suave); }
+.criativo-mini img{ display:block; width:100%; height:100%; object-fit:cover; border-radius:7px; }
+.criativo-mini small{ font-size:9.5px; font-weight:600; letter-spacing:.02em; text-transform:uppercase; }
+button.criativo-mini{ cursor:zoom-in; }
+button.criativo-mini::after{ content:""; position:absolute; inset:-3px; }
+button.criativo-mini:focus-visible{ outline:2px solid var(--marca); outline-offset:2px; }
+.criativo-previa{ position:fixed; left:0; top:0; z-index:60; padding:6px; border:1px solid var(--linha-forte); border-radius:12px; background:var(--cartao);
+  box-shadow:0 12px 32px var(--sombra); pointer-events:none; }
+.criativo-previa[hidden]{ display:none; }
+.criativo-previa img{ display:block; width:192px; height:192px; object-fit:contain; border-radius:8px; background:var(--cartao-2); }
+/* O popup do anuncio: um <dialog> modal. No celular, a tela inteira, com as setas e o fechar embaixo, no polegar. */
+.anuncio-pop{ width:min(760px, calc(100vw - 32px)); max-width:none; max-height:calc(100vh - 32px); padding:0; overflow:hidden; color:var(--texto);
+  background:var(--cartao); border:1px solid var(--linha-forte); border-radius:12px; box-shadow:0 24px 64px var(--sombra); }
+.anuncio-pop::backdrop{ background:rgba(15,23,42,.55); }
+.ap-caixa{ display:flex; flex-direction:column; max-height:calc(100vh - 34px); }
+.ap-topo{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:14px 14px 12px 18px; border-bottom:1px solid var(--linha); }
+.ap-tit{ flex:1 1 240px; min-width:0; }
+.ap-nome{ margin:0; font-size:16px; font-weight:600; line-height:1.35; overflow-wrap:anywhere; }
+.ap-conj{ margin:2px 0 0; color:var(--suave); font-size:12.5px; overflow-wrap:anywhere; }
+.ap-conj:empty{ display:none; }
+.ap-nav{ display:flex; align-items:center; gap:4px; }
+.ap-pos{ min-width:64px; color:var(--suave); font-size:12.5px; text-align:center; font-variant-numeric:tabular-nums; }
+.ap-nav .botao-icone, .anuncio-pop .ap-fechar{ width:44px; height:44px; }
+.ap-nav .botao-icone:disabled{ opacity:.4; cursor:default; }
+.ap-formatos{ display:flex; flex-wrap:wrap; gap:6px; padding:12px 18px 0; }
+.ap-formatos button{ min-height:44px; padding:0 14px; border:1px solid var(--linha-forte); border-radius:999px; background:var(--cartao); color:var(--texto); font-size:12.5px; font-weight:500; }
+.ap-formatos button[aria-pressed="true"]{ border-color:var(--marca); background:var(--realce); color:var(--marca); }
+/* QA do Prumo (14/11/2026): no escuro, o azul sobre o realce dava 4,43:1 a 12,5 px. 20% mais claro so no escuro,
+   como o .jseg da C1: 5,4:1. No claro passa (4,73) e nao muda. */
+:root[data-tema="escuro"] .ap-formatos button[aria-pressed="true"]{ color:color-mix(in srgb, var(--marca) 80%, #fff); }
+.ap-corpo{ flex:1 1 auto; min-height:260px; overflow:auto; display:flex; flex-direction:column; align-items:center; gap:12px; padding:16px 18px; }
+/* A previa da Meta tem tamanho fixo (540 de largura no Feed): numa tela estreita ela encolhe inteira, na proporcao,
+   dentro de uma moldura do tamanho que sobra (o painel.js poe a escala), em vez de cortar o anuncio. */
+.ap-moldura{ flex:none; overflow:hidden; border-radius:8px; background:#fff; }
+.ap-moldura iframe{ display:block; max-width:none; border:0; transform-origin:0 0; }
+.ap-carregando, .ap-erro{ margin:0; color:var(--suave); font-size:13px; text-align:center; }
+.ap-aviso{ align-self:stretch; margin:0; padding:8px 12px; border-radius:8px; background:var(--fundo-alerta); color:var(--texto); font-size:12.5px; }
+.ap-reserva{ display:grid; gap:8px; width:min(420px, 100%); }
+.ap-mini-grande{ display:block; width:100%; max-width:420px; height:auto; border-radius:8px; background:var(--cartao-2); }
+.ap-r-titulo{ margin:0; font-size:14px; font-weight:600; }
+.ap-r-texto{ margin:0; font-size:13px; line-height:1.5; white-space:pre-line; overflow-wrap:anywhere; }
+/* A previa da Meta e um iframe de outro dominio: a pagina de "previa expirada" do Facebook carrega normalmente e o painel nao a
+   enxerga. A reserva (imagem maior, textos do criativo) fica aberta por padrao acima da previa, compacta: a imagem ao lado dos
+   textos (embaixo, numa tela estreita). */
+.ap-alt{ align-self:stretch; width:min(540px, 100%); margin:0 auto; border:1px solid var(--linha-forte); border-radius:10px; background:var(--cartao-2); }
+.ap-alt > summary{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px; padding:6px 14px; cursor:pointer; list-style:none; color:var(--texto); font-size:13px; font-weight:500; }
+.ap-alt > summary::-webkit-details-marker{ display:none; }
+.ap-alt > summary::after{ content:"▸"; color:var(--suave); }
+.ap-alt[open] > summary::after{ content:"▾"; }
+.ap-alt > summary:focus-visible{ outline:2px solid var(--marca); outline-offset:2px; }
+.ap-alt .ap-reserva{ width:auto; padding:0 14px 14px; }
+.ap-alt .ap-reserva:has(.ap-mini-grande){ grid-template-columns:minmax(0, 168px) minmax(0, 1fr); column-gap:14px; align-items:start; }
+.ap-alt .ap-reserva:has(.ap-mini-grande) > *{ grid-column:2; }
+.ap-alt .ap-reserva:has(.ap-mini-grande) > .ap-mini-grande{ grid-column:1; grid-row:1 / span 6; width:100%; max-width:168px; }
+@media (max-width:640px){
+  .ap-alt .ap-reserva:has(.ap-mini-grande){ grid-template-columns:minmax(0, 1fr); }
+  .ap-alt .ap-reserva:has(.ap-mini-grande) > *, .ap-alt .ap-reserva:has(.ap-mini-grande) > .ap-mini-grande{ grid-column:1; grid-row:auto; }
+  .ap-alt .ap-mini-grande{ max-width:200px; }
+}
+.ap-r-desc{ margin:0; color:var(--suave); font-size:12.5px; }
+.ap-r-botao{ justify-self:start; padding:4px 12px; border:1px solid var(--linha-forte); border-radius:999px; font-size:12.5px; font-weight:500; }
+.ap-ger{ display:inline-flex; align-items:center; min-height:44px; font-size:13px; font-weight:500; }
+.ap-num{ display:flex; flex-wrap:wrap; gap:4px 16px; margin:0; padding:10px 18px 14px; border-top:1px solid var(--linha); color:var(--suave); font-size:12.5px; }
+.ap-num:empty{ display:none; }
+.ap-num b{ color:var(--texto); font-weight:600; font-variant-numeric:tabular-nums; }
+@media (max-width:640px){
+  .anuncio-pop{ width:100vw; height:100dvh; max-width:100vw; max-height:100dvh; margin:0; border:0; border-radius:0; }
+  .ap-caixa{ height:100%; max-height:none; padding-bottom:calc(72px + env(safe-area-inset-bottom)); }
+  .ap-topo{ padding:14px 16px 12px; }
+  .ap-nav, .ap-fechar{ position:fixed; z-index:1; bottom:calc(12px + env(safe-area-inset-bottom)); }
+  .ap-nav{ left:12px; right:68px; justify-content:space-between; padding:2px; border:1px solid var(--linha-forte); border-radius:999px; background:var(--cartao); box-shadow:0 8px 24px var(--sombra); }
+  .ap-nav .botao-icone{ width:44px; height:44px; border:0; border-radius:50%; }
+  .anuncio-pop .ap-fechar{ right:12px; width:48px; height:48px; border-radius:50%; box-shadow:0 8px 24px var(--sombra); }
+  .ap-formatos{ padding:10px 16px 0; }
+  .ap-formatos button{ min-height:44px; }
+  .ap-corpo{ padding:14px 16px; }
+  .ap-num{ padding:10px 16px 12px; }
+}
 .tabela.gestor tr.marcada > td{ background:var(--realce); }
 .tabela.gestor tr.fixada > td.nome{ box-shadow:inset 3px 0 0 var(--marca); }
 /* Gestor e analise diaria: o nome (ou o dia) fica parado ao rolar as colunas, e a borda direita
@@ -348,6 +489,21 @@ td.quebra{ white-space:normal; min-width:220px; }
 .tabela.gestor tbody tr:not(.marcada, .ao-vivo-linha):hover > td{ background:var(--zebra-hover); }
 .tabela.gestor{ background:linear-gradient(270deg, var(--cartao) 40%, transparent) right / 48px 100% no-repeat local,
   radial-gradient(farthest-side at 100% 50%, var(--sombra-rolagem), transparent) right / 14px 100% no-repeat scroll, var(--cartao); }
+/* Sombra de "tem mais colunas", de novo (13/11/2026, Kenio: "uma sombra estranha quando scrollamos na horizontal").
+   O truque acima e o FUNDO da area que rola: fica embaixo das celulas. Nas linhas sem fundo proprio a sombra aparecia
+   por baixo dos valores; nas listradas, no hover e no total ela sumia, e no escuro a cobertura de 48 px virava uma faixa.
+   Agora o painel.js poe a tabela numa caixa (.rolagem-gestor) e marca nela tem-mais-direita e tem-mais-esquerda, no
+   scroll e quando o tamanho muda. A sombra da direita e um pseudo-elemento na borda da caixa: por cima de tudo, sem
+   pegar clique e so enquanto houver colunas escondidas. A da esquerda sai da coluna fixa do nome, so depois de rolar.
+   Sem o JavaScript, fica o truque antigo. */
+.rolagem-gestor{ position:relative; }
+.rolagem-gestor > .tabela.gestor{ background:var(--cartao); }
+.rolagem-gestor::after{ content:""; position:absolute; top:0; right:0; bottom:0; z-index:4; width:16px; pointer-events:none;
+  background:linear-gradient(270deg, var(--sombra-rolagem), transparent); opacity:0; transition:opacity .15s; }
+.rolagem-gestor.tem-mais-direita::after{ opacity:1; }
+.rolagem-gestor.tem-mais-esquerda .tabela.gestor tr > :is(th, td).nome{ box-shadow:1px 0 0 var(--linha), 12px 0 12px -12px var(--sombra-rolagem); }
+.rolagem-gestor.tem-mais-esquerda .tabela.gestor tr.fixada > td.nome{ box-shadow:inset 3px 0 0 var(--marca), 1px 0 0 var(--linha), 12px 0 12px -12px var(--sombra-rolagem); }
+@media (prefers-reduced-motion:reduce){ .rolagem-gestor::after{ transition:none; } }
 .tcard-corpo tfoot td{ position:sticky; bottom:0; z-index:2; }
 /* Grafico comparativo das marcadas */
 .gestor-grafico{ padding:12px 16px 14px; border-bottom:1px solid var(--linha); }

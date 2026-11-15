@@ -26,7 +26,9 @@ Options -Indexes
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Strict-Transport-Security "max-age=31536000"
   Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+  # frame-src: so a previa oficial do anuncio (iframe da Meta, no popup do gestor; meta-previa.php confere o
+  # endereco). O resto da Meta (as miniaturas) sai do proprio painel: img-src continua so self e data:.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; frame-src https://www.facebook.com/ads/api/preview_iframe.php; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
 
   # O t.js e carregado pelas paginas de venda: cache curto para mudancas chegarem rapido
   <FilesMatch "^t\.js$">

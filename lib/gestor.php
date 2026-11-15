@@ -20,6 +20,11 @@ require_once __DIR__ . '/historico.php'; // vendas e gasto mais antigos que 89 d
 require_once __DIR__ . '/gestor_editar.php';
 require_once __DIR__ . '/gestor_ranking.php';
 require_once __DIR__ . '/gestor_dias.php';
+// A miniatura e a previa do criativo (13/11/2026): o lib/meta_criativo.php e do Alicerce. Sem ele (ainda nao chegou a
+// esta branch), a tela mostra o quadrado neutro no lugar da miniatura.
+if (is_file(__DIR__ . '/meta_criativo.php')) {
+    require_once __DIR__ . '/meta_criativo.php';
+}
 
 // O (i) de cada nivel do gestor
 const GESTOR_NIVEIS_DICA = [
@@ -112,6 +117,43 @@ function gestor_orcamento(?array $obj): string
 }
 
 // Numeros derivados de uma linha (ou do total), com as contas da UTMify
+// O popup "Ver o anuncio" (13/11/2026, pedido do Kenio): um <dialog> so, embaixo da tabela do nivel Anuncios. O topo
+// tem o nome, o conjunto, o selo do status e as setas (anterior, "3 de 12", proximo); o corpo, a previa da Meta (o
+// meta-previa.php do Alicerce) ou a reserva; embaixo, os numeros do periodo. O painel.js preenche tudo com textContent.
+function gestor_popup_anuncio(): string
+{
+    return '<dialog class="anuncio-pop" id="anuncio-pop" aria-labelledby="ap-nome"><div class="ap-caixa">'
+        . '<header class="ap-topo"><div class="ap-tit"><h2 class="ap-nome" id="ap-nome"></h2><p class="ap-conj" data-ap-conj></p></div>'
+        . '<span class="selo ap-selo" data-ap-selo hidden></span>'
+        . '<div class="ap-nav" role="group" aria-label="Navegar entre os anúncios">'
+        . '<button type="button" class="botao-icone ap-ant" data-ap-ant aria-label="Anúncio anterior (seta para a esquerda)" title="Anterior">' . icone('voltar', 16) . '</button>'
+        . '<span class="ap-pos" data-ap-pos aria-live="polite"></span>'
+        . '<button type="button" class="botao-icone ap-prox" data-ap-prox aria-label="Próximo anúncio (seta para a direita)" title="Próximo">' . icone('avancar', 16) . '</button></div>'
+        . '<button type="button" class="botao-icone ap-fechar" data-ap-fechar aria-label="Fechar (Esc)" title="Fechar">' . icone('fechar', 16) . '</button></header>'
+        . '<div class="ap-formatos" data-ap-formatos role="group" aria-label="Formato da prévia" hidden></div>'
+        . '<div class="ap-corpo" data-ap-corpo></div>'
+        . '<p class="ap-num" data-ap-num></p>'
+        . '</div></dialog>';
+}
+
+// A miniatura do criativo (13/11/2026): 40 px a esquerda do nome do anuncio. Com imagem, um botao (a previa de 192 px
+// aparece no mouse ou no toque, pelo painel.js); sem imagem, o quadrado neutro com o tipo (video, imagem ou carrossel).
+// O src so vale se for o meta-criativo.php do nosso servidor (a imagem nunca vem da Meta direto).
+function gestor_miniatura(?array $criativo, string $nome): array
+{
+    $tipos = ['imagem' => 'Imagem', 'video' => 'Vídeo', 'carrossel' => 'Carrossel'];
+    $tipo = is_array($criativo) ? ($tipos[(string)($criativo['tipo'] ?? '')] ?? '') : '';
+    $src = is_array($criativo) && is_string($criativo['src'] ?? null) && preg_match('/^meta-criativo\.php\?[A-Za-z0-9=&._-]+$/', $criativo['src']) === 1 ? $criativo['src'] : '';
+    if ($src !== '') {
+        $html = '<button type="button" class="criativo-mini" data-criativo="' . e($src) . '" data-nome="' . e($nome) . '" aria-label="' . e('Ver a imagem do anúncio ' . $nome) . '">'
+            . '<img src="' . e($src) . '" alt="' . e($nome) . '" width="40" height="40" loading="lazy" decoding="async"></button>';
+    } else {
+        $html = '<span class="criativo-mini vazio" role="img" aria-label="' . e($tipo !== '' ? $tipo . ', sem a imagem' : 'Sem a imagem do criativo') . '">'
+            . ($tipo !== '' ? '<small aria-hidden="true">' . e($tipo) . '</small>' : icone('anuncio', 16)) . '</span>';
+    }
+    return [$html, $src];
+}
+
 function gestor_metricas(array $r, float $pct): array
 {
     $imposto = (int)round($r['gasto'] * $pct / 100);
@@ -827,12 +869,25 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
             $itens[] = '<button type="button" data-copiar-id="' . e($r['id']) . '">' . icone('copiar', 14) . '<span>Copiar ID</span></button>';
             $itens[] = '<button type="button" data-fixar-id="' . e($r['id']) . '">' . icone('fixar', 14) . '<span>Fixar no topo</span></button>';
         }
-        $acoesLinha = $analise . ($itens ? menu_linha($itens, 'Mais ações') : '');
+        // Nivel Anuncios (13/11/2026): a miniatura do criativo e o olho "Ver o anuncio", que leva os numeros da linha
+        // (texto puro) e o link do Gerenciador para o popup e para a reserva dele
+        $mini = '';
+        $olho = '';
+        if ($nivel === 'anuncios' && $num) {
+            [$mini, $miniSrc] = gestor_miniatura(function_exists('meta_criativo_linha') && $r['obj'] ? meta_criativo_linha($r['obj']) : null, (string)$r['nome']);
+            $txt = fn(string $k): string => isset($todas[$k]) ? trim(html_entity_decode(strip_tags((string)$todas[$k][2]($r)), ENT_QUOTES | ENT_HTML5, 'UTF-8')) : '';
+            $dadosAnuncio = ['id' => (string)$r['id'], 'nome' => (string)$r['nome'], 'conjunto' => (string)($r['pai'] ?? ''), 'status' => (string)($r['obj']['status_efetivo'] ?? ''),
+                'gasto' => $txt('gasto'), 'vendas' => $txt('vendas'), 'roi' => $txt('roi'), 'ctr' => $txt('ctr'), 'mini' => $miniSrc,
+                'ger' => $gerBase !== '' && $gerCampo !== '' ? $gerBase . '&' . $gerCampo . '=' . $r['id'] : ''];
+            $olho = '<button type="button" class="ver-anuncio" data-ver-anuncio data-anuncio="' . e((string)json_encode($dadosAnuncio, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) . '"'
+                . ' aria-label="' . e('Ver o anúncio ' . $r['nome']) . '" data-dica-titulo="Ver o anúncio" data-dica="A prévia, o status e os números do período." data-dica-botao>' . icone('olho', 15) . '</button>';
+        }
+        $acoesLinha = $analise . $olho . ($itens ? menu_linha($itens, 'Mais ações') : '');
         $orcProprio = $r['obj'] && (int)($r['obj']['orcamento_diario'] ?? 0) > 0 ? (int)$r['obj']['orcamento_diario'] : 0;
         echo '<tr' . ($num ? ' data-id="' . e($r['id']) . '"' : '') . '>' . ($campoSel ? '<td class="marca">' . ($num ? '<input type="checkbox" form="form-sel" name="' . $campoSel . '[]" value="' . e($r['id']) . '" data-sel'
                 . (in_array($r['id'], $marcadas, true) ? ' checked' : '') . ($orcProprio ? ' data-orc="' . $orcProprio . '"' : '') . ' aria-label="Marcar ' . e($r['nome']) . '">' : '') . '</td>' : '')
             . '<td class="st">' . ($nivel === 'contas' ? gestor_status($r['obj']) : gestor_chave($r['obj'], $volta, $pode)) . '</td>'
-            . '<td class="quebra nome">' . $nomeLink($r) . ($compara && $r['antes'] === null && (($r['gasto'] ?? 0) || ($r['vendas'] ?? 0)) ? ' <small class="delta novo" title="Não rodou no período comparado">novo</small>' : '') . ($acoesLinha !== '' ? '<span class="linha-acoes">' . $acoesLinha . '</span>' : '') . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . '</td>';
+            . '<td class="quebra nome">' . ($mini !== '' ? '<div class="nome-mini">' . $mini . '<div class="nome-txt">' : '') . $nomeLink($r) . ($compara && $r['antes'] === null && (($r['gasto'] ?? 0) || ($r['vendas'] ?? 0)) ? ' <small class="delta novo" title="Não rodou no período comparado">novo</small>' : '') . ($mini === '' && $acoesLinha !== '' ? '<span class="linha-acoes">' . $acoesLinha . '</span>' : '') . ($r['pai'] ? '<br><span class="suave">' . e($r['pai']) . '</span>' : '') . ($mini !== '' ? '</div>' . ($acoesLinha !== '' ? '<span class="linha-acoes">' . $acoesLinha . '</span>' : '') . '</div>' : '') . '</td>';
         foreach ($colunas as $k) {
             echo '<td>' . $todas[$k][2]($r) . $celDelta($k, $r, $r['antes']) . '</td>';
         }
@@ -853,6 +908,9 @@ function gestor_render(PDO $db, string $periodo, string $de, string $ate, array 
         echo '</tr></tfoot>';
     }
     echo '</table>' . tabela_card_fim(mb_strtolower($singular), mb_strtolower($rotuloNivel));
+    if ($nivel === 'anuncios' && $tabela) {
+        echo gestor_popup_anuncio();
+    }
 
     // Embaixo da tabela (some no modo foco): a legenda, o ranking e o historico
     echo '<div class="gestor-pos">';

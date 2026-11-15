@@ -399,6 +399,27 @@ function track_migrar(PDO $pdo): void
             PRAGMA user_version = 18;
             SQL);
     }
+    if ($versao < 19) {
+        // Gestor: o criativo de cada anuncio (lib/meta_criativo.php). As imagens ficam na pasta de dados
+        // (meta-criativo/<id do anuncio>.jpg e -g.jpg, a maior); criativo_baixado e criativo_grande dizem de
+        // qual criativo elas sao, para baixar de novo so quando o anuncio troca de criativo. meta_previas
+        // guarda por 10 minutos o que a Meta respondeu ao abrir a previa, para as setas nao repetirem chamadas.
+        track_migrar_para($pdo, 19, <<<'SQL'
+            ALTER TABLE meta_objetos ADD COLUMN criativo_id TEXT;
+            ALTER TABLE meta_objetos ADD COLUMN criativo_tipo TEXT;
+            ALTER TABLE meta_objetos ADD COLUMN criativo_baixado TEXT;
+            ALTER TABLE meta_objetos ADD COLUMN criativo_grande TEXT;
+            ALTER TABLE meta_objetos ADD COLUMN criativo_falhas INTEGER NOT NULL DEFAULT 0;
+            CREATE TABLE IF NOT EXISTS meta_previas (
+                anuncio_id TEXT NOT NULL,
+                chave      TEXT NOT NULL,
+                dados      TEXT NOT NULL,
+                em         INTEGER NOT NULL,
+                PRIMARY KEY (anuncio_id, chave)
+            );
+            PRAGMA user_version = 19;
+            SQL);
+    }
 }
 
 // Aplica uma versao do banco em transacao, conferindo de novo a versao la dentro: duas

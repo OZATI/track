@@ -141,6 +141,11 @@
   function mostrar(alvo) {
     var texto = alvo.getAttribute('data-dica');
     if (!texto) { return; }
+    if (alvo.hasAttribute('data-ver-anuncio') && window.matchMedia && window.matchMedia('(max-width:767px)').matches) { return; } // em tela estreita o tooltip do olho so atrapalha o clique
+    // Uma camada flutuante por vez (13/11/2026): com o menu "..." aberto, a dica nao abre por cima
+    var menuAberto = document.querySelector('details.menu-linha[open]');
+    if (menuAberto && !menuAberto.contains(alvo)) { return; }
+    if (previaFixa) { return; }
     if (!caixa) { caixa = document.createElement('div'); caixa.className = 'dica'; caixa.id = 'dica-painel'; caixa.setAttribute('role', 'tooltip'); document.body.appendChild(caixa); }
     caixa.textContent = '';
     var titulo = alvo.getAttribute('data-dica-titulo');
@@ -178,6 +183,314 @@
   ouvir(document, 'keydown', function (e) { if (e.key === 'Escape' && alvoDica) { esconder(); } });
   ouvir(window, 'scroll', function () { if (fixa) { posicionar(); } else { esconder(); } }, true);
   ouvir(window, 'resize', function () { if (fixa) { posicionar(); } });
+
+  // O "..." da linha (13/11/2026, pedido do Kenio). Uma camada flutuante por vez: abrir um menu fecha a dica e os
+  // outros menus (e a dica nao abre com ele aberto, no mostrar() acima). Aberto, o menu vira position: fixed (classe
+  // flutua): sai do corte da area que rola e de baixo das celulas fixas. Fica embaixo da linha, alinhado ao "...";
+  // se nao couber, em cima da linha; sempre dentro da tela. Esc fecha (o ouvinte de Esc la embaixo), clicar fora
+  // fecha, e rolar ou mudar o tamanho da tela reposiciona (ou fecha, se a linha saiu da tela).
+  // A area livre da tela para o que flutua: no celular, sem a barra do polegar (embaixo) e a barra do menu (em cima)
+  function areaLivre() {
+    var m = 8, cima = m, baixo = window.innerHeight - m;
+    var barra = document.querySelector('.nav-celular'), topo = document.querySelector('.lateral');
+    if (barra && getComputedStyle(barra).position === 'fixed') { var rb = barra.getBoundingClientRect(); if (rb.height && rb.top < baixo + m) { baixo = rb.top - m; } }
+    if (topo && /sticky|fixed/.test(getComputedStyle(topo).position)) { var rt = topo.getBoundingClientRect(); if (rt.width >= window.innerWidth - 1 && rt.top <= 0 && rt.bottom > 0) { cima = rt.bottom + m; } }
+    return { m: m, cima: cima, baixo: baixo };
+  }
+  function posMenu(d) {
+    var p = d.querySelector('.menu-linha-painel'), s = d.querySelector('summary');
+    if (!p || !s) { return; }
+    var linha = (d.closest('tr') || d).getBoundingClientRect(), rs = s.getBoundingClientRect(), area = areaLivre(), m = area.m, cima = area.cima, baixo = area.baixo;
+    if (rs.bottom < cima || rs.top > baixo) { d.open = false; return; }
+    var larg = p.offsetWidth, alt = p.offsetHeight;
+    var x = Math.min(Math.max(m, rs.right - larg), window.innerWidth - larg - m);
+    var y = linha.bottom + 4;
+    if (y + alt > baixo) { y = linha.top - alt - 4; }
+    if (y < cima) { y = Math.max(cima, baixo - alt); }
+    p.style.left = Math.round(x) + 'px';
+    p.style.top = Math.round(y) + 'px';
+    // Um pai com transform (a entrada animada do <main>, por exemplo) vira a referencia do position: fixed e desloca o
+    // menu. Mede onde ele ficou e corrige a diferenca: o menu cai no lugar mesmo com a animacao parada no meio.
+    var real = p.getBoundingClientRect(), dx = real.left - x, dy = real.top - y;
+    if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) { p.style.left = Math.round(x - dx) + 'px'; p.style.top = Math.round(y - dy) + 'px'; }
+  }
+  ouvir(document, 'toggle', function (e) {
+    var d = e.target;
+    if (!d.matches || !d.matches('details.menu-linha')) { return; }
+    var p = d.querySelector('.menu-linha-painel');
+    if (d.open) {
+      esconder();
+      fecharPrevia();
+      Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (o) { if (o !== d) { o.open = false; } });
+      d.classList.add('flutua');
+      posMenu(d);
+    } else {
+      d.classList.remove('flutua');
+      if (p) { p.style.left = ''; p.style.top = ''; }
+    }
+  }, true);
+  ouvir(document, 'click', function (e) {
+    var d = document.querySelector('details.menu-linha[open]');
+    if (d && !d.contains(e.target)) { d.open = false; }
+  });
+  ouvir(window, 'scroll', function () { var d = document.querySelector('details.menu-linha[open].flutua'); if (d) { posMenu(d); } }, true);
+  ouvir(window, 'resize', function () { var d = document.querySelector('details.menu-linha[open].flutua'); if (d) { posMenu(d); } });
+
+  // A miniatura do criativo (13/11/2026, pedido do Kenio): ao passar o mouse, no foco ou no toque, a previa de 192 px.
+  // Uma camada por vez: ela fecha a dica e o menu, e o menu e o popup a fecham. Fica embaixo da linha (ou em cima, se
+  // nao couber), dentro da area livre. Mouse: some ao sair; toque ou clique: fica ate tocar fora ou apertar Esc.
+  var previa = null, previaDe = null, previaFixa = false;
+  function fecharPrevia() { if (previa) { previa.hidden = true; } previaDe = null; previaFixa = false; }
+  function posPrevia() {
+    if (!previa || !previaDe) { return; }
+    var area = areaLivre(), linha = (previaDe.closest('tr') || previaDe).getBoundingClientRect(), rb = previaDe.getBoundingClientRect();
+    if (rb.bottom < area.cima || rb.top > area.baixo) { fecharPrevia(); return; }
+    var larg = previa.offsetWidth, alt = previa.offsetHeight;
+    var x = Math.min(Math.max(area.m, rb.left), window.innerWidth - larg - area.m);
+    var y = linha.bottom + 4;
+    if (y + alt > area.baixo) { y = linha.top - alt - 4; }
+    if (y < area.cima) { y = Math.max(area.cima, area.baixo - alt); }
+    previa.style.left = Math.round(x) + 'px';
+    previa.style.top = Math.round(y) + 'px';
+  }
+  function abrirPrevia(b, fixar) {
+    var src = b.getAttribute('data-criativo') || '';
+    if (!/^meta-criativo\.php\?/.test(src)) { return; }
+    if (document.querySelector('details.menu-linha[open]') || document.querySelector('dialog.anuncio-pop[open]')) { return; }
+    esconder();
+    if (!previa) {
+      previa = document.createElement('div'); previa.className = 'criativo-previa'; previa.hidden = true;
+      var im = document.createElement('img'); im.width = 192; im.height = 192; im.alt = ''; previa.appendChild(im);
+      document.body.appendChild(previa);
+    }
+    var img = previa.querySelector('img');
+    if (img.getAttribute('src') !== src) { img.src = src; }
+    img.alt = b.getAttribute('data-nome') || '';
+    previa.hidden = false; previaDe = b; previaFixa = !!fixar;
+    posPrevia();
+  }
+  var comMini = function (el) { return el && el.closest ? el.closest('button.criativo-mini') : null; };
+  ouvir(document, 'pointerover', function (e) { var b = comMini(e.target); if (b && e.pointerType === 'mouse' && !previaFixa) { abrirPrevia(b, false); } });
+  ouvir(document, 'pointerout', function (e) { var b = comMini(e.target); if (b && e.pointerType === 'mouse' && !previaFixa && previaDe === b && !b.contains(e.relatedTarget)) { fecharPrevia(); } });
+  ouvir(document, 'focusin', function (e) { var b = comMini(e.target); if (b && !previaFixa) { abrirPrevia(b, false); } });
+  ouvir(document, 'focusout', function (e) { if (comMini(e.target) && !previaFixa) { fecharPrevia(); } });
+  ouvir(document, 'click', function (e) {
+    var b = comMini(e.target);
+    if (b) { if (previaFixa && previaDe === b) { fecharPrevia(); } else { abrirPrevia(b, true); } return; }
+    if (previaFixa) { fecharPrevia(); }
+  });
+  ouvir(document, 'keydown', function (e) { if (e.key === 'Escape' && previaDe) { fecharPrevia(); } });
+  ouvir(window, 'scroll', function () { if (previaDe) { if (previaFixa) { posPrevia(); } else { fecharPrevia(); } } }, true);
+  ouvir(window, 'resize', function () { if (previaDe) { posPrevia(); } });
+
+  // O popup "Ver o anuncio" (13/11/2026, pedido do Kenio): o olho da linha abre um <dialog> modal com o nome, o
+  // conjunto, o selo do status, as setas (a ordem da tabela como esta na tela, com o filtro e a ordenacao de agora; o
+  // teclado anda com as setas), a previa da Meta e os numeros do periodo. Uma camada por vez: abrir fecha o menu, a dica
+  // e a previa da miniatura. Esc e o clique fora fecham; o foco volta ao olho do anuncio que estava na tela.
+  // A previa vem do meta-previa.php (Alicerce), so ao abrir ou trocar de anuncio ou de formato. Tudo o que vem da Meta
+  // entra com textContent; o iframe so com o endereco da Meta (www.facebook.com), com sandbox e sem referrer. Se a Meta
+  // falhar, a reserva (a nossa imagem, os textos e o Gerenciador): o anuncio nunca deixa de aparecer.
+  var pop = document.getElementById('anuncio-pop');
+  var apOlho = null, apDados = {}, apPedido = 0, apUltimo = null;
+  // So a previa oficial da Meta, pelo caminho inteiro (o mesmo que o servidor e a CSP aceitam; seguranca, N3)
+  var PREVIA_META = /^https:\/\/www\.facebook\.com\/ads\/api\/preview_iframe\.php\?/;
+  var SELO_CLASSE = { ativo: 'ok', pausado: 'neutro', arquivado: 'neutro', conjunto_pausado: 'alerta', campanha_pausada: 'alerta', em_analise: 'alerta', reprovado: 'erro', com_problema: 'erro' };
+  var SELO_TEXTO = { ativo: 'Ativo', pausado: 'Pausado', arquivado: 'Arquivado', conjunto_pausado: 'Conjunto pausado', campanha_pausada: 'Campanha pausada', em_analise: 'Em análise', reprovado: 'Reprovado', com_problema: 'Com problema' };
+  var STATUS_META = { ACTIVE: 'ativo', PAUSED: 'pausado', ADSET_PAUSED: 'conjunto_pausado', CAMPAIGN_PAUSED: 'campanha_pausada', IN_PROCESS: 'em_analise', PENDING_REVIEW: 'em_analise', PREAPPROVED: 'em_analise',
+    DISAPPROVED: 'reprovado', WITH_ISSUES: 'com_problema', PENDING_BILLING_INFO: 'com_problema', ARCHIVED: 'arquivado', DELETED: 'arquivado' };
+  function apEl(sel) { return pop.querySelector(sel); }
+  function novo(tag, classe, texto) { var n = document.createElement(tag); if (classe) { n.className = classe; } if (texto !== undefined && texto !== null) { n.textContent = String(texto); } return n; }
+  function olhos() {
+    return Array.prototype.filter.call(document.querySelectorAll('.tabela.gestor tbody tr[data-id] [data-ver-anuncio]'), function (b) { var tr = b.closest('tr'); return tr && !tr.hidden && tr.getClientRects().length > 0; });
+  }
+  function lerDados(b) { try { return JSON.parse(b.getAttribute('data-anuncio') || '{}') || {}; } catch (e) { return {}; } }
+  function pintarSelo(chave, texto) {
+    var s = apEl('[data-ap-selo]');
+    if (!SELO_CLASSE[chave]) { s.hidden = true; return; }
+    s.className = 'selo ap-selo ' + SELO_CLASSE[chave]; s.textContent = texto ? String(texto) : SELO_TEXTO[chave]; s.hidden = false;
+  }
+  function linkGer(href) {
+    if (!href || !/^https:\/\/([a-z0-9-]+\.)*facebook\.com\//.test(href)) { return null; }
+    var a = novo('a', 'ap-ger', 'Abrir no Gerenciador'); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a;
+  }
+  function imagemNossa(src, nome) {
+    if (!src || !/^meta-criativo\.php\?/.test(src)) { return null; }
+    var i = novo('img', 'ap-mini-grande'); i.src = src; i.alt = nome || ''; return i;
+  }
+  function apCorpo(nos) { var c = apEl('[data-ap-corpo]'); while (c.firstChild) { c.removeChild(c.firstChild); } nos.forEach(function (n) { if (n) { c.appendChild(n); } }); }
+  function apNumeros(d) {
+    var p = apEl('[data-ap-num]'); p.textContent = '';
+    [['Gasto', d.gasto], ['Vendas', d.vendas], ['ROI', d.roi], ['CTR', d.ctr]].forEach(function (x) {
+      if (!x[1]) { return; } var s = novo('span', null, x[0] + ' '); s.appendChild(novo('b', null, x[1])); p.appendChild(s);
+    });
+  }
+  function apFormatos(lista, atual) {
+    var box = apEl('[data-ap-formatos]'); box.textContent = '';
+    if (!Array.isArray(lista) || lista.length < 2) { box.hidden = true; return; }
+    lista.forEach(function (f) {
+      if (!f || !/^[a-z_]{2,20}$/.test(String(f.id))) { return; }
+      var b = novo('button', null, f.nome || f.id); b.type = 'button'; b.setAttribute('data-ap-formato', f.id); b.setAttribute('aria-pressed', String(f.id === atual)); box.appendChild(b);
+    });
+    box.hidden = !box.firstChild;
+  }
+  function apReserva(rv) {
+    var box = novo('div', 'ap-reserva'), img = imagemNossa(rv.img, apDados.nome) || imagemNossa(apDados.mini, apDados.nome);
+    if (img) { box.appendChild(img); }
+    if (rv.titulo) { box.appendChild(novo('p', 'ap-r-titulo', rv.titulo)); }
+    if (rv.texto) { box.appendChild(novo('p', 'ap-r-texto', rv.texto)); }
+    if (rv.descricao) { box.appendChild(novo('p', 'ap-r-desc', rv.descricao)); }
+    if (rv.botao) { box.appendChild(novo('span', 'ap-r-botao', rv.botao)); }
+    if (!box.firstChild) { box.appendChild(novo('p', 'ap-carregando', 'A Meta não mandou a prévia deste anúncio.')); }
+    return box;
+  }
+  // A previa da Meta e um iframe de outro dominio: se o Facebook devolver a pagina de "previa expirada", ela carrega
+  // normalmente e o painel nao enxerga o erro. Por isso a reserva (imagem maior, textos do criativo) fica ABERTA por padrao,
+  // logo acima da previa, num bloco compacto; quem nao quer ve-la fecha no resumo.
+  function apAlternativa(rv) {
+    var d = novo('details', 'ap-alt'), s = novo('summary', null, 'Imagem e textos do anúncio');
+    d.open = true;
+    d.appendChild(s); d.appendChild(apReserva(rv || {}));
+    return d;
+  }
+  function apMostrar(j) {
+    apUltimo = j;
+    if (j.status && SELO_CLASSE[j.status.selo]) { pintarSelo(j.status.selo, j.status.texto); }
+    apFormatos(j.formatos, j.formato);
+    var nos = [];
+    if (j.aviso) { nos.push(novo('p', 'ap-aviso', j.aviso)); }
+    if (typeof j.iframe_src === 'string' && PREVIA_META.test(j.iframe_src)) {
+      var f = document.createElement('iframe');
+      f.title = 'Prévia do anúncio';
+      f.setAttribute('referrerpolicy', 'no-referrer');
+      f.setAttribute('sandbox', 'allow-scripts allow-same-origin'); // sem allow-popups (seguranca, N1): o clique dentro da previa nao abre a pagina de venda
+      if (Array.isArray(j.iframe_tam) && j.iframe_tam.length === 2) {
+        f.width = String(Math.max(200, Math.min(1000, Number(j.iframe_tam[0]) || 0)));
+        f.height = String(Math.max(200, Math.min(1400, Number(j.iframe_tam[1]) || 0)));
+      }
+      f.src = j.iframe_src;
+      var moldura = novo('div', 'ap-moldura'); moldura.appendChild(f);
+      nos.push(apAlternativa(j.reserva)); // em cima da previa (que tem uns 690 px): embaixo dela, ninguem acharia
+      nos.push(moldura);
+    } else {
+      nos.push(apReserva(j.reserva || {}));
+    }
+    nos.push(linkGer(j.reserva && j.reserva.gerenciador) || linkGer(apDados.ger)); // o da Meta, se valer; senao, o da linha
+    apCorpo(nos);
+    apEscala();
+  }
+  // A previa da Meta cabe na largura que sobra: encolhe na proporcao (nunca aumenta)
+  function apEscala() {
+    var m = pop && pop.querySelector('.ap-moldura'), f = m && m.querySelector('iframe');
+    if (!f) { return; }
+    var c = apEl('[data-ap-corpo]'), cs = getComputedStyle(c);
+    var livre = c.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    var w = Number(f.width) || 540, h = Number(f.height) || 690, k = Math.min(1, livre / w);
+    f.style.transform = k < 1 ? 'scale(' + k.toFixed(4) + ')' : '';
+    m.style.width = Math.floor(w * k) + 'px';
+    m.style.height = Math.floor(h * k) + 'px';
+  }
+  function apErro(st) {
+    var msg = st === 403 ? 'Você não tem acesso a este anúncio.' : st === 404 ? 'Este anúncio não existe mais na Meta.' : 'Não deu para carregar a prévia agora.';
+    var nos = [imagemNossa(apDados.mini, apDados.nome), novo('p', 'ap-erro', msg)];
+    if (st !== 403 && st !== 404) { var t = novo('button', 'botao', 'Tentar de novo'); t.type = 'button'; t.setAttribute('data-ap-tentar', ''); nos.push(t); }
+    nos.push(linkGer(apDados.ger));
+    apCorpo(nos);
+  }
+  function apCarregar(formato) {
+    var d = apDados, pedido = ++apPedido;
+    apCorpo([imagemNossa(d.mini, d.nome), novo('p', 'ap-carregando', 'Carregando a prévia…')]);
+    fetch('meta-previa.php?id=' + encodeURIComponent(d.id || '') + (formato ? '&formato=' + encodeURIComponent(formato) : ''), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json().then(function (j) { return { st: r.status, j: j }; }, function () { return { st: r.status, j: null }; }); })
+      .then(function (x) { if (pedido !== apPedido || !pop.open) { return; } if (x.j && x.j.ok) { apMostrar(x.j); } else { apErro(x.st); } })
+      .catch(function () { if (pedido === apPedido && pop.open) { apErro(0); } });
+  }
+  function apMostrarAnuncio(b) {
+    var lista = olhos(), i = lista.indexOf(b);
+    apOlho = b; apDados = lerDados(b);
+    apEl('#ap-nome').textContent = apDados.nome || 'Anúncio';
+    apEl('[data-ap-conj]').textContent = apDados.conjunto || '';
+    pintarSelo(STATUS_META[apDados.status], null);
+    apEl('[data-ap-pos]').textContent = i >= 0 ? (i + 1) + ' de ' + lista.length : '';
+    var ant = apEl('[data-ap-ant]'), prox = apEl('[data-ap-prox]'), semAnt = i <= 0, semProx = i < 0 || i >= lista.length - 1;
+    var tinhaFoco = document.activeElement;
+    ant.disabled = semAnt;
+    prox.disabled = semProx;
+    // O botao que fica desabilitado perde o foco (o foco cai no body, fora do popup) e as setas do teclado deixavam de chegar:
+    // depois de atualizar os dois botoes, o foco passa para o outro (ou para o Fechar, se os dois ficam desabilitados).
+    if ((tinhaFoco === ant && semAnt) || (tinhaFoco === prox && semProx)) {
+      var vizinho = !semAnt ? ant : (!semProx ? prox : apEl('[data-ap-fechar]'));
+      if (vizinho) { vizinho.focus(); }
+    }
+    apEl('[data-ap-formatos]').hidden = true;
+    apNumeros(apDados);
+    apCarregar('');
+  }
+  function apAndar(passo) { var lista = olhos(), alvo = lista[lista.indexOf(apOlho) + passo]; if (alvo) { apMostrarAnuncio(alvo); } }
+  if (pop && typeof pop.showModal === 'function') {
+    ouvir(document, 'click', function (e) {
+      var b = e.target.closest ? e.target.closest('[data-ver-anuncio]') : null;
+      if (!b) { return; }
+      e.preventDefault();
+      Array.prototype.forEach.call(document.querySelectorAll('details.menu-linha[open]'), function (d) { d.open = false; });
+      esconder(); fecharPrevia();
+      apMostrarAnuncio(b);
+      if (!pop.open) { pop.showModal(); }
+    });
+    pop.addEventListener('click', function (e) {
+      if (e.target === pop) { pop.close(); return; }
+      var t = e.target.closest ? e.target.closest('button') : null;
+      if (!t || t.disabled) { return; }
+      if (t.hasAttribute('data-ap-fechar')) { pop.close(); }
+      else if (t.hasAttribute('data-ap-ant')) { apAndar(-1); }
+      else if (t.hasAttribute('data-ap-prox')) { apAndar(1); }
+      else if (t.hasAttribute('data-ap-tentar')) { apCarregar(''); }
+      else if (t.hasAttribute('data-ap-formato')) {
+        Array.prototype.forEach.call(pop.querySelectorAll('[data-ap-formato]'), function (x) { x.setAttribute('aria-pressed', String(x === t)); });
+        apCarregar(t.getAttribute('data-ap-formato'));
+      }
+    });
+    ouvir(window, 'resize', function () { if (pop.open) { apEscala(); } });
+    ouvir(document, 'securitypolicyviolation', function (e) {
+      if (!pop.open || (e.effectiveDirective || e.violatedDirective || '').indexOf('frame-src') !== 0) { return; }
+      var m = pop.querySelector('.ap-moldura');
+      if (!m) { return; }
+      var aviso = novo('p', 'ap-aviso', 'A prévia da Meta não abriu aqui. Abaixo, a imagem e os textos do anúncio.');
+      m.parentNode.insertBefore(aviso, m);
+      m.parentNode.replaceChild(apReserva((apUltimo && apUltimo.reserva) || {}), m);
+      var alt = pop.querySelector('.ap-alt'); if (alt) { alt.parentNode.removeChild(alt); }
+    });
+    // As setas andam entre os anuncios com o popup aberto, mesmo que o foco tenha caido no body (o popup e modal, mas o body
+    // recebe a tecla quando o elemento focado some ou fica desabilitado).
+    ouvir(document, 'keydown', function (e) {
+      if (!pop.open || (e.target.closest && e.target.closest('input, select, textarea'))) { return; }
+      // Segurar a seta repete o evento: so o primeiro anda, para nao gastar o limite de aberturas da previa (meta-previa.php)
+      if (e.key === 'ArrowLeft') { e.preventDefault(); if (!e.repeat) { apAndar(-1); } } else if (e.key === 'ArrowRight') { e.preventDefault(); if (!e.repeat) { apAndar(1); } }
+    });
+    pop.addEventListener('close', function () {
+      if (pop.open) { return; } // o evento chega depois: se o popup ja reabriu, o corpo novo nao se esvazia
+      apPedido++;
+      apCorpo([]); // o iframe sai junto: um video da Meta para de tocar
+      if (apOlho && document.contains(apOlho) && apOlho.getClientRects().length) { apOlho.focus(); }
+    });
+  }
+
+  // Sombra de "tem mais colunas" (13/11/2026, pedido do Kenio): a tabela vai para uma caixa (.rolagem-gestor), e a
+  // caixa ganha tem-mais-direita e tem-mais-esquerda conforme a rolagem. O CSS poe a sombra na borda da caixa, por
+  // cima de tudo e sem pegar clique (lib/layout.php). Atualiza no scroll, no resize e quando a tabela muda de largura
+  // (colunas ligadas ou desligadas).
+  Array.prototype.forEach.call(document.querySelectorAll('.tabela.gestor'), function (s) {
+    var caixa = s.parentElement && s.parentElement.classList.contains('rolagem-gestor') ? s.parentElement : null;
+    if (!caixa) { caixa = document.createElement('div'); caixa.className = 'rolagem-gestor'; s.parentNode.insertBefore(caixa, s); caixa.appendChild(s); }
+    var marcar = function () {
+      var fim = s.scrollWidth - s.clientWidth;
+      caixa.classList.toggle('tem-mais-direita', fim > 1 && s.scrollLeft < fim - 1);
+      caixa.classList.toggle('tem-mais-esquerda', s.scrollLeft > 1);
+    };
+    ouvir(s, 'scroll', marcar, { passive: true });
+    ouvir(window, 'resize', marcar);
+    if (window.ResizeObserver) { var t = s.querySelector('table'); var ro = new ResizeObserver(marcar); ro.observe(s); if (t) { ro.observe(t); } }
+    marcar();
+  });
 
   // Instalar como app (o service worker e registrado uma vez, la em cima)
   var instalavel = null;
