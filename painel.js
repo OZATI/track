@@ -141,6 +141,7 @@
   function mostrar(alvo) {
     var texto = alvo.getAttribute('data-dica');
     if (!texto) { return; }
+    if (alvo.hasAttribute('data-ver-anuncio') && window.matchMedia && window.matchMedia('(max-width:767px)').matches) { return; } // em tela estreita o tooltip do olho so atrapalha o clique
     // Uma camada flutuante por vez (13/11/2026): com o menu "..." aberto, a dica nao abre por cima
     var menuAberto = document.querySelector('details.menu-linha[open]');
     if (menuAberto && !menuAberto.contains(alvo)) { return; }
@@ -342,16 +343,13 @@
     if (!box.firstChild) { box.appendChild(novo('p', 'ap-carregando', 'A Meta não mandou a prévia deste anúncio.')); }
     return box;
   }
-  // A previa da Meta e um iframe de outro dominio: se o Facebook devolver a pagina de "previa expirada" (ou nao
-  // responder), o painel nao enxerga isso. Por isso a reserva (imagem maior, textos do criativo) fica sempre ao alcance,
-  // num "Ver imagem e textos", e abre sozinha se o iframe nao terminar de carregar em 8 s ou der erro.
-  function apAlternativa(rv, iframe) {
-    var d = novo('details', 'ap-alt'), s = novo('summary', null, 'Prévia em branco ou expirada? Ver imagem e textos do anúncio');
+  // A previa da Meta e um iframe de outro dominio: se o Facebook devolver a pagina de "previa expirada", ela carrega
+  // normalmente e o painel nao enxerga o erro. Por isso a reserva (imagem maior, textos do criativo) fica ABERTA por padrao,
+  // logo acima da previa, num bloco compacto; quem nao quer ve-la fecha no resumo.
+  function apAlternativa(rv) {
+    var d = novo('details', 'ap-alt'), s = novo('summary', null, 'Imagem e textos do anúncio');
+    d.open = true;
     d.appendChild(s); d.appendChild(apReserva(rv || {}));
-    var abrir = function () { d.open = true; };
-    var tempo = setTimeout(abrir, 8000);
-    iframe.addEventListener('load', function () { clearTimeout(tempo); });
-    iframe.addEventListener('error', function () { clearTimeout(tempo); abrir(); });
     return d;
   }
   function apMostrar(j) {
@@ -371,7 +369,7 @@
       }
       f.src = j.iframe_src;
       var moldura = novo('div', 'ap-moldura'); moldura.appendChild(f);
-      nos.push(apAlternativa(j.reserva, f)); // em cima da previa (que tem uns 690 px): fora da vista, ninguem acharia
+      nos.push(apAlternativa(j.reserva)); // em cima da previa (que tem uns 690 px): embaixo dela, ninguem acharia
       nos.push(moldura);
     } else {
       nos.push(apReserva(j.reserva || {}));
@@ -413,8 +411,16 @@
     apEl('[data-ap-conj]').textContent = apDados.conjunto || '';
     pintarSelo(STATUS_META[apDados.status], null);
     apEl('[data-ap-pos]').textContent = i >= 0 ? (i + 1) + ' de ' + lista.length : '';
-    apEl('[data-ap-ant]').disabled = i <= 0;
-    apEl('[data-ap-prox]').disabled = i < 0 || i >= lista.length - 1;
+    var ant = apEl('[data-ap-ant]'), prox = apEl('[data-ap-prox]'), semAnt = i <= 0, semProx = i < 0 || i >= lista.length - 1;
+    var tinhaFoco = document.activeElement;
+    ant.disabled = semAnt;
+    prox.disabled = semProx;
+    // O botao que fica desabilitado perde o foco (o foco cai no body, fora do popup) e as setas do teclado deixavam de chegar:
+    // depois de atualizar os dois botoes, o foco passa para o outro (ou para o Fechar, se os dois ficam desabilitados).
+    if ((tinhaFoco === ant && semAnt) || (tinhaFoco === prox && semProx)) {
+      var vizinho = !semAnt ? ant : (!semProx ? prox : apEl('[data-ap-fechar]'));
+      if (vizinho) { vizinho.focus(); }
+    }
     apEl('[data-ap-formatos]').hidden = true;
     apNumeros(apDados);
     apCarregar('');
@@ -453,11 +459,14 @@
       m.parentNode.replaceChild(apReserva((apUltimo && apUltimo.reserva) || {}), m);
       var alt = pop.querySelector('.ap-alt'); if (alt) { alt.parentNode.removeChild(alt); }
     });
-    pop.addEventListener('keydown', function (e) {
-      if (e.target.closest && e.target.closest('input, select, textarea')) { return; }
+    // As setas andam entre os anuncios com o popup aberto, mesmo que o foco tenha caido no body (o popup e modal, mas o body
+    // recebe a tecla quando o elemento focado some ou fica desabilitado).
+    ouvir(document, 'keydown', function (e) {
+      if (!pop.open || (e.target.closest && e.target.closest('input, select, textarea'))) { return; }
       if (e.key === 'ArrowLeft') { e.preventDefault(); apAndar(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); apAndar(1); }
     });
     pop.addEventListener('close', function () {
+      if (pop.open) { return; } // o evento chega depois: se o popup ja reabriu, o corpo novo nao se esvazia
       apPedido++;
       apCorpo([]); // o iframe sai junto: um video da Meta para de tocar
       if (apOlho && document.contains(apOlho) && apOlho.getClientRects().length) { apOlho.focus(); }

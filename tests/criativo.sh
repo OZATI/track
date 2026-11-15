@@ -288,6 +288,32 @@ fs=$(grep -o "frame-src [^;]*;" "$RAIZ/.htaccess")
 confere "$([ -z "$fs" ] || [ "$fs" = "frame-src https://www.facebook.com/ads/api/preview_iframe.php;" ]; echo $?)" "frame-src ausente ou só o caminho da prévia da Meta (${fs:-ausente})"
 confere "$(grep -q "img-src 'self' data:;" "$RAIZ/.htaccess"; echo $?)" "img-src continua 'self' data:"
 
+echo "Tela do popup e da linha (lib/layout.php e painel.js)"
+# Revisao de tela (14/11/2026, QA da Conferencia): os alvos de toque medem 44 px de verdade, a reserva fica aberta por padrao e
+# as regras que a seguranca aprovou continuam valendo (texto da Meta so com textContent, iframe sem popups e sem referrer).
+LAYOUT="$RAIZ/lib/layout.php"; PAINEL="$RAIZ/painel.js"
+tem_css() { grep -Eq "$1" "$LAYOUT"; echo $?; }
+confere "$(tem_css '\.ver-anuncio\{[^}]*width:44px; height:44px')" "o olho do anúncio mede 44 x 44"
+confere "$(tem_css '\.criativo-mini\{[^}]*width:44px; height:44px')" "a miniatura mede 44 x 44"
+confere "$(tem_css '\.ap-nav \.botao-icone, \.anuncio-pop \.ap-fechar\{ width:44px; height:44px')" "setas e fechar do popup medem 44 x 44 no computador"
+confere "$(tem_css '\.ap-formatos button\{ min-height:44px')" "as abas de formato têm 44 px de altura"
+confere "$(tem_css '\.ap-ger\{[^}]*min-height:44px')" "\"Abrir no Gerenciador\" tem 44 px de altura"
+confere "$(tem_css 'hover:none\), \(max-width:767px\)\{ \.tabela\.gestor \.ver-anuncio\{ opacity:1')" "o olho fica sempre à vista sem mouse e em tela estreita"
+confere "$(tem_css 'pointer:coarse\), \(max-width:767px\)\{')" "a linha do anúncio empilha também em tela estreita (o nome não quebra)"
+confere "$(grep -q "d.open = true" "$PAINEL"; echo $?)" "a reserva (imagem e textos do criativo) fica aberta por padrão"
+confere "$(grep -q "sandbox', 'allow-scripts allow-same-origin'" "$PAINEL"; echo $?)" "o iframe mantém o sandbox sem popups"
+confere "$(grep -q "referrerpolicy', 'no-referrer'" "$PAINEL"; echo $?)" "o iframe mantém o referrerpolicy no-referrer"
+confere "$(grep -q "PREVIA_META = /^https:" "$PAINEL"; echo $?)" "a checagem do endereço da prévia (PREVIA_META) continua"
+confere "$(grep -q "vizinho.focus()" "$PAINEL"; echo $?)" "o foco passa ao outro botão antes de um deles ser desabilitado (as setas do teclado seguem valendo)"
+confere "$(grep -q "if (pop.open) { return; } // o evento chega depois" "$PAINEL"; echo $?)" "o evento close nao esvazia um popup que ja reabriu"
+confere "$(grep -q "ouvir(document, 'keydown', function (e) {" "$PAINEL" && awk '/As setas andam entre os anuncios/,/apAndar\(1\)/' "$PAINEL" | grep -q "pop.open"; echo $?)" "as setas do teclado andam entre os anúncios com o popup aberto, mesmo com o foco no body"
+confere "$(grep -q "data-ver-anuncio') && window.matchMedia" "$PAINEL"; echo $?)" "o tooltip do olho não aparece em tela estreita"
+confere "$(tem_css 'html:has\(\.nav-celular\)\{ scroll-padding-bottom')" "a barra do polegar não esconde o que recebe o foco (scroll-padding-bottom)"
+conta_html=$(awk '/function apReserva\(/,/function apEscala\(/' "$PAINEL" | grep -c "innerHTML")
+confere "$(igual "$conta_html" 0)" "o popup não usa innerHTML: tudo o que vem da Meta entra com textContent"
+css_ap=$(grep -E '\.ap-alt|\.ver-anuncio|\.criativo-mini' "$LAYOUT")
+confere "$(printf '%s' "$css_ap" | grep -Eqi 'url\(|@import|https?:|<script'; echo $((1 - $?)))" "o CSS novo do popup não tem url(), @import, endereço http nem script"
+
 echo "Avisos do PHP"
 avisos=$(grep -E 'PHP (Warning|Notice|Deprecated|Fatal)' "$DADOS/php-erros.log" 2>/dev/null | sed 's/^\[[^]]*\] //' | sort -u | head -5)
 confere "$([ -z "$avisos" ]; echo $?)" "nenhum aviso do PHP no servidor${avisos:+: $avisos}"

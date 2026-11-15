@@ -161,6 +161,9 @@ button.discreto.neutro{ color:var(--texto); }
 body.com-folha{ overflow:hidden; }
 /* Topo: conta, foto e a seta que recolhe a barra de cima (lembrado num cookie) */
 section[id], .cartao[id]{ scroll-margin-top:84px; }
+/* A barra do polegar (.nav-celular, fixa embaixo a partir de 760 px, admin_tela.php) nao pode esconder o que recebe o foco ou e levado
+   a vista: sem isto, o olho da ultima linha parava inteiro embaixo dela (WCAG 2.4.11, foco nao obscurecido). */
+@media (max-width:760px){ html:has(.nav-celular){ scroll-padding-bottom:calc(76px + env(safe-area-inset-bottom)); } }
 /* Usuarios: o que cada um pode abrir */
 form.acessos, fieldset.acessos{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; margin:0; }
 fieldset.acessos{ border:1px solid var(--linha); border-radius:var(--r-sm); padding:8px 12px; }
@@ -420,15 +423,24 @@ button.criativo-mini:focus-visible{ outline:2px solid var(--marca); outline-offs
 .ap-mini-grande{ display:block; width:100%; max-width:420px; height:auto; border-radius:8px; background:var(--cartao-2); }
 .ap-r-titulo{ margin:0; font-size:14px; font-weight:600; }
 .ap-r-texto{ margin:0; font-size:13px; line-height:1.5; white-space:pre-line; overflow-wrap:anywhere; }
-/* A previa da Meta e um iframe de outro dominio: se o Facebook mostrar a pagina de previa expirada, o painel nao ve. A
-   reserva (imagem maior, textos do criativo) fica sempre ao alcance, e abre sozinha se o iframe demorar mais de 8 s. */
-.ap-alt{ align-self:stretch; width:min(420px, 100%); margin:0 auto; border:1px solid var(--linha-forte); border-radius:10px; background:var(--cartao-2); }
+/* A previa da Meta e um iframe de outro dominio: a pagina de "previa expirada" do Facebook carrega normalmente e o painel nao a
+   enxerga. A reserva (imagem maior, textos do criativo) fica aberta por padrao acima da previa, compacta: a imagem ao lado dos
+   textos (embaixo, numa tela estreita). */
+.ap-alt{ align-self:stretch; width:min(540px, 100%); margin:0 auto; border:1px solid var(--linha-forte); border-radius:10px; background:var(--cartao-2); }
 .ap-alt > summary{ display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px; padding:6px 14px; cursor:pointer; list-style:none; color:var(--texto); font-size:13px; font-weight:500; }
 .ap-alt > summary::-webkit-details-marker{ display:none; }
 .ap-alt > summary::after{ content:"▸"; color:var(--suave); }
 .ap-alt[open] > summary::after{ content:"▾"; }
 .ap-alt > summary:focus-visible{ outline:2px solid var(--marca); outline-offset:2px; }
 .ap-alt .ap-reserva{ width:auto; padding:0 14px 14px; }
+.ap-alt .ap-reserva:has(.ap-mini-grande){ grid-template-columns:minmax(0, 168px) minmax(0, 1fr); column-gap:14px; align-items:start; }
+.ap-alt .ap-reserva:has(.ap-mini-grande) > *{ grid-column:2; }
+.ap-alt .ap-reserva:has(.ap-mini-grande) > .ap-mini-grande{ grid-column:1; grid-row:1 / span 6; width:100%; max-width:168px; }
+@media (max-width:640px){
+  .ap-alt .ap-reserva:has(.ap-mini-grande){ grid-template-columns:minmax(0, 1fr); }
+  .ap-alt .ap-reserva:has(.ap-mini-grande) > *, .ap-alt .ap-reserva:has(.ap-mini-grande) > .ap-mini-grande{ grid-column:1; grid-row:auto; }
+  .ap-alt .ap-mini-grande{ max-width:200px; }
+}
 .ap-r-desc{ margin:0; color:var(--suave); font-size:12.5px; }
 .ap-r-botao{ justify-self:start; padding:4px 12px; border:1px solid var(--linha-forte); border-radius:999px; font-size:12.5px; font-weight:500; }
 .ap-ger{ display:inline-flex; align-items:center; min-height:44px; font-size:13px; font-weight:500; }
