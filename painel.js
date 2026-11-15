@@ -463,7 +463,8 @@
     // recebe a tecla quando o elemento focado some ou fica desabilitado).
     ouvir(document, 'keydown', function (e) {
       if (!pop.open || (e.target.closest && e.target.closest('input, select, textarea'))) { return; }
-      if (e.key === 'ArrowLeft') { e.preventDefault(); apAndar(-1); } else if (e.key === 'ArrowRight') { e.preventDefault(); apAndar(1); }
+      // Segurar a seta repete o evento: so o primeiro anda, para nao gastar o limite de aberturas da previa (meta-previa.php)
+      if (e.key === 'ArrowLeft') { e.preventDefault(); if (!e.repeat) { apAndar(-1); } } else if (e.key === 'ArrowRight') { e.preventDefault(); if (!e.repeat) { apAndar(1); } }
     });
     pop.addEventListener('close', function () {
       if (pop.open) { return; } // o evento chega depois: se o popup ja reabriu, o corpo novo nao se esvazia

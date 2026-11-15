@@ -321,6 +321,11 @@ td.quebra{ white-space:normal; min-width:220px; }
 .menu-linha-painel hr{ margin:5px 0; border:0; border-top:1px solid var(--linha); }
 .menu-linha-painel button:disabled, .menu-linha-painel [aria-disabled=true]{ opacity:.45; cursor:not-allowed; background:none; }
 .menu-linha-painel a.atual{ font-weight:600; } .menu-linha-painel a.atual .ico{ color:var(--marca); }
+/* Os itens dos menus do gestor: 44 px de alvo. As acoes das marcadas e o "..." da linha (com o "Abrir no Gerenciador")
+   sempre; o Ordenar, que tem 14 itens, so no celular e no toque (no computador ficaria com 627 px de altura). A regra
+   geral do menu (admin_tela.php) e de 34 px e serve as outras telas; aqui a especificidade maior vale so no gestor. */
+.gestor-acoes .menu-linha-painel a, .gestor-acoes .menu-linha-painel button, .tabela.gestor .menu-linha-painel a, .tabela.gestor .menu-linha-painel button{ min-height:44px; }
+@media (pointer:coarse), (max-width:767px){ .gestor-menu .menu-linha-painel a, .gestor-menu .menu-linha-painel button{ min-height:44px; } }
 .orc-massa{ display:flex; flex-direction:column; gap:7px; padding:6px 10px 8px; }
 .orc-massa-modo{ display:flex; gap:14px; }
 .orc-massa-modo label{ display:inline-flex; align-items:center; gap:5px; margin:0; color:var(--texto); font-size:12px; }
