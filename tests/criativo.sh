@@ -320,6 +320,14 @@ confere "$(igual "$conta_html" 0)" "o popup não usa innerHTML: tudo o que vem d
 css_ap=$(grep -E '\.ap-alt|\.ver-anuncio|\.criativo-mini' "$LAYOUT")
 confere "$(printf '%s' "$css_ap" | grep -Eqi 'url\(|@import|https?:|<script'; echo $((1 - $?)))" "o CSS novo do popup não tem url(), @import, endereço http nem script"
 
+echo "Busca em segundo plano e menu lateral (painel.js)"
+confere "$([ "$(grep -c "var parar = " "$PAINEL")" = 1 ]; echo $?)" "so existe uma \"var parar =\" (a do orcamento em massa); a da sincronizacao nao e mais sobrescrita"
+confere "$(grep -q "var pararGiro = function" "$PAINEL"; echo $?)" "a sincronizacao tem a propria funcao (pararGiro)"
+confere "$([ "$(grep -c "pararGiro();" "$PAINEL")" = 2 ]; echo $?)" "pararGiro roda no fim da busca e no erro dela"
+confere "$(grep -q "querySelectorAll(.noscript.), function (ns)" "$PAINEL"; echo $?)" "a troca do corpo tira os <noscript> (o style do menu lateral nao passa a valer)"
+confere "$(grep -q "adiado = semAncora(location.href)" "$PAINEL" && grep -q "e.target.id === .anuncio-pop." "$PAINEL"; echo $?)" "a troca do corpo da atualizacao em segundo plano espera o popup do anuncio fechar"
+confere "$(grep -q "op.manter && op.substituir && popAberto && popAberto.open" "$PAINEL"; echo $?)" "so a atualizacao em segundo plano adia (manter + substituir)"
+
 echo "Avisos do PHP"
 avisos=$(grep -E 'PHP (Warning|Notice|Deprecated|Fatal)' "$DADOS/php-erros.log" 2>/dev/null | sed 's/^\[[^]]*\] //' | sort -u | head -5)
 confere "$([ -z "$avisos" ]; echo $?)" "nenhum aviso do PHP no servidor${avisos:+: $avisos}"

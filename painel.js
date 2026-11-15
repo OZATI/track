@@ -108,18 +108,19 @@
     var texto = sync.querySelector('[data-sync-texto]');
     // O Atualizar da barra lateral gira enquanto a busca roda (no Resumo, e o unico sinal dela)
     var giro = document.querySelector('[data-atualizar-lateral]');
-    var parar = function () { if (giro) { giro.classList.remove('girando'); } };
+    // (nome proprio: o orcamento em massa do gestor declara outra "parar", de outro formato, no mesmo escopo)
+    var pararGiro = function () { if (giro) { giro.classList.remove('girando'); } };
     if (giro) { giro.classList.add('girando'); }
     if (texto) { texto.textContent = 'Buscando vendas na API da Kiwify…'; }
     fetch(PAINEL + 'sincronizar.php', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF': token.value } })
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        parar();
+        pararGiro();
         if (d && d.buscou && (d.novas || d.atualizadas || !d.ok)) { navegar(location.href, { manter: true, substituir: true }); return; }
         if (texto) { texto.textContent = 'Vendas da Kiwify pelo webhook e pela API · nada novo agora'; }
       })
       .catch(function () {
-        parar();
+        pararGiro();
         if (texto) { texto.textContent = 'Não foi possível buscar as vendas agora. Use o botão Atualizar vendas.'; }
       });
   }
@@ -2145,6 +2146,15 @@
   // campanha): volta para cima. O endereco, o voltar e o avancar continuam funcionando. Outra
   // pagina (Configuracoes, CMS, sair), erro ou navegador antigo: vai do jeito normal.
   var navegacao = 0;
+  // A atualizacao em segundo plano (a busca de vendas que termina com numeros novos) troca o corpo da pagina. Com o popup do
+  // anuncio aberto, a troca espera ele fechar: senao o popup some e o foco cai no <body>.
+  var adiado = null;
+  document.addEventListener('close', function (e) {
+    if (adiado && e.target && e.target.id === 'anuncio-pop') {
+      var u = adiado; adiado = null;
+      if (u === semAncora(location.href)) { navegar(location.href, { manter: true, substituir: true }); }
+    }
+  }, true);
   function caminho(u) { return u.pathname.replace(/index\.php$/, ''); }
   function mesmaPagina(u) { return u.origin === location.origin && caminho(u) === caminho(location); }
   // A mesma tela: mesma aba e, na analise diaria, o mesmo objeto (os niveis do gestor, a ordem e
@@ -2166,6 +2176,9 @@
       if (!estilos[i]) { document.head.appendChild(estilosNovos[i].cloneNode(true)); } else if (estilos[i].textContent !== estilosNovos[i].textContent) { estilos[i].textContent = estilosNovos[i].textContent; }
     }
     Array.prototype.forEach.call(doc.body.querySelectorAll('script'), function (sc) { sc.parentNode.removeChild(sc); });
+    // <noscript> vira HTML comum no DOMParser: o <style> dele (menu lateral aberto, display:flex !important) passaria a valer
+    // na tela com JavaScript e deixaria o menu do admin aberto sobre o conteudo em tela estreita
+    Array.prototype.forEach.call(doc.body.querySelectorAll('noscript'), function (ns) { ns.parentNode.removeChild(ns); });
     soltarOuvintes();
     raiz.replaceChild(document.adoptNode(doc.body), document.body);
   }
@@ -2191,6 +2204,8 @@
       return r.text().then(function (html) { return [final, html]; });
     }).then(function (res) {
       if (!res || seq !== navegacao) { return; }
+      var popAberto = document.getElementById('anuncio-pop');
+      if (op.manter && op.substituir && popAberto && popAberto.open) { adiado = semAncora(location.href); return; }
       var doc = new DOMParser().parseFromString(res[1], 'text/html');
       if (!doc.body || !doc.body.children.length) { location.href = res[0].href; return; }
       var manter = op.manter !== undefined ? op.manter : tela(res[0]) === tela(antes);
