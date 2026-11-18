@@ -1,0 +1,484 @@
+/* Casca dos painéis do Track: lateral da seção (244 px, ao lado do trilho de 80 px do admin) e barra de topo com voltar, início e trilha.
+   Fonte única da interface (o CMS do site consome esta cópia por scripts/copiar-para.sh, sem tokens duplicados). Origem do desenho: a lateral e
+   a barra de topo do CMS no ar (admin.engdesk.pro, 16/11/2026). Só a composição da referência; cores, ícones e textos são nossos.
+   Markup: lib/casca.php (casca_lateral, casca_topo). Comportamento: casca.js. Sem JavaScript os grupos abrem e fecham (details) e os links valem.
+   Cor só por variável: as do admin (--lateral, --fundo, --linha, --texto, --suave, --marca, --realce, --hover, --cartao, --sombra) e os tokens
+   --cas-* logo abaixo, que são o único lugar com cor fixa (a lateral é escura em qualquer tema).
+   Largura >= 1000 px: lateral + barra de topo; abaixo disso as abas do painel (.abas) e a barra do polegar continuam como antes.
+   Animação só de transform e opacity; reduzir movimento respeitado. */
+
+:root, .cas-pagina {
+  --cas-fundo: color-mix(in srgb, var(--lateral), #fff 5%);
+  --cas-borda-lat: rgba(255, 255, 255, .08);
+  --cas-texto: #D3DAE4;      /* item */
+  --cas-texto-2: #BAC4D1;    /* subitem */
+  --cas-icone: #B4BFCD;
+  --cas-apagado: #A9B5C4;
+  --cas-forte: #FFFFFF;      /* hover e ativo */
+  --cas-hover: rgba(255, 255, 255, .08);
+  --cas-ativo: rgba(255, 255, 255, .15);
+  --cas-sub-ativo: rgba(255, 255, 255, .1);
+  --cas-campo: rgba(255, 255, 255, .06);
+  --cas-campo-hover: rgba(255, 255, 255, .1);
+  --cas-campo-borda: rgba(255, 255, 255, .14);
+  --cas-liga: rgba(255, 255, 255, .22);
+  --cas-pe: rgba(255, 255, 255, .1);
+  --cas-foco: #93C5FD;
+  --cas-modal: rgba(11, 27, 46, .5);
+  --cas-dica-fundo: var(--lateral);
+  --cas-dica-anel: rgba(255, 255, 255, .16);
+  --cas-tecla: rgba(255, 255, 255, .16);
+}
+
+.cas-pagina { --cas-topo-alt: 56px; }
+
+.cas-lat, .cas-topo { display: none; }
+
+@media (min-width: 1000px) {
+  .cas-pagina { display: grid; grid-template-columns: 244px minmax(0, 1fr); align-items: start; }
+  .cas-pagina > * { grid-column: 2; min-width: 0; }
+  .cas-pagina > .cas-lat { grid-column: 1; grid-row: 1 / span 99; }
+  .cas-pagina > .abas:not(.abas-nucleo) { display: none; } /* as abas do painel viram o submenu da lateral nesta largura */
+  .cas-pagina > .cas-topo { display: flex; }
+  .cas-pagina.lat-recolhida { grid-template-columns: minmax(0, 1fr); }
+  .cas-pagina.lat-recolhida > * { grid-column: 1; }
+  .cas-pagina > .cas-topo { z-index: 21; margin-bottom: 0; } /* acima da barra de filtros (.topo, z 20), que fica presa logo abaixo */
+  .cas-pagina > .topo { top: var(--cas-topo-alt); }
+  .cas-pagina > .cas-lat { display: flex; }
+  .cas-pagina.lat-recolhida > .cas-lat { display: none; }
+}
+
+/* ------------------------------------------------------------ lateral */
+.cas-lat {
+  position: sticky;
+  top: 0;
+  z-index: 14;
+  flex-direction: column;
+  gap: 10px;
+  height: 100vh;
+  padding: 12px 10px;
+  overflow-y: auto;
+  background: var(--cas-fundo);
+  border-right: 1px solid var(--cas-borda-lat);
+  color: var(--cas-texto);
+  scrollbar-width: thin;
+}
+.cas-lat-topo { display: flex; align-items: center; gap: 6px; }
+.cas-lat-busca {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--cas-campo-borda);
+  border-radius: 10px;
+  background: var(--cas-campo);
+  color: var(--cas-texto);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.cas-lat-busca:hover { background: var(--cas-campo-hover); color: var(--cas-forte); }
+.cas-lat-busca kbd { margin-left: auto; padding: 0; background: none; box-shadow: none; color: var(--cas-apagado); font: inherit; font-size: 11.5px; }
+.cas-lat-recolher, .cas-topo-menu {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--cas-icone);
+  cursor: pointer;
+}
+.cas-lat-recolher:hover { background: var(--cas-campo-hover); color: var(--cas-forte); }
+.cas-lat-nav { flex: 1; min-height: 0; }
+.cas-lat-lista { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.cas-lat-lista > li { margin: 0; padding: 0; }
+
+.cas-lat-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  color: var(--cas-texto);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  list-style: none;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+}
+.cas-lat-link::-webkit-details-marker { display: none; }
+.cas-lat-link::marker { content: ""; }
+.cas-lat-link .ico { flex: none; color: var(--cas-icone); }
+.cas-lat-link > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cas-lat-link:hover { background: var(--cas-hover); color: var(--cas-forte); text-decoration: none; }
+.cas-lat-link:hover .ico, .cas-lat-link.ativo .ico { color: var(--cas-forte); }
+.cas-lat-link.ativo, .cas-lat-grupo.tem-ativo > summary { background: var(--cas-ativo); color: var(--cas-forte); font-weight: 600; }
+.cas-lat-grupo.tem-ativo > summary .ico { color: var(--cas-forte); }
+/* a seta do grupo: a última do resumo, encostada à direita */
+.cas-lat-grupo > summary > .ico:last-child { margin-left: auto; transition: transform .2s; }
+.cas-lat-grupo[open] > summary > .ico:last-child { transform: rotate(180deg); }
+
+/* submenu logo abaixo do item pai, ligado por uma linha vertical fina */
+.cas-lat-subs { position: relative; margin: 2px 0 6px 20px; padding: 0; list-style: none; }
+.cas-lat-subs::before { content: ""; position: absolute; top: 2px; bottom: 2px; left: 0; width: 1px; background: var(--cas-liga); }
+.cas-lat-subs > li { margin: 0; padding: 0; }
+.cas-lat-sub {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px 0 18px;
+  border-radius: 8px;
+  color: var(--cas-texto-2);
+  font-size: 13.5px;
+  line-height: 1.2;
+  text-decoration: none;
+}
+.cas-lat-sub:hover { background: var(--cas-hover); color: var(--cas-forte); text-decoration: none; }
+.cas-lat-sub.ativo { background: var(--cas-sub-ativo); color: var(--cas-forte); font-weight: 600; }
+
+/* grupo pequeno e recolhível ("Integrações"), como o "Canais de vendas" da referência */
+.cas-lat-secao { margin-top: 12px; }
+.cas-lat-cab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--cas-apagado);
+  font-size: 12.5px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.cas-lat-cab::-webkit-details-marker { display: none; }
+.cas-lat-cab::marker { content: ""; }
+.cas-lat-cab:hover { color: var(--cas-forte); }
+.cas-lat-cab .ico { transition: transform .2s; }
+.cas-lat-secao[open] > .cas-lat-cab .ico { transform: rotate(90deg); }
+.cas-lat-pe { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--cas-pe); }
+
+.cas-lat a:focus-visible, .cas-lat summary:focus-visible, .cas-lat button:focus-visible {
+  outline: 2px solid var(--cas-foco);
+  outline-offset: -2px;
+}
+
+/* ------------------------------------------------------------ barra de topo */
+.cas-topo {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--cas-topo-alt);
+  padding: 8px 24px;
+  margin-bottom: 14px;
+  background: var(--fundo);
+  border-bottom: 1px solid var(--linha);
+}
+.cas-topo-menu { display: none; color: var(--suave); border: 1px solid var(--linha-forte); background: var(--cartao); border-radius: 999px; }
+.cas-pagina.lat-recolhida .cas-topo-menu { display: grid; } /* so com a lateral recolhida */
+.cas-topo-menu:hover { background: var(--hover); color: var(--texto); }
+.cas-topo-par { display: inline-flex; flex: none; overflow: hidden; border: 1px solid var(--linha-forte); border-radius: 999px; background: var(--cartao); }
+.cas-topo-bt {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--suave);
+  cursor: pointer;
+  text-decoration: none;
+}
+.cas-topo-bt + .cas-topo-bt { border-left: 1px solid var(--linha); }
+.cas-topo-bt:hover { background: var(--hover); color: var(--texto); text-decoration: none; }
+.cas-topo-trilha { min-width: 0; }
+.cas-topo-trilha ol { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: 14px; line-height: 1.3; }
+.cas-topo-trilha li { display: inline-flex; align-items: center; margin: 0; padding: 0; min-width: 0; }
+.cas-topo-ico { color: var(--suave); }
+.cas-topo-grupo { color: var(--suave); font-weight: 500; }
+.cas-topo-sep { color: var(--apagado); }
+.cas-topo-atual h1 { margin: 0; font: inherit; color: inherit; line-height: inherit; }
+.cas-topo-atual { color: var(--texto); font-weight: 600; white-space: nowrap; }
+.cas-topo-acao { margin-left: auto; flex: none; }
+.cas-topo-trilha { flex: none; }
+.cas-topo a:focus-visible, .cas-topo button:focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }
+.cas-topo-par .cas-topo-bt:focus-visible { outline-offset: -3px; }
+@media (max-width: 1179px) { .cas-topo-grupo, .cas-topo-sep { display: none; } }
+@media (pointer: coarse) {
+  .cas-lat-link, .cas-lat-sub, .cas-lat-cab, .cas-lat-busca, .cas-lat-recolher, .cas-topo-menu { min-height: 44px; }
+  .cas-lat-recolher, .cas-topo-menu { width: 44px; }
+  .cas-topo-bt { width: 44px; height: 44px; }
+}
+
+/* ------------------------------------------------------------ pesquisa (Ctrl K) */
+.cas-pal {
+  width: min(560px, calc(100vw - 32px));
+  margin: 12vh auto auto;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: var(--cartao);
+  box-shadow: 0 24px 64px var(--sombra), 0 0 0 1px var(--linha-forte);
+  color: var(--texto);
+  overflow: hidden;
+}
+.cas-pal::backdrop { background: var(--cas-modal); }
+.cas-pal-campo { display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--linha); color: var(--suave); }
+.cas-pal-campo:focus-within { box-shadow: inset 0 -2px 0 var(--marca); }
+.cas-pal-campo input { flex: 1; min-width: 0; min-height: 54px; padding: 0; border: 0; outline: 0; background: none; color: var(--texto); font-size: 15px; }
+.cas-pal-campo input::placeholder { color: var(--apagado); }
+.cas-pal-lista { max-height: min(50vh, 360px); margin: 0; padding: 6px; overflow: auto; list-style: none; }
+.cas-pal-op { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 8px; color: var(--texto); font-size: 14px; cursor: pointer; }
+.cas-pal-op .ico { flex: none; color: var(--suave); }
+.cas-pal-op small { margin-left: auto; color: var(--suave); font-size: 12px; }
+.cas-pal-op[aria-selected="true"] { background: var(--realce); color: var(--marca); }
+.cas-pal-op[aria-selected="true"] .ico, .cas-pal-op[aria-selected="true"] small { color: var(--marca); }
+.cas-pal-vazio { padding: 22px 16px; color: var(--suave); text-align: center; font-size: 13.5px; }
+.cas-pal-pe { display: flex; justify-content: space-between; gap: 8px; padding: 8px 16px; border-top: 1px solid var(--linha); color: var(--suave); font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cas-lat-grupo > summary > .ico:last-child, .cas-lat-cab .ico { transition: none; }
+}
+
+/* Abaixo de 1000 px a barra de topo some da vista, mas o nome da tela (o <h1>) continua para o leitor de tela: um <h1> por página em qualquer largura */
+@media (max-width: 999px) {
+  .cas-topo { display: block; position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .cas-topo > :not(.cas-topo-trilha), .cas-topo-trilha li:not(.cas-topo-atual) { display: none; }
+}
+
+/* Topo da lateral: a marca (logo e nome) e, ao lado, o botão de recolher a navegação, com a dica "Recolher navegação" e o atalho Ctrl B (⌘ B no
+   Mac). A busca fica logo abaixo. O mesmo botão, com a dica "Expandir navegação", reaparece na barra de topo quando a lateral está recolhida
+   (só sobra o trilho de ícones do admin). Dica só de CSS: aparece ao passar o mouse e no foco do teclado; Esc a esconde (WCAG 1.4.13). */
+.cas-lat-marca { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 40px; }
+.cas-lat-logo { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 36px; padding: 0 6px; border-radius: 10px; color: var(--cas-forte); font-size: 15px; font-weight: 700; line-height: 1.2; text-decoration: none; }
+.cas-lat-logo:hover { color: var(--cas-forte); text-decoration: none; background: var(--cas-hover); }
+.cas-lat-logo img { flex: none; border-radius: 6px; }
+.cas-lat-logo span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cas-tip { position: relative; display: inline-flex; flex: none; }
+.cas-dica {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 8px);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 10px;
+  background: var(--cas-dica-fundo);
+  box-shadow: 0 6px 18px var(--sombra), 0 0 0 1px var(--cas-dica-anel);
+  color: var(--cas-forte);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .12s;
+}
+.cas-lat .cas-dica { right: 0; }
+.cas-topo .cas-dica { left: 0; }
+.cas-tip:hover .cas-dica, .cas-tip button:focus-visible ~ .cas-dica { opacity: 1; visibility: visible; }
+.cas-tip.sem-dica .cas-dica { opacity: 0 !important; visibility: hidden !important; } /* Esc: vence o :hover e o foco */
+.cas-dica-teclas { display: inline-flex; gap: 4px; }
+.cas-dica kbd { display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; background: var(--cas-tecla); box-shadow: none; color: var(--cas-forte); font: 600 11px/1 var(--f-texto); text-transform: uppercase; }
+@media (prefers-reduced-motion: reduce) { .cas-dica { transition: none; } }
+
+/* Configurações: a lateral própria (voltar, cartão da conta e as seções) e o trilho de paineis só com os ícones (lib/casca.php, casca_config).
+   O trilho (.lateral, do núcleo do admin) encolhe de 80 para 56 px e os nomes ficam só para o leitor de tela. Abaixo de 1000 px a lateral não
+   aparece: as seções viram as abas .abas-cfg, no alto. */
+.cas-lat-voltar { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 10px; border-radius: 10px; color: var(--cas-texto); font-size: 14px; font-weight: 600; text-decoration: none; }
+.cas-lat-voltar:hover { background: var(--cas-hover); color: var(--cas-forte); text-decoration: none; }
+.cas-lat-conta { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--cas-campo-borda); border-radius: 12px; background: var(--cas-campo); }
+.cas-lat-conta-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.cas-lat-conta-txt b { overflow: hidden; color: var(--cas-forte); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.cas-lat-conta-txt small { color: var(--cas-apagado); font-size: 12px; }
+@media (min-width: 1000px) {
+  .casca.cas-config > .lateral { width: 56px; }
+  .casca.cas-config > .lateral .lateral-paineis a { width: 44px; padding: 8px 0; }
+  .casca.cas-config > .lateral .lateral-paineis a span { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .cas-config .cas-pagina > .abas-cfg, .cas-config .cas-pagina > .abas-nucleo { display: none; }
+}
+
+/* Tema: "Sistema" (o tema do aparelho, agora) ao lado de Claro, Escuro e Pretão. Mesmo POST do tema.php; o casca.js clica no botão certo. */
+.tema-prontos .tema-sistema { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 8px; min-height: 40px; }
+.cas-lat-busca > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cas-lat-busca-longa kbd { display: none; } /* rótulo longo ("Pesquisar configurações"): o atalho continua valendo e dito em aria-keyshortcuts */
+/* Em Configurações as seções têm as próprias abas (.abas-cfg) e a barra do polegar do UTM não entra: ficam só elas */
+.cas-config .cas-pagina > .abas:not(.abas-cfg), .cas-config .nav-celular { display: none; }
+
+/* ---------------------------------------------------------------- filtro único (lib/casca.php, casca_filtro)
+   Um botão no canto direito da barra de topo, com o resumo do que está ativo, que abre um painel com Período, Site, Página, Produto e Fonte juntos.
+   Sem JavaScript é um <details> com os campos nativos e o Aplicar; o casca.js liga os atalhos de período, a busca das listas e o foco preso.
+   Abaixo de 760 px o painel é uma folha de baixo (alça, cantos de 16 px, rolagem interna, Aplicar sempre à vista). Só variáveis do tema. */
+.cas-pagina { --topo-alt: var(--cas-topo-alt); }
+.cas-topo-acao { position: relative; }
+.topo .cas-filtro-form { margin-left: auto; }
+.cas-topo-acao .cas-filtro-form { display: block; flex: none; width: auto; } /* na barra de topo: a classe .filtros do celular (grade de colunas de 140 px e width 100%) vem de antes e deixava a caixa do botão mais larga que o botão */
+.cas-filtro { position: relative; }
+.cas-filtro > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(46vw, 520px);
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--linha-forte);
+  border-radius: 10px;
+  background: var(--cartao);
+  color: var(--texto);
+  font-size: 13px;
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.cas-filtro > summary::-webkit-details-marker { display: none; }
+.cas-filtro > summary::marker { content: ""; }
+.cas-filtro > summary:hover { background: var(--hover); }
+.cas-filtro > summary .ico { flex: none; color: var(--suave); }
+.cas-filtro-resumo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cas-filtro-n { display: inline-grid; flex: none; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--marca-fundo); color: #fff; font-size: 11.5px; font-weight: 600; }
+.cas-filtro-ativo > summary { border-color: var(--marca); background: var(--realce); }
+.cas-filtro-ativo > summary .ico { color: var(--marca); }
+[data-bs-theme="dark"] .cas-filtro-ativo > summary .ico { color: var(--marca-hover); }
+.cas-filtro[open] > summary { border-color: var(--marca); }
+.cas-filtro > summary:focus-visible, .cas-filtro-chip:focus-visible, .cas-filtro-aplicar:focus-visible, .cas-filtro-limpar:focus-visible, .cas-chip:focus-visible, .cas-filtro-so:focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }
+
+.cas-filtro-painel {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(78vh, 640px);
+  border: 1px solid var(--linha-forte);
+  border-radius: 14px;
+  background: var(--cartao);
+  box-shadow: 0 18px 48px var(--sombra);
+  color: var(--texto);
+}
+.cas-filtro:not([open]) > .cas-filtro-painel, .cas-filtro:not([open]) > .cas-filtro-fundo { display: none; }
+.cas-filtro-fundo { display: none; }
+.cas-filtro-alca { display: none; }
+.cas-filtro-corpo { display: flex; flex: 1; flex-direction: column; gap: 18px; min-height: 0; padding: 16px; overflow-y: auto; }
+.cas-filtro-sec { min-width: 0; margin: 0; padding: 0; border: 0; }
+.cas-filtro-tit { display: block; margin: 0 0 8px; padding: 0; color: var(--suave); font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.cas-filtro-cont { margin-left: 4px; color: var(--suave); font-size: 11.5px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.cas-filtro-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+.cas-filtro-chip {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--linha-forte);
+  border-radius: 999px;
+  background: var(--cartao);
+  color: var(--texto);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cas-filtro-chip:hover { background: var(--hover); }
+.cas-filtro-chip[aria-pressed="true"] { border-color: var(--marca); background: var(--realce); color: var(--marca); font-weight: 600; }
+[data-bs-theme="dark"] .cas-filtro-chip[aria-pressed="true"] { color: var(--marca-hover); }
+.cas-filtro-sel, .cas-filtro-campo select { width: 100%; min-height: 40px; }
+.cas-filtro-sel-oculto { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); opacity: 0; pointer-events: none; }
+.cas-filtro-datas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.cas-filtro-datas[hidden] { display: none; }
+.cas-filtro-datas label { display: flex; flex: 1 1 150px; flex-direction: column; gap: 4px; color: var(--suave); font-size: 12px; }
+.cas-filtro-datas input { min-height: 40px; }
+.cas-filtro-erro { margin: 8px 0 0; color: var(--erro); font-size: 12.5px; font-weight: 500; }
+.cas-filtro-erro[hidden] { display: none; }
+.cas-filtro-datas input[aria-invalid="true"] { border-color: var(--erro); }
+.cas-filtro-lista label { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 6px; border-radius: var(--r-sm); font-size: 13px; cursor: pointer; }
+.cas-filtro-lista label[hidden] { display: none; }
+.cas-filtro-lista label:hover { background: var(--hover); }
+.cas-filtro-lista input[type="checkbox"] { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--marca); }
+.cas-filtro-lista .multi-todos { font-weight: 600; }
+.cas-filtro-busca { width: 100%; min-height: 36px; margin-bottom: 6px; padding: 0 10px; border: 1px solid var(--linha-forte); border-radius: var(--r-sm); background: var(--cartao); color: var(--texto); font: inherit; font-size: 13px; }
+.cas-filtro-so { margin-left: auto; padding: 0 8px; min-height: 28px; border: 0; border-radius: var(--r-sm); background: none; color: var(--marca); font: inherit; font-size: 12px; font-weight: 600; opacity: 0; cursor: pointer; }
+[data-bs-theme="dark"] .cas-filtro-so { color: var(--marca-hover); }
+.cas-filtro-lista label:hover .cas-filtro-so, .cas-filtro-so:focus-visible { opacity: 1; }
+.cas-filtro-rodape { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--linha); background: var(--cartao); border-radius: 0 0 14px 14px; }
+.cas-filtro-limpar { display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: var(--r-sm); color: var(--suave); font-size: 13px; font-weight: 600; text-decoration: none; }
+.cas-filtro-limpar:hover { background: var(--hover); color: var(--texto); text-decoration: none; }
+.cas-filtro-aplicar { min-height: 40px; padding: 0 18px; border: 1px solid var(--marca-fundo); border-radius: var(--r-sm); background: var(--marca-fundo); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cas-filtro-aplicar:hover:not(:disabled) { background: var(--marca-fundo-hover); border-color: var(--marca-fundo-hover); }
+.cas-filtro-aplicar:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Barra de uma linha: as etiquetas dos filtros ativos ficam na própria barra de topo, à esquerda do botão "Filtros"; cada uma é um link que tira aquele
+   filtro. Sem filtro fora do padrão não há etiqueta. Se elas não couberem, o casca.js põe .cas-chips-fora (todas somem; o contador do botão avisa). */
+.cas-topo-acao { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 auto; }
+.cas-filtro-chips { display: flex; flex: 0 1 auto; flex-wrap: nowrap; gap: 6px; min-width: 0; padding: 4px; margin: -4px; overflow: hidden; } /* o respiro de 4 px (anulado pela margem) deixa o contorno de foco das etiquetas aparecer inteiro apesar do overflow */
+.cas-filtro-chips.cas-chips-fora { display: none; }
+.cas-chip { display: inline-flex; flex: none; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px solid var(--marca); border-radius: 999px; background: var(--realce); color: var(--marca); font-size: 12.5px; font-weight: 600; white-space: nowrap; text-decoration: none; }
+.cas-chip:hover { background: var(--hover); text-decoration: none; }
+[data-bs-theme="dark"] .cas-chip { color: var(--marca-hover); }
+.cas-chip-x { font-size: 15px; line-height: 1; }
+
+/* barra de topo abaixo de 1000 px: com filtro, ela continua à vista (só o botão, à direita); a trilha fica só para o leitor de tela */
+@media (max-width: 999px) {
+  .cas-topo:has(> .cas-topo-acao) { display: flex; position: static; width: auto; height: auto; margin: 0; padding: 8px 16px; overflow: visible; clip: auto; justify-content: flex-end; border-bottom: 1px solid var(--linha); }
+  .cas-topo:has(> .cas-topo-acao) > .cas-topo-trilha { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .cas-topo:has(> .cas-topo-acao) > .cas-topo-acao { display: flex; margin-left: 0; }
+  .cas-filtro > summary { max-width: calc(100vw - 32px); }
+}
+/* celular: o painel vira folha de baixo */
+@media (max-width: 760px) {
+  .cas-filtro-fundo { position: fixed; inset: 0; z-index: 59; display: block; background: var(--cas-modal); }
+  .cas-filtro:not([open]) > .cas-filtro-fundo { display: none; }
+  .cas-filtro-painel { position: fixed; z-index: 60; top: auto; right: 0; bottom: 0; left: 0; width: auto; max-height: 86vh; border-radius: 16px 16px 0 0; }
+  .cas-filtro-alca { display: block; width: 40px; height: 4px; margin: 8px auto 0; border-radius: 4px; background: var(--linha-forte); }
+  .cas-filtro-rodape { padding-bottom: calc(12px + env(safe-area-inset-bottom)); border-radius: 0; }
+}
+/* celular: uma faixa só no topo. A barra de filtros (etiquetas e botão "Filtros") entra na faixa escura do admin (painel e foto), no espaço entre o nome do
+   painel e a foto: a barra de topo fica presa em cima da faixa, com a mesma altura dela (a conta é a de .lateral-alterna em admin_tela.php: 6 px de respiro
+   ou a área segura, mais 46 px), e só o botão e as etiquetas recebem o toque; o resto da faixa continua abrindo o menu do admin. Etiquetas que não cabem
+   somem (casca.js) e fica o contador do botão. Com o menu do admin aberto, os filtros ficam escondidos. */
+@media (max-width: 760px) {
+  .cas-topo:has(> .cas-topo-acao) {
+    position: sticky;
+    top: 0;
+    z-index: 46;
+    align-items: center;
+    height: calc(max(6px, env(safe-area-inset-top)) + 46px);
+    min-height: 0;
+    margin: calc(-1 * (max(6px, env(safe-area-inset-top)) + 46px)) 0 0;
+    padding: max(6px, env(safe-area-inset-top)) 76px 6px 96px;
+    border-bottom: 0;
+    background: none;
+    pointer-events: none;
+  }
+  .cas-topo:has(> .cas-topo-acao) > .cas-topo-acao { max-width: 100%; pointer-events: auto; }
+  .casca:has(.lateral.aberta) .cas-topo-acao { visibility: hidden; }
+  .cas-topo .cas-filtro > summary { max-width: 100%; min-height: 44px; border-color: rgba(255, 255, 255, .24); background: rgba(255, 255, 255, .08); color: #F3F4F6; }
+  .cas-topo .cas-filtro > summary:hover { background: rgba(255, 255, 255, .14); }
+  .cas-topo .cas-filtro > summary .ico { color: #AEB4BF; }
+  .cas-topo .cas-filtro-ativo > summary, .cas-topo .cas-filtro[open] > summary { border-color: var(--marca); }
+  .cas-topo .cas-filtro-ativo > summary { background: var(--realce); color: var(--texto); }
+  .cas-topo .cas-filtro-ativo > summary .ico { color: var(--marca); }
+  .cas-topo .cas-chip { min-height: 44px; }
+  .cas-topo a:focus-visible, .cas-topo button:focus-visible, .cas-topo .cas-filtro > summary:focus-visible { outline-color: #93C5FD; }
+}
+@media (pointer: coarse) {
+  .cas-filtro > summary, .cas-filtro-chip, .cas-filtro-aplicar, .cas-filtro-limpar { min-height: 44px; }
+  .cas-filtro-lista label { min-height: 44px; }
+  .cas-filtro-so { opacity: 1; min-height: 36px; }
+  .cas-chip { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .cas-filtro-painel { animation: none; transition: none; } }

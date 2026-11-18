@@ -29,7 +29,7 @@ foreach (FIN_ABAS as $k => [$rot, $ico]) {
     echo '<a href="' . e('financeiro.php?' . http_build_query(['aba' => $k])) . '"' . ($k === $aba ? ' class="atual" aria-current="page"' : '') . '>' . icone($ico) . e($rot) . '</a>';
 }
 echo '</nav>';
-barra_periodo('financeiro.php', $periodo, ['aba' => $aba]);
+barra_periodo('financeiro.php', $periodo, ['aba' => $aba], 'mes');
 echo '<main>';
 financeiro_render($db, $periodo, $aba);
 echo '</main>';

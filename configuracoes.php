@@ -66,6 +66,14 @@ $nomeApp = track_config()['app_nome'] ?? 'Painel de vendas';
 $dataMudanca = ajuste('data_mudanca') ?? '';
 $oQueMudou = ajuste('o_que_mudou') ?? '';
 
+// Secoes (casca: lateral de Configuracoes, lib/casca.php): cada cartao e uma secao, aberta por ?s=. Os cartoes das outras ficam no HTML com
+// `hidden` (os formularios continuam inteiros: salvar nunca apaga o que a secao aberta nao mostra) e a gravacao e a mesma de antes.
+$secao = casca_config_atual();
+$de = casca_config_de();
+$qs = casca_config_qs($secao, $de);
+$tituloSecao = ['aparencia' => 'Aparência e tema', 'notificacoes' => 'Notificações', 'aplicativo' => 'Aplicativo', 'orcamento' => 'Orçamento pelo painel', 'marco' => 'Antes × depois'][$secao];
+$oculta = fn(string $s) => $secao === $s ? '' : ' hidden';
+
 // Uma opcao Mostrar/Esconder ou Habilitado/Desabilitado, com o (i)
 $opcao = function (string $campo, string $rotulo, string $dica, bool $ligado, string $sim, string $nao): string {
     return '<label class="cfg-campo"><span>' . com_info($rotulo, $dica) . '</span><select name="' . e($campo) . '" data-previa>'
@@ -82,11 +90,16 @@ abas_painel('configuracoes');
 <main class="cfg">
   <?php foreach ($erros as $erro): ?><p class="erro"><?= e($erro) ?></p><?php endforeach; ?>
   <?php if ($aviso): ?><p class="aviso-ok"><?= e($aviso) ?></p><?php endif; ?>
-  <h1 class="cfg-titulo">Configurações do UTM <span class="suave">· <?= e($usuario) ?></span></h1>
-  <p class="suave">Foto, senha, aparência e Sair ficam em <a href="<?= e(admin_url('conta')) ?>">Minha conta</a>.</p>
+  <h1 class="cfg-titulo"><?= e($tituloSecao) ?></h1>
 
   <div class="cfg-grade">
-    <section class="cartao" data-app>
+    <section class="cartao cas-cfg-tema"<?= $oculta('aparencia') ?>>
+      <h2>Aparência e tema</h2>
+      <p class="suave">Claro, escuro, pretão ou uma cor de fundo só sua. Vale para você, no admin inteiro. <b>Sistema</b> usa o tema do seu aparelho no momento em que você escolhe.</p>
+      <?= tema_form('./configuracoes.php?' . $qs, admin_base()) ?>
+    </section>
+
+    <section class="cartao" data-app<?= $oculta('aplicativo') ?>>
       <h2><?= com_info('Aplicativo', 'Instala o painel como um app no celular ou no computador: abre em tela cheia, com ícone próprio, e recebe as notificações.') ?></h2>
       <p class="suave" data-app-estado>Veja abaixo como instalar neste aparelho.</p>
       <button type="button" data-instalar hidden>Instalar o app</button>
@@ -94,7 +107,7 @@ abas_painel('configuracoes');
       <p class="suave" data-outro hidden>Neste navegador, use o menu e a opção <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong>. No computador, o Chrome e o Edge mostram o botão de instalar na barra de endereço.</p>
     </section>
 
-    <section class="cartao" data-push>
+    <section class="cartao" data-push<?= $oculta('notificacoes') ?>>
       <h2><?= com_info('Notificações neste aparelho', 'Liga as notificações só neste aparelho. Ligue em cada celular ou computador em que quiser receber.') ?></h2>
       <p class="suave" data-push-estado>Verificando…</p>
       <div class="linha-botoes">
@@ -108,7 +121,7 @@ abas_painel('configuracoes');
       <?php endif; ?>
     </section>
 
-    <form method="post" action="configuracoes.php" class="cartao">
+    <form method="post" action="configuracoes.php?<?= e($qs) ?>" class="cartao"<?= $oculta('orcamento') ?>>
       <h2><?= com_info('Orçamento pelo painel', 'O maior orçamento diário que alguém pode pôr numa campanha ou conjunto pelo painel, na hora ou numa programação. Vale para todos os usuários. Para mudar o orçamento por aqui, o token da API Meta precisa de ads_management.') ?></h2>
       <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="teto">
       <label class="cfg-campo"><span>Teto por dia (R$)</span><input name="teto" inputmode="decimal" value="<?= e(number_format(orc_teto() / 100, 2, ',', '.')) ?>"></label>
@@ -116,7 +129,7 @@ abas_painel('configuracoes');
       <button type="submit">Salvar teto</button>
     </form>
 
-    <form method="post" action="configuracoes.php" class="cartao">
+    <form method="post" action="configuracoes.php?<?= e($qs) ?>" class="cartao"<?= $oculta('marco') ?>>
       <h2><?= com_info('Antes × depois (Marco de mudança)', 'Data de uma mudança importante no site ou na oferta para comparar os resultados antes e depois no Resumo.') ?></h2>
       <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="marco">
       <label class="cfg-campo"><span>Data da mudança</span><input type="date" name="data_mudanca" value="<?= e($dataMudanca) ?>" placeholder="AAAA-MM-DD"></label>
@@ -125,7 +138,7 @@ abas_painel('configuracoes');
     </form>
   </div>
 
-  <form method="post" action="configuracoes.php" class="cfg-grade">
+  <form method="post" action="configuracoes.php?<?= e($qs) ?>" class="cfg-grade"<?= $oculta('notificacoes') ?>>
     <input type="hidden" name="csrf" value="<?= e(token_csrf()) ?>"><input type="hidden" name="acao" value="salvar">
     <section class="cartao">
       <h2><?= com_info('Notificações de venda', 'Chegam na hora em que a venda entra no painel (pelo webhook da Kiwify ou pela busca na API).') ?></h2>

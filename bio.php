@@ -66,7 +66,7 @@ echo '<nav class="abas abas-nucleo" aria-label="BIO"><span class="abas-titulo">B
     . '<a href="bio.php" class="atual" aria-current="page">' . icone('link') . 'Links</a>'
     . ($cfg['endereco'] !== '' ? '<a href="' . e($cfg['endereco']) . '" target="_blank" rel="noopener">' . icone('externo') . 'Ver a página</a>' : '')
     . '</nav>';
-barra_periodo('bio.php', $periodo);
+barra_periodo('bio.php', $periodo, [], '30d');
 ?>
 <main>
 <?php

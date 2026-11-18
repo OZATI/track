@@ -170,9 +170,9 @@ confere "$(grep -q 'href="usuarios.php" title="Usuários' < <(printf '%s
 ' "$r"); [ $? -ne 0 ]; echo $?)" "Usuários saiu da barra lateral (fica nas Configurações, a engrenagem)"
 confere "$(grep -q '<a href="configuracoes.php" class="">' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Configurações do UTM saiu das abas (fica na engrenagem, sem repetir)"
 confere "$(grep -q 'class="topo-resumo\|data-recolher' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "os filtros não recolhem mais: ficam sempre à mostra"
-confere "$(tem 'data-periodo-campo' "$r")" "período com o seletor de calendário"
+confere "$(tem 'data-cas-periodo' "$r")" "período no filtro único (presets e de uma data a outra)"
 confere "$(tem '<label class="multi-todos"><input type="checkbox" data-multi-todos checked>Todos (com order bump)</label>' "$r")" "Produto com Todos como a primeira caixa"
-confere "$(grep -q '>Aplicar<' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "sem botão Aplicar: o filtro aplica ao escolher"
+confere "$(tem '<button type="submit" class="cas-filtro-aplicar" data-cas-aplicar>Aplicar</button>' "$r")" "filtro único: o Aplicar envia os filtros de uma vez"
 confere "$(grep -q 'data-sair' < <(printf '%s\n' "$r"); [ $? -ne 0 ]; echo $?)" "Sair não é mais uma aba"
 confere "$(tem 'orgânico · www.google.com' "$r")" "visita sem etiqueta vinda do Google aparece como orgânico · www.google.com"
 confere "$(tem 'direto (sem origem)' "$r")" "visita sem etiqueta e sem site de origem aparece como direto"
@@ -756,14 +756,19 @@ tab=${r#*'<div class="tabela gestor tcard-corpo">'}
 linha=$(grep -o '<strong>TL 1</strong>.*</tr>' < <(printf '%s\n' "$tab") | head -1 | sed 's#</tr>.*##')
 confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 110,00</td>' "$linha")" "filtro de produto: só o Drive 2.0, sem o order bump no faturamento"
 confere "$(tem '<span class="positivo">2,08</span>' "$linha")" "ROI só do produto principal (como o Allan filtra na UTMify)"
-confere "$(tem '<summary>Drive de Projetos 2.0</summary>' "$r")" "lista de produtos mostra o escolhido"
+confere "$(tem 'title="Tudo · Drive de Projetos 2.0"' "$r")" "lista de produtos mostra o escolhido (o resumo do botão fica no title e no aria-label)"
+# Barra de topo de uma linha: etiquetas dos filtros ativos dentro da barra, antes do botão curto "Filtros"
+confere "$(tem 'title="Tirar este filtro">Drive de Projetos 2.0<span' "$r")" "barra de uma linha: o produto escolhido vira etiqueta com x"
+confere "$(tem 'class="cas-topo-acao"><div class="cas-filtro-chips"' "$r")" "barra de uma linha: as etiquetas ficam dentro da barra de topo, antes do botão"
+confere "$(tem 'class="cas-filtro-resumo">Filtros</span>' "$r")" "barra de uma linha: o botão só diz Filtros (e o contador)"
+confere "$([ "$(printf '%s\n' "$r" | grep -o 'class="cas-filtro-chips"' | wc -l)" -eq 1 ]; echo $?)" "barra de uma linha: não sobra uma segunda faixa de etiquetas abaixo da barra"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem 'Faturamento líquidoR$ 110,00' "$(sem_tags "$r")")" "produto escolhido fica lembrado e vale no Resumo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&$P2&produto[]=Memorial%20Descritivo")
-confere "$(tem '<summary>2 produtos</summary>' "$r")" "dá para marcar mais de um produto"
+confere "$(tem 'title="Tudo · 2 produtos"' "$r")" "dá para marcar mais de um produto"
 confere "$(tem '<td>R$ 50,00</td><td>2</td><td>R$ 135,00</td>' "$r")" "com o order bump marcado, ele volta ao faturamento"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&produto[]=")
-confere "$(tem '<summary>Todos (com order bump)</summary>' "$r")" "desmarcar todos volta a contar tudo"
+confere "$(tem 'title="Tudo · Todos os produtos"' "$r")" "desmarcar todos volta a contar tudo"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=fat_bruto&cols[]=taxas&cols[]=fat")
 confere "$(tem '<td>R$ 156,39</td><td>R$ 21,39</td><td>R$ 135,00</td>' "$r")" "colunas de faturamento bruto e taxas da Kiwify"
 curl -s -o /dev/null -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo&cols[]=orcamento&cols[]=gasto&cols[]=vendas&cols[]=fat&cols[]=lucro&cols[]=cpa&cols[]=roi"
@@ -1324,6 +1329,9 @@ confere "$(tem 'O webhook não está chegando' "$r")" "vendas recentes só pela 
 echo "Aparência (claro, escuro, pretão ou outra cor)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=geral&periodo=tudo")
 confere "$(tem '<html lang="pt-BR" data-tema="claro" data-bs-theme="light">' "$r")" "começa no tema claro de sempre"
+# Sem o --base, o escuro continua escuro (cor de reserva do tema Escuro) e o claro nao e repintado pelo escuro automatico do navegador
+confere "$(tem '--fundo:var(--base, #1B2232)' "$r")" "tema escuro com cor de reserva, se faltar o --base"
+confere "$(tem 'color-scheme:only light' "$r")" "tema claro não deixa o navegador repintar de escuro"
 # Tabler (lib/admin_tela.php, TABLER_CSS): o CSS carrega antes do do painel e o arquivo existe
 confere "$(tem 'vendor/tabler/1.7.4/dist/css/tabler.min.css' "$r")" "o Tabler carrega em toda tela do painel"
 confere "$([ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/vendor/tabler/1.7.4/dist/css/tabler.min.css")" = "200" ]; echo $?)" "o CSS do Tabler é servido"
@@ -1508,7 +1516,7 @@ confere "$(tem 'data-tipo="CashRoiGauge"' "$r")" "ROI do caixa no mostrador"
 confere "$(tem 'class="conta-icone lapis-tela" href="financeiro.php?periodo=tudo&amp;montar=1"' "$r")" "lápis na barra lateral monta o DRE"
 confere "$(tem 'class="conta-icone lapis-tela" href="financeiro.php?aba=fluxo&amp;periodo=tudo&amp;montar=1"' "$(curl -s -b "$JAR" "$URL/financeiro.php?aba=fluxo&periodo=tudo")")" "lápis na aba Fluxo de caixa monta o fluxo"
 confere "$(grep -q 'class="conta-icone lapis-tela' < <(curl -s -b "$JAR" "$URL/financeiro.php?aba=despesas&periodo=tudo"); [ $? -ne 0 ]; echo $?)" "a aba Despesas (cadastro) não é montável"
-confere "$(tem '<form class="filtros" method="get" action="financeiro.php" id="filtros"><input type="hidden" name="aba" value="dre"><div class="campo campo-periodo" data-periodo-campo' "$r")" "DRE com o seletor de período do UTM (e a aba no formulário)"
+confere "$(tem '<form class="filtros cas-filtro-form" method="get" action="financeiro.php" id="filtros"><input type="hidden" name="aba" value="dre"><details class="cas-filtro' "$r")" "DRE com o filtro único, só o período (e a aba no formulário)"
 r=$(curl -s -b "$JAR" "$URL/financeiro.php?periodo=mes_passado")
 r=$(curl -s -b "$JAR" "$URL/bio.php")
 confere "$(tem '<option value="mes_passado" selected>' "$r")" "Bio com o mesmo seletor e o período lembrado do Financeiro"
@@ -1578,7 +1586,7 @@ echo "QA de interface (07/10)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=trafego&periodo=tudo")
 confere "$(tem '<meta name="mobile-web-app-capable" content="yes">' "$r")" "meta mobile-web-app-capable (o apple-... sozinho está obsoleto)"
 confere "$(tem '<link rel="icon" href="' "$r")" "telas com ícone na aba (sem /favicon.ico 404 no painel avulso)"
-confere "$(tem '<option value="">Escolha um site antes</option>' "$r")" "filtro Página sem site diz o que fazer"
+confere "$(tem '<option value="" selected>Escolha um site antes</option>' "$r")" "filtro Página sem site diz o que fazer"
 confere "$(tem '<p class="suave barra-vendas"><span>Vendas só pelo webhook' "$r")" "aviso da Kiwify num bloco só (sem o ponto solto depois do link)"
 r=$(curl -s -b "$JAR" "$URL/index.php?aba=gestor&periodo=tudo")
 confere "$(tem '<details class="ajuda-tabela"><summary>' "$r")" "ajuda do gestor recolhida em Como ler esta tabela"
