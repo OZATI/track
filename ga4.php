@@ -129,7 +129,7 @@ pagina_inicio('Google Analytics 4');
 casca_inicio('integracoes');
 integracoes_topo('rastreio', 'Google Analytics 4');
 if ($k) {
-    barra_periodo('ga4.php', $periodo);
+    barra_periodo('ga4.php', $periodo, [], '7d');
 }
 ?>
 <main class="ga4">

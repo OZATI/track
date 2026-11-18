@@ -121,24 +121,27 @@ function admin_css_base(): string
   --grad-a:#1D6FF2; --grad-b:#60A5FA; --rolagem:#C9CED6; --rolagem-hover:#9CA3AF;
   --f-texto:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --f-titulo:var(--f-texto); --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
   --r-sm:6px; --r-md:8px; --r-lg:8px; --topo-alt:73px;
+  /* O tema claro nao deixa o modo escuro automatico do navegador repintar a tela (o escuro do painel diz dark) */
+  color-scheme:only light;
 }
 /* Aparencia (lib/tema.php): a cor base escolhida vira o fundo e o resto sai dela. Base escura:
    texto claro, cartoes e linhas um pouco mais claros que o fundo, cores de estado mais vivas
    (no escuro, o verde e o vermelho da planilha precisam de mais brilho para contrastar). */
 :root[data-tema=claro][data-base]{
-  --fundo:var(--base); --cartao:color-mix(in srgb, var(--base), #fff 75%); --cartao-2:color-mix(in srgb, var(--base), #000 3%);
-  --hover:color-mix(in srgb, var(--base), #fff 45%); --linha:color-mix(in srgb, var(--base), #000 9%); --linha-forte:color-mix(in srgb, var(--base), #000 16%);
+  --fundo:var(--base, #F7F8FA); --cartao:color-mix(in srgb, var(--base, #F7F8FA), #fff 75%); --cartao-2:color-mix(in srgb, var(--base, #F7F8FA), #000 3%);
+  --hover:color-mix(in srgb, var(--base, #F7F8FA), #fff 45%); --linha:color-mix(in srgb, var(--base, #F7F8FA), #000 9%); --linha-forte:color-mix(in srgb, var(--base, #F7F8FA), #000 16%);
 }
 :root[data-tema=escuro]{
+  /* var(--base, #1B2232): sem o --base (data-tema trocado sem a cor), o fundo continua escuro, nao transparente */
   color-scheme:dark;
-  --fundo:var(--base); --cartao:color-mix(in srgb, var(--base), #fff 5%); --cartao-2:color-mix(in srgb, var(--base), #fff 9%);
-  --hover:color-mix(in srgb, var(--base), #fff 7%); --linha:color-mix(in srgb, var(--base), #fff 13%); --linha-forte:color-mix(in srgb, var(--base), #fff 22%);
+  --fundo:var(--base, #1B2232); --cartao:color-mix(in srgb, var(--base, #1B2232), #fff 5%); --cartao-2:color-mix(in srgb, var(--base, #1B2232), #fff 9%);
+  --hover:color-mix(in srgb, var(--base, #1B2232), #fff 7%); --linha:color-mix(in srgb, var(--base, #1B2232), #fff 13%); --linha-forte:color-mix(in srgb, var(--base, #1B2232), #fff 22%);
   --texto:#E5E7EB; --suave:#A3AAB6; --apagado:#6B7280;
   --marca:#60A5FA; --marca-hover:#93C5FD; --marca-fundo:#2563EB; --marca-fundo-hover:#1D4ED8;
   --ok:#22C55E; --alerta:#F59E0B; --erro:#F05252; --laranja:#FB923C;
-  --lateral:color-mix(in srgb, var(--base), #000 35%); --realce:rgba(59,130,246,.16);
-  --fundo-ok:rgba(34,197,94,.14); --fundo-alerta:rgba(245,158,11,.14); --fundo-erro:rgba(240,82,82,.14); --sombra:rgba(0,0,0,.55); --sombra-rolagem:color-mix(in srgb, var(--base), #000 28%);
-  --grad-a:#2563EB; --grad-b:#93C5FD; --rolagem:color-mix(in srgb, var(--base), #fff 22%); --rolagem-hover:color-mix(in srgb, var(--base), #fff 38%);
+  --lateral:color-mix(in srgb, var(--base, #1B2232), #000 35%); --realce:rgba(59,130,246,.16);
+  --fundo-ok:rgba(34,197,94,.14); --fundo-alerta:rgba(245,158,11,.14); --fundo-erro:rgba(240,82,82,.14); --sombra:rgba(0,0,0,.55); --sombra-rolagem:color-mix(in srgb, var(--base, #1B2232), #000 28%);
+  --grad-a:#2563EB; --grad-b:#93C5FD; --rolagem:color-mix(in srgb, var(--base, #1B2232), #fff 22%); --rolagem-hover:color-mix(in srgb, var(--base, #1B2232), #fff 38%);
 }
 :root[data-tema=escuro] .lateral{ border-right:1px solid var(--linha); }
 *{ box-sizing:border-box; }
@@ -202,7 +205,7 @@ function admin_css_base(): string
 @media (max-width:760px){
   .casca{ flex-direction:column; }
   .lateral{ width:auto; height:auto; position:sticky; top:0; z-index:45; flex-direction:column; align-items:stretch; padding:0; }
-  .lateral-alterna{ display:flex; align-items:center; gap:10px; width:100%; min-height:52px; padding:max(6px, env(safe-area-inset-top)) 12px 6px 16px; background:none; border:0; border-radius:0; color:#F3F4F6; font-size:15px; }
+  .lateral-alterna{ display:flex; align-items:center; gap:10px; width:100%; min-height:calc(max(6px, env(safe-area-inset-top)) + 46px); padding:max(6px, env(safe-area-inset-top)) 12px 6px 16px; background:none; border:0; border-radius:0; color:#F3F4F6; font-size:15px; }
   .lateral-alterna:hover{ background:rgba(255,255,255,.04); }
   .lateral-alterna > svg:first-child{ width:20px; height:20px; color:#9CA3AF; }
   .lateral-alterna .avatar{ margin-left:auto; }

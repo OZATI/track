@@ -5,6 +5,7 @@ require_once __DIR__ . '/tema.php';
 require_once __DIR__ . '/perfil.php';
 require_once __DIR__ . '/admin_tela.php'; // nucleo do admin: CSS comum, barra lateral, cabecalho
 require_once __DIR__ . '/componentes.php'; // cartoes com icone e a tabela inteligente
+require_once __DIR__ . '/casca.php'; // lateral da secao, barra de topo e Ctrl K (padrao de interface dos paineis)
 
 
 // Modo compartilhar (o olho da barra das abas), para gravar video ou mostrar a tela: o cookie vem do
@@ -98,7 +99,7 @@ button.discreto.neutro{ color:var(--texto); }
 .dica{ position:fixed; z-index:60; max-width:300px; background:#111827; color:#fff; font-size:12px; line-height:1.45; padding:8px 11px; border-radius:8px; pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.25); }
 .dica b{ display:block; font-size:12.5px; font-weight:600; margin:0 0 3px; }
 .dica span{ display:block; white-space:pre-line; color:#E5E7EB; }
-:root[data-tema=escuro] .dica{ background:color-mix(in srgb, var(--base), #fff 16%); border:1px solid var(--linha-forte); }
+:root[data-tema=escuro] .dica{ background:color-mix(in srgb, var(--base, #1B2232), #fff 16%); border:1px solid var(--linha-forte); }
 
 /* Seletores (painel.js): todo select do painel no mesmo padrao do Produto. O <select> fica
    escondido no formulario; a lista abre embaixo (ou em cima) e, no celular, como painel de baixo */
@@ -1344,6 +1345,30 @@ th.marca, td.marca{ width:34px; text-align:center; }
 
 @media (max-width:640px){ .topo, .abas{ padding-left:16px; padding-right:16px; } main{ padding:16px; } select{ min-width:130px; }
   .grade{ grid-template-columns:1fr; } }
+/* Casca nova (lib/casca.php, a partir de 1000 px): a lateral de 244 px tira largura do conteudo (a 1000 px sobram 676), entao as grades
+   passam para o desenho estreito antes do que passavam. Resumo (.painel-grade): o desenho do celular, de 1000 a 1091 px (conteudo abaixo de
+   768 px, como era). Blocos .rgrade: 6 colunas, de 1000 a 1343 px (conteudo abaixo de 1100 px, como era). Lateral recolhida: o conteudo e
+   mais largo e vale o desenho de sempre. */
+@media (min-width:1000px) and (max-width:1091px){
+  .cas-pagina:not(.lat-recolhida) .painel-grade{ grid-template-columns:repeat(2, minmax(0, 1fr)); grid-auto-rows:auto; gap:10px; }
+  .cas-pagina:not(.lat-recolhida) .resumo-cab + .painel-grade{ margin-top:10px; }
+  .cas-pagina:not(.lat-recolhida) .painel-item{ grid-column:var(--mc) / span var(--mw); grid-row:auto; order:var(--mo); }
+  .cas-pagina:not(.lat-recolhida) .painel-item.so-computador{ display:none; }
+  .cas-pagina:not(.lat-recolhida) .painel-item.so-celular{ display:block; }
+  .cas-pagina:not(.lat-recolhida) .painel-grade .pw-corpo{ overflow:visible; }
+  .cas-pagina:not(.lat-recolhida) .painel-grade .pw-graf{ height:230px; min-height:0; }
+  .cas-pagina:not(.lat-recolhida) .painel-grade .vel-caixa{ height:210px; }
+  .cas-pagina:not(.lat-recolhida) .painel-grade .mapa-calor{ height:auto; grid-auto-flow:column; grid-template-columns:30px repeat(7, minmax(0, 1fr)); grid-template-rows:18px repeat(24, 10px); }
+  .cas-pagina:not(.lat-recolhida) .painel-grade .mapa-calor > span:not(.calor-dia){ grid-column:1; }
+  .cas-pagina:not(.lat-recolhida) .painel-grade .calor-dia{ text-align:center; font-size:11px; }
+  .cas-pagina:not(.lat-recolhida) .painel-grade .calor-hora{ font-size:11px; line-height:10px; }
+  .cas-pagina:not(.lat-recolhida) .kpis{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+}
+@media (min-width:1000px) and (max-width:1343px){
+  .cas-pagina:not(.lat-recolhida) .rgrade{ grid-template-columns:repeat(6,minmax(0,1fr)); }
+  .cas-pagina:not(.lat-recolhida) .rgrade .c2{ grid-column:span 2; } .cas-pagina:not(.lat-recolhida) .rgrade .c3, .cas-pagina:not(.lat-recolhida) .rgrade .c4, .cas-pagina:not(.lat-recolhida) .rgrade .c6{ grid-column:span 3; } .cas-pagina:not(.lat-recolhida) .rgrade .c8{ grid-column:span 6; } .cas-pagina:not(.lat-recolhida) .rgrade .r2{ grid-row:auto; }
+  .cas-pagina:not(.lat-recolhida) .rgrade > section.c4, .cas-pagina:not(.lat-recolhida) .rgrade > section.c8{ grid-column:span 6; }
+}
 /* ---------------------------------------------------------------- celular
    Navegacao de app: barra fixa embaixo (Resumo, Trafego, Gestor, Vendas e Mais; o desenho e do nucleo,
    admin_css_base), topo compacto e sem grudar, listas em cartoes e a primeira coluna das tabelas fixa. */
@@ -1417,7 +1442,8 @@ function pagina_fim(): void
 {
     // ?v= pela data do arquivo: dentro de um site cujo .htaccess manda cachear .js por
     // 1 ano (ex.: engdesk.pro), sem isso a mudanca no painel.js nao chegaria.
-    echo '<script src="' . e(admin_base()) . 'tabela.js?v=' . (int)@filemtime(__DIR__ . '/../tabela.js') . '"></script>'
+    echo (!empty($GLOBALS['casca_nova']) || !empty($GLOBALS['casca_filtro_usado']) ? '<script src="' . e(admin_base()) . 'casca.js?v=' . (int)@filemtime(__DIR__ . '/../casca.js') . '"></script>' : '')
+        . '<script src="' . e(admin_base()) . 'tabela.js?v=' . (int)@filemtime(__DIR__ . '/../tabela.js') . '"></script>'
         . '<script src="' . e(admin_base()) . 'painel.js?v=' . (int)@filemtime(__DIR__ . '/../painel.js') . '"></script></body></html>';
 }
 
@@ -1425,7 +1451,16 @@ function pagina_fim(): void
 // $aqui: o painel (utm) ou a tela do nucleo (conta, usuarios) aberta, marcada na barra lateral
 function casca_inicio(string $aqui = 'utm'): void
 {
-    echo '<noscript><style>.lateral-itens{ display:flex !important; }</style></noscript><div class="casca">' . admin_lateral($aqui, null, null, lateral_ferramentas()) . '<div class="conteudo">';
+    // Painel UTM (so quem tem o acesso): a casca nova, com a lateral da secao e a barra de topo no lugar das abas (lib/casca.php).
+    // As outras telas ganham a casca uma a uma; ate la ficam como estavam.
+    // Configuracoes (Minha conta, Usuarios, Integracoes e configuracoes.php): a casca com a lateral propria de Configuracoes e o trilho so de icones
+    $tela = basename((string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH));
+    $config = in_array($aqui, ['conta', 'usuarios'], true) || $tela === 'configuracoes.php' || ($aqui === 'integracoes' && $tela !== 'ofertas.php');
+    $nova = !$config && $aqui === 'utm' && usuario_pode('utm');
+    $GLOBALS['casca_nova'] = $nova || $config;
+    echo ($nova || $config ? '<style>' . casca_css() . '</style>' : '')
+        . '<noscript><style>.lateral-itens{ display:flex !important; }</style></noscript><div class="casca' . ($config ? ' cas-config' : '') . '">' . admin_lateral($aqui, null, null, lateral_ferramentas())
+        . '<div class="conteudo' . ($nova || $config ? ' cas-pagina' : '') . '">' . ($config ? casca_config() : ($nova ? casca_utm() : ''));
 }
 
 function casca_fim(): void
@@ -1453,6 +1488,7 @@ function icone(string $nome, int $tam = 16): string
         'instagram' => '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/>',
         'facebook' => '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
         'meta' => '<path d="M2 15c0-5 2.5-9 5-9 3 0 5 7 7.5 10.5 1.3 1.7 2.3 2.5 3.5 2.5 2 0 4-2 4-5.5S20 6 17 6c-3 0-5.5 5-7.5 8.5C8 17 6.5 19 5 19c-2 0-3-2-3-4z"/>',
+        'anuncios' => '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>', /* megafone: anuncios de qualquer plataforma (o icone meta fica so onde e coisa da Meta) */
         'google' => '<path d="M20.5 12H12M20.5 12a8.5 8.5 0 1 1-2.5-6"/>',
         'folha' => '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10z"/><path d="M2 21c0-3 1.9-5.4 5.1-6C9.5 14.5 12 13 13 12"/>',
         'link' => '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
@@ -1499,6 +1535,9 @@ function icone(string $nome, int $tam = 16): string
         'paleta' => '<path d="M12 22a10 10 0 1 1 10-10c0 2.2-1.8 3.5-4 3.5h-1.6a1.9 1.9 0 0 0-1.4 3.2A2 2 0 0 1 12 22z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="10.5" cy="6.5" r="1"/><circle cx="15.5" cy="6.5" r="1"/><circle cx="17.5" cy="10.5" r="1"/>',
         'clipe' => '<path d="M21.4 11.1l-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>',
         'voltar' => '<path d="M15 18l-6-6 6-6"/>',
+        'inicio' => '<path d="M3 10.5L12 4l9 6.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/>',
+        'sino' => '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+        'painel' => '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M9.5 4.5v15"/>',
         'avancar' => '<path d="M9 18l6-6-6-6"/>',
     ];
     return '<svg class="ico" width="' . $tam . '" height="' . $tam . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . ($p[$nome] ?? '') . '</svg>';
@@ -1736,6 +1775,11 @@ function barra_topo(array $filtro, array $dominios, array $paginas, string $aba,
     // A navegacao vem antes do filtro (10/11/2026, pedido do Kenio): as abas no alto, como o menu do CMS,
     // e os filtros logo abaixo, que continuam presos no alto ao rolar a tela
     abas_painel($aba, $filtro);
+    // Casca nova (lib/casca.php): o filtro unico mora na barra de topo da casca; aqui fica so o que o JS do painel le
+    if (!empty($GLOBALS['casca_filtro_topo'])) {
+        echo '<span hidden data-produtos="' . e((string)json_encode(produtos_apelidos($produtos), JSON_UNESCAPED_UNICODE)) . '"></span>';
+        return;
+    }
     ?>
 <header class="topo">
 <span hidden data-produtos="<?= e((string)json_encode(produtos_apelidos($produtos), JSON_UNESCAPED_UNICODE)) ?>"></span>
@@ -1822,11 +1866,13 @@ function periodo_da_tela(string $padrao): string
 
 // Barra do topo so com o periodo, para os modulos fora das abas do UTM (o mesmo seletor do UTM).
 // $ocultos: o que mais o endereco leva (ex.: a aba), porque o formulario GET troca o endereco inteiro
-function barra_periodo(string $acao, string $periodo, array $ocultos = []): void
+function barra_periodo(string $acao, string $periodo, array $ocultos = [], string $padrao = '7d'): void
 {
-    $campos = implode('', array_map(fn($k, $v) => '<input type="hidden" name="' . e((string)$k) . '" value="' . e((string)$v) . '">', array_keys($ocultos), $ocultos));
-    echo '<header class="topo"><form class="filtros" method="get" action="' . e($acao) . '" id="filtros">' . $campos . campo_periodo($periodo)
-        . '<noscript><button type="submit">Filtrar</button></noscript></form></header>';
+    // O filtro unico (lib/casca.php) so com a secao Periodo: o mesmo botao e o mesmo painel das abas do UTM
+    if (empty($GLOBALS['casca_nova'])) {
+        echo '<style>' . casca_css() . '</style>'; // fora da casca (DRE, BIO, GA4) o filtro leva o proprio CSS
+    }
+    echo '<header class="topo">' . casca_filtro(['acao' => $acao, 'ocultos' => $ocultos, 'periodo' => $periodo, 'padrao' => $padrao, 'selects' => [], 'listas' => []]) . '</header>';
 }
 
 // Filtros que o link de cada aba leva: site e pagina so onde valem (no Resumo, Gestor, Financeiro e
@@ -1841,7 +1887,7 @@ function abas_filtro(string $aba, array $filtro): array
 // configuracao (Configuracoes) no canto direito. $filtro vazio: links sem filtro.
 function abas_painel(string $aba, array $filtro = []): void
 {
-    $abas = ['geral' => ['Resumo', 'resumo'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'meta'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
+    $abas = ['geral' => ['Resumo', 'resumo'], 'trafego' => ['Tráfego', 'trafego'], 'gestor' => ['Gestor de anúncios', 'anuncios'], 'organico' => ['Orgânico', 'folha'], 'resumo' => ['Conferência', 'conferencia'], 'vendas' => ['Vendas', 'vendas'],
         'visitantes' => ['Visitantes', 'visitantes'], 'eventos' => ['Eventos', 'eventos']];
     if (!usuario_pode('utm')) {
         return;
@@ -1865,7 +1911,7 @@ function abas_painel(string $aba, array $filtro = []): void
         ['visitantes', $link('visitantes'), 'visitantes', 'Visitantes'], ['eventos', $link('eventos'), 'eventos', 'Eventos']];
     $noMais = in_array($aba, array_column($mais, 0), true);
     echo '<nav class="nav-celular" aria-label="Navegação do painel">' . $item($link('geral'), 'geral', 'resumo', 'Resumo') . $item($link('trafego'), 'trafego', 'trafego', 'Tráfego')
-        . $item($link('gestor'), 'gestor', 'meta', 'Gestor') . $item($link('vendas'), 'vendas', 'vendas', 'Vendas')
+        . $item($link('gestor'), 'gestor', 'anuncios', 'Gestor') . $item($link('vendas'), 'vendas', 'vendas', 'Vendas')
         . '<details class="nav-mais' . ($noMais ? ' atual' : '') . '"><summary>' . icone('mais', 20) . '<span>Mais</span></summary><div class="nav-mais-painel">';
     foreach ($mais as [$id, $href, $ico, $rot]) {
         echo $item($href, $id, $ico, $rot);

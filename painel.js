@@ -2220,6 +2220,7 @@
       if (manter) { document.documentElement.classList.add('fica'); }
       ultima = semAncora(location.href);
       iniciar();
+      if (window.Casca) { window.Casca.ligar(); } // a lateral, o topo e o filtro da casca (casca.js) sao do corpo que acabou de trocar
       var ancora = res[0].hash && document.getElementById(res[0].hash.slice(1));
       if (op.y !== undefined) { window.scrollTo(0, op.y); } else if (ancora) { ancora.scrollIntoView(); } else { window.scrollTo(0, manter ? y : 0); }
       if (manter) {
